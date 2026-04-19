@@ -22,6 +22,7 @@ The containers automatically:
 - generate `APP_KEY` when needed
 - run migrations
 - seed the SaaS admin and base data
+- ensure a demo school tenant exists for portal login testing
 - create the storage symlink
 - start the web app, queue worker, and scheduler
 
@@ -32,6 +33,9 @@ These are development defaults from [.env.docker](.env.docker):
 - SaaS admin URL: `http://localhost:8000/saas/login`
 - Email: `admin@kynexedu.com`
 - Password: `password`
+- School portal URL: `http://localhost:8000/login`
+- Demo school email: `admin@demo.kynexedu.com`
+- Demo school password: `password`
 
 If another user pulls the repository and starts it with the same Docker env values, they will log in with the same seeded SaaS admin credentials. The account is recreated or updated on startup by `DatabaseSeeder`, so the login stays consistent for fresh Docker databases.
 
@@ -58,4 +62,5 @@ Use `docker compose down -v` only if you want to remove the PostgreSQL volume an
 
 - This Docker setup is for local/shared development.
 - Do not use the default `admin@kynexedu.com` / `password` credentials in production.
+- Do not use the default `admin@demo.kynexedu.com` / `password` credentials in production.
 - If you want teammates to use a different login, edit `.env.docker` before first boot.

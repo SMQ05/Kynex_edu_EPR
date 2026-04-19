@@ -21,6 +21,14 @@ Open: **http://localhost:8000**
 | Email | `admin@kynexedu.com` |
 | Password | `password` |
 
+Demo school portal login is also prepared automatically:
+
+| Field | Value |
+|------|-------|
+| URL | http://localhost:8000/login |
+| Email | `admin@demo.kynexedu.com` |
+| Password | `password` |
+
 These credentials come from `SAAS_ADMIN_EMAIL` and `SAAS_ADMIN_PASSWORD`. Because the Docker startup runs migrations and `db:seed`, another user can pull the repo, start the same stack, and log in with the same credentials as long as they keep those env values unchanged.
 
 ### Docker services

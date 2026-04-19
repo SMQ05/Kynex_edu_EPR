@@ -41,5 +41,6 @@ if [ "${RUN_MIGRATIONS_AND_SEED:-false}" = "true" ]; then
     php artisan optimize:clear
     php artisan migrate --force
     php artisan db:seed --force
+    php artisan kynex:ensure-dev-demo
     php artisan storage:link || true
 fi
