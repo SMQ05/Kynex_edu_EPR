@@ -2,6 +2,9 @@ FROM composer:2 AS vendor
 
 WORKDIR /app
 
+RUN apk add --no-cache icu-dev \
+    && docker-php-ext-install intl
+
 COPY composer.json composer.lock ./
 
 RUN composer install \
@@ -12,7 +15,7 @@ RUN composer install \
     --optimize-autoloader \
     --no-scripts
 
-FROM node:20-alpine AS frontend
+FROM node:20-bookworm-slim AS frontend
 
 WORKDIR /app
 
@@ -38,6 +41,9 @@ RUN apt-get update && apt-get install -y \
     libpng-dev \
     libpq-dev \
     libzip-dev \
+    nodejs \
+    npm \
+    postgresql-client \
     unzip \
     zip \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
@@ -54,6 +60,7 @@ RUN apt-get update && apt-get install -y \
     && sed -ri -e 's!/var/www/!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf
 
 COPY . .
+COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
 COPY --from=vendor /app/vendor ./vendor
 COPY --from=frontend /app/public/build ./public/build
 COPY docker/apache-vhost.conf /etc/apache2/sites-available/000-default.conf

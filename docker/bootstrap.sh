@@ -31,6 +31,8 @@ until php -r '
     sleep 2
 done
 
+php artisan config:clear --ansi || true
+
 if ! grep -q '^APP_KEY=base64:' .env 2>/dev/null; then
     php artisan key:generate --force
 fi
@@ -44,3 +46,10 @@ if [ "${RUN_MIGRATIONS_AND_SEED:-false}" = "true" ]; then
     php artisan kynex:ensure-dev-demo
     php artisan storage:link || true
 fi
+
+echo "Tooling inside container:"
+php --version | head -n 1
+composer --version
+node --version
+npm --version
+psql --version

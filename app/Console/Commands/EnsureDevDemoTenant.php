@@ -67,13 +67,24 @@ class EnsureDevDemoTenant extends Command
             (new TenantDefaultRolesSeeder())->setCommand($this)->run();
             (new NotificationTemplatesSeeder())->run();
 
-            $demoAdminExists = SchoolUser::where('email', 'admin@demo.kynexedu.com')->exists();
+            $demoAdmin = SchoolUser::where('email', 'admin@demo.kynexedu.com')->first();
 
-            if (! $demoAdminExists) {
+            if (! $demoAdmin) {
                 (new DemoSchoolSeeder())->setCommand($this)->run();
                 $this->info('Seeded demo school users for /login.');
             } else {
-                $this->info('Demo school users already exist. Skipping reseed.');
+                $demoAdmin->forceFill([
+                    'name' => 'School Administrator',
+                    'password' => 'password',
+                    'is_active' => true,
+                    'email_verified_at' => now(),
+                ])->save();
+
+                if (! $demoAdmin->hasRole('SCHOOL_ADMIN')) {
+                    $demoAdmin->assignRole('SCHOOL_ADMIN');
+                }
+
+                $this->info('Demo school admin login refreshed for /login.');
             }
         });
 

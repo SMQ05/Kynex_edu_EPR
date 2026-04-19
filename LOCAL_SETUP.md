@@ -35,7 +35,7 @@ These credentials come from `SAAS_ADMIN_EMAIL` and `SAAS_ADMIN_PASSWORD`. Becaus
 
 | Service | Purpose |
 |---------|---------|
-| `app` | Apache + PHP web app |
+| `app` | Apache + PHP web app, plus `composer`, `node`, `npm`, and `psql` for in-container development |
 | `queue` | Laravel queue worker |
 | `scheduler` | Laravel scheduler |
 | `db` | PostgreSQL database |
@@ -44,12 +44,37 @@ These credentials come from `SAAS_ADMIN_EMAIL` and `SAAS_ADMIN_PASSWORD`. Becaus
 
 ```bash
 docker compose logs -f app
+docker compose exec app php artisan migrate --force
+docker compose exec app php artisan db:seed --force
+docker compose exec app php artisan kynex:ensure-dev-demo
+docker compose exec app npm --version
+docker compose exec app psql --version
 docker compose exec app php artisan test
 docker compose down
 docker compose down -v
 ```
 
 > `docker compose down -v` removes the database volume and resets seeded data.
+
+### Docker recovery for broken login or missing setup
+
+If `/saas/login` or `/login` does not work, or if the app container looks like it is missing database/frontend tooling, run:
+
+```bash
+docker compose down
+docker compose up --build -d
+docker compose exec app php artisan migrate --force
+docker compose exec app php artisan db:seed --force
+docker compose exec app php artisan kynex:ensure-dev-demo
+docker compose logs -f app
+```
+
+If you want a guaranteed clean database:
+
+```bash
+docker compose down -v
+docker compose up --build -d
+```
 
 ## Prerequisites
 
