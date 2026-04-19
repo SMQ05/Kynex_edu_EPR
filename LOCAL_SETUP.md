@@ -1,5 +1,48 @@
 # KynexEdu ERP — Local Development Setup
 
+## Docker Setup
+
+If you want a fully containerized local environment, use the Docker stack in this repo.
+
+### Quick start
+
+```bash
+cd /home/Kynex_Solutions/Pictures/KynexSolution.com/KynexEdu-ERP
+docker compose up --build -d
+```
+
+Open: **http://localhost:8000**
+
+### Docker login credentials
+
+| Field | Value |
+|------|-------|
+| URL | http://localhost:8000/saas/login |
+| Email | `admin@kynexedu.com` |
+| Password | `password` |
+
+These credentials come from `SAAS_ADMIN_EMAIL` and `SAAS_ADMIN_PASSWORD`. Because the Docker startup runs migrations and `db:seed`, another user can pull the repo, start the same stack, and log in with the same credentials as long as they keep those env values unchanged.
+
+### Docker services
+
+| Service | Purpose |
+|---------|---------|
+| `app` | Apache + PHP web app |
+| `queue` | Laravel queue worker |
+| `scheduler` | Laravel scheduler |
+| `db` | PostgreSQL database |
+
+### Useful Docker commands
+
+```bash
+docker compose logs -f app
+docker compose exec app php artisan test
+docker compose down
+docker compose down -v
+```
+
+> `docker compose down -v` removes the database volume and resets seeded data.
+
 ## Prerequisites
 
 | Tool | Required Version | Check |
