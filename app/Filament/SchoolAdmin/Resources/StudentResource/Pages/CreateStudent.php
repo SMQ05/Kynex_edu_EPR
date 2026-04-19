@@ -1,0 +1,18 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Filament\SchoolAdmin\Resources\StudentResource\Pages;
+
+use App\Filament\SchoolAdmin\Resources\StudentResource;
+use Filament\Resources\Pages\CreateRecord;
+
+class CreateStudent extends CreateRecord
+{
+    protected static string $resource = StudentResource::class;
+
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('index');
+    }
+}

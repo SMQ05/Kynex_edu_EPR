@@ -1,0 +1,9 @@
+/*
+ * Custom Tailwind CSS for Filament panels.
+ * This file is loaded alongside Filament's own CSS to provide
+ * standard Tailwind utility classes for custom blade templates
+ * in resources/views/filament/.
+ */
+@import 'tailwindcss';
+
+@source '../views/filament/**/*.blade.php';

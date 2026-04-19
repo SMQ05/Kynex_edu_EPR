@@ -1,0 +1,14 @@
+<?php
+declare(strict_types=1);
+namespace App\Filament\SchoolAdmin\Resources\SalaryComponentResource\Pages;
+use App\Filament\SchoolAdmin\Resources\SalaryComponentResource;
+use Filament\Actions;
+use Filament\Resources\Pages\ListRecords;
+class ListSalaryComponents extends ListRecords
+{
+    protected static string $resource = SalaryComponentResource::class;
+    protected function getHeaderActions(): array
+    {
+        return [Actions\CreateAction::make()];
+    }
+}

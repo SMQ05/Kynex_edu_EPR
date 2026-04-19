@@ -1,0 +1,100 @@
+# .gitleaks.toml — Secret scanning configuration for KynexEdu ERP
+#
+# Usage:
+#   gitleaks detect --config .gitleaks.toml --source .
+#   gitleaks protect --config .gitleaks.toml --staged   ← pre-commit hook
+#
+# Install: https://github.com/gitleaks/gitleaks
+# Run as pre-commit hook — add to .git/hooks/pre-commit:
+#   gitleaks protect --config .gitleaks.toml --staged --redact
+#
+# CI usage (GitHub Actions example):
+#   - uses: gitleaks/gitleaks-action@v2
+#     with:
+#       config-path: .gitleaks.toml
+
+title = "KynexEdu Gitleaks Configuration"
+
+[extend]
+# Extend the default ruleset built into gitleaks
+useDefault = true
+
+###############################################################################
+# Project-specific rules
+###############################################################################
+
+[[rules]]
+id          = "resend-api-key"
+description = "Resend email API key"
+regex       = '''re_[A-Za-z0-9]{20,}'''
+tags        = ["email", "api-key", "resend"]
+
+  [rules.allowlist]
+  regexes = ['''re_xxxxxxxxxxxx''', '''re_xxx''']
+
+[[rules]]
+id          = "openrouter-api-key"
+description = "OpenRouter AI API key"
+regex       = '''sk-or-v1-[A-Fa-f0-9]{40,}'''
+tags        = ["ai", "api-key", "openrouter"]
+
+  [rules.allowlist]
+  regexes = ['''sk-or-v1-xxx''', '''sk-or-v1-x{10,}''']
+
+[[rules]]
+id          = "meta-whatsapp-access-token"
+description = "Meta (Facebook) long-lived access token"
+regex       = '''EAA[A-Za-z0-9]{50,}'''
+tags        = ["whatsapp", "meta", "facebook", "access-token"]
+
+[[rules]]
+id          = "twilio-auth-token"
+description = "Twilio auth token (32 hex chars, appears after account_sid)"
+regex       = '''(?i)(twilio[_\-\s]*auth[_\-\s]*token|auth_token)[\s]*[=:\"\']+\s*[0-9a-f]{32}'''
+tags        = ["twilio", "sms", "whatsapp", "auth-token"]
+
+[[rules]]
+id          = "jazzcash-integrity-salt"
+description = "JazzCash integrity salt — typically 32+ alphanumeric chars near jazzcash keys"
+regex       = '''(?i)(jazzcash[_\-\s]*(?:integrity[_\-\s]*salt|hash[_\-\s]*key))[\s]*[=:\"\']+\s*[A-Za-z0-9+/=]{20,}'''
+tags        = ["payment", "jazzcash"]
+
+[[rules]]
+id          = "firebase-server-key"
+description = "Firebase Cloud Messaging legacy server key"
+regex       = '''AAAA[A-Za-z0-9_-]{100,}'''
+tags        = ["push", "fcm", "firebase"]
+
+  [rules.allowlist]
+  regexes = ['''your-firebase-server-key-here''']
+
+###############################################################################
+# Global allowlist — files that may legitimately contain key-like strings
+###############################################################################
+
+[allowlist]
+description = "Allowlisted files and patterns"
+paths = [
+  '''.env\.example$''',
+  '''\.env\.example''',
+  '''CHANGELOG\.md$''',
+  '''README\.md$''',
+  '''docs/.*\.md$''',
+  '''\.gitleaks\.toml$''',
+]
+
+regexes = [
+  # Generic placeholder patterns — not real secrets
+  '''xxxx''',
+  '''your[-_]''',
+  '''change[-_]me''',
+  '''example\.com''',
+  '''-here$''',
+]
+
+# Never scan these paths for secrets
+[[rules]]
+id          = "laravel-app-key-placeholder"
+description = "Laravel APP_KEY placeholder (not generated yet)"
+regex       = '''APP_KEY=$'''
+tags        = ["laravel", "config"]

@@ -1,0 +1,784 @@
+## CONTEXT
+KynexEdu is a multi-tenant SaaS School Information System built with 
+Laravel 13, Filament v5, PHP 8.4, PostgreSQL, stancl/tenancy v3.
+
+Phase 1 is complete. You are now applying:
+1. Patch fixes to Phase 1 (missing foundations)
+2. Full Phase 2 build (tenant panel + core modules)
+
+Do NOT rebuild anything already working. Add and extend only.
+
+---
+
+## PART A: PHASE 1 PATCHES (apply first)
+
+### A1: Install Missing Package
+composer require capcom6/android-sms-gateway
+
+### A2: New Central DB Migration — approval_requests
+File: database/migrations/2026_04_03_000006_create_approval_requests_table.php
+
+Table: approval_requests
+  id (ulid),
+  tenant_id string nullable (null = SaaS-level approval),
+  requested_by_type string (morphable — SaasAdmin or SchoolUser),
+  requested_by_id string,
+  action_type string 
+    (e.g. 'delete_student','bulk_fee_waiver',
+          'suspend_teacher','large_expense',
+          'change_fee_structure','expel_student'),
+  subject_type string (morphable — the model being acted on),
+  subject_id string,
+  payload json nullable (extra data for the action),
+  status enum('pending','approved','rejected','cancelled') 
+    default 'pending',
+  reviewed_by_type string nullable,
+  reviewed_by_id string nullable,
+  reviewed_at timestamp nullable,
+  review_notes text nullable,
+  expires_at timestamp nullable,
+  timestamps, softDeletes
+
+  INDEX: [tenant_id, status], [requested_by_type, requested_by_id]
+
+Note: This table lives in CENTRAL DB so SaaS admin can see all 
+pending approvals across all schools. Individual school approvals 
+(owner approving admin actions) are routed through here too,
+with tenant_id set.
+
+Add ApprovalRequest model in app/Models/ with:
+- morphTo requestedBy()
+- morphTo subject()
+- morphTo reviewedBy()
+- Scopes: pending(), forTenant($id), expiringSoon()
+
+### A3: Communication Channel Config — add to Tenant model
+Add these to the existing tenant config storage (whatsapp_config 
+and sms_config are already json columns — just document the 
+expected key structure per channel in model docblock):
+
+WhatsApp channels and their config keys:
+  meta_official: 
+    phone_number_id, access_token, waba_id, verify_token
+  evolution: 
+    base_url, api_key, instance_name
+  twilio_whatsapp: 
+    account_sid, auth_token, from_number (whatsapp:+1234...)
+  none: (no config needed)
+
+SMS channels and their config keys:
+  twilio_sms: 
+    account_sid, auth_token, from_number
+  jazz_sms: 
+    username, password, mask (sender ID)
+  telenor_sms: 
+    api_key, sender_id
+  zong_sms: 
+    username, password, sender_id
+  android_gateway: 
+    mode (cloud|private), 
+    server_url (for private: their server URL, 
+                for cloud: https://api.sms-gate.app/3rdparty/v1),
+    login, password
+  none: (no config needed)
+
+### A4: Communication Service Classes
+Create app/Services/Sms/ directory:
+
+app/Services/Sms/SmsServiceFactory.php
+  Static method make(Tenant $tenant): SmsDriverInterface
+  Reads tenant->sms_channel and sms_config,
+  returns the correct driver instance.
+
+app/Services/Sms/SmsDriverInterface.php
+  Interface with: send(string $to, string $message): bool
+                  sendBulk(array $numbers, string $message): array
+
+app/Services/Sms/Drivers/TwilioSmsDriver.php
+  Uses twilio/sdk package (install it: composer require twilio/sdk)
+  Implements SmsDriverInterface
+
+app/Services/Sms/Drivers/AndroidGatewayDriver.php
+  Uses capcom6/android-sms-gateway PHP package.
+  Constructor accepts: mode, server_url, login, password
+  
+  send() implementation:
+    $client = new \AndroidSmsGateway\Client(
+        $this->login,
+        $this->password, 
+        $this->serverUrl
+    );
+    $message = (new \AndroidSmsGateway\Domain\MessageBuilder(
+        $message, [$to]
+    ))->setWithDeliveryReport(true)->build();
+    $state = $client->SendMessage($message);
+    return $state !== null;
+    
+  sendBulk() implementation:
+    Creates one MessageBuilder with all numbers as recipients array,
+    sends in single API call (the gateway supports multiple 
+    phoneNumbers in one request).
+
+app/Services/Sms/Drivers/JazzSmsDriver.php
+  Placeholder — HTTP POST to Jazz SMS API
+  URL: http://cbs.jazz.com.pk/SMSServices/Sendsms/
+  Params: username, password, mobileNumber, message, 
+          CallerID (sender mask)
+  Returns true if HTTP 200 and response contains 'Sent'
+
+app/Services/Sms/Drivers/TelenorSmsDriver.php
+  Placeholder — HTTP POST to Telenor Pakistan bulk SMS API
+  Uses Guzzle HTTP client
+  Returns true on success
+
+app/Services/Sms/Drivers/NullSmsDriver.php
+  Returns true silently (used when channel = none or for testing)
+
+app/Services/WhatsApp/WhatsAppServiceFactory.php
+  Same pattern as SMS factory.
+  make(Tenant $tenant): WhatsAppDriverInterface
+
+app/Services/WhatsApp/WhatsAppDriverInterface.php
+  send(string $to, string $message): bool
+  sendTemplate(string $to, string $template, array $vars): bool
+
+app/Services/WhatsApp/Drivers/EvolutionDriver.php
+  Evolution API v2 integration:
+  Base URL from config: $tenant->whatsapp_config['base_url']
+  API Key header: apikey: {api_key}
+  
+  send():
+    POST {base_url}/message/sendText/{instance_name}
+    Body: { "number": "{to}", "text": "{message}" }
+    Returns true on 2xx response
+    
+  sendTemplate():
+    POST {base_url}/message/sendText/{instance_name}
+    (Evolution doesn't use Meta templates — just formatted text)
+    Format message with vars interpolated, send as text.
+
+app/Services/WhatsApp/Drivers/MetaOfficialDriver.php
+  Meta Graph API:
+  POST https://graph.facebook.com/v19.0/{phone_number_id}/messages
+  Header: Authorization: Bearer {access_token}
+  
+  send() sends freeform text message
+  sendTemplate() sends template message with components
+  
+app/Services/WhatsApp/Drivers/NullWhatsAppDriver.php
+  Silent no-op for when channel = none
+
+### A5: OpenRouter AI Service
+Create app/Services/Ai/OpenRouterService.php
+
+OpenRouter API is compatible with OpenAI SDK format:
+  Base URL: https://openrouter.ai/api/v1
+  Auth: Bearer {OPENROUTER_API_KEY} (from central .env, 
+        NOT per-tenant — KynexEdu pays OpenRouter, 
+        bills schools on usage)
+
+Constructor accepts: Tenant $tenant
+  Checks $tenant->ai_enabled — throws if not enabled
+  Checks $tenant->ai_used_this_month_paisas < 
+        $tenant->ai_monthly_budget_paisas — throws if over budget
+
+Method: chat(string $systemPrompt, string $userMessage, 
+             string $context = ''): string
+  POST https://openrouter.ai/api/v1/chat/completions
+  Headers:
+    Authorization: Bearer {env OPENROUTER_API_KEY}
+    HTTP-Referer: {APP_URL}
+    X-Title: KynexEdu
+  Body:
+    model: $tenant->ai_model (default: 'google/gemini-flash-1.5')
+    messages: [
+      {role: system, content: $systemPrompt},
+      {role: user, content: $context . "\n\n" . $userMessage}
+    ]
+    max_tokens: 1000
+  
+  After response: calculate approximate cost, 
+  update tenant->ai_used_this_month_paisas in central DB.
+  Log usage to ai_usage_logs table (migration below).
+  Return response text.
+
+Create migration: create_ai_usage_logs_table (CENTRAL DB)
+  id (ulid), tenant_id, model_used, 
+  prompt_tokens int, completion_tokens int,
+  estimated_cost_paisas unsignedBigInt,
+  feature_used string (e.g. 'admission_assistant', 
+                       'parent_portal_guide', 'admin_overview'),
+  timestamps
+
+Add OPENROUTER_API_KEY to .env.example with comment:
+"# OpenRouter API key — KynexEdu account pays this, 
+  usage billed to schools monthly"
+
+Note: Default model for new tenants: google/gemini-flash-1.5
+(cheapest capable model on OpenRouter — ~$0.075/1M tokens)
+Tenant can be upgraded to gpt-4o or claude-3-5-sonnet 
+from SaaS admin panel.
+
+---
+
+## PART B: PHASE 2 BUILD
+
+### B1: Subdomain Routing & Tenant Panel Setup
+
+Configure stancl/tenancy for subdomain identification:
+- Subdomain: {slug}.kynexedu.com
+- Tenant panel: {slug}.kynexedu.com/admin
+- Central domain: kynexedu.com
+- tenancy.php: SubdomainTenantFinder
+- Tenant DB prefix: kynex_
+- Bootstrap: DatabaseTenancyBootstrapper, 
+  CacheTagsBootstrapper, QueueTenancyBootstrapper
+
+Create app/Providers/Filament/SchoolAdminPanelProvider.php:
+- Panel ID: school
+- Path: /admin  
+- Guard: school_users
+- Brand: dynamic from tenant->school_name
+- Color: #059669 (green)
+- Dark mode on
+- Navigation groups:
+  "Dashboard", "Academic Setup", "Students", "Staff & HR",
+  "Examinations", "Fees & Finance", "Communication", 
+  "Library", "Transport", "Hostel", "Inventory",
+  "Online Classes", "Reports", "System"
+
+### B2: SchoolUser Model (Tenant DB)
+Table: school_users
+  id (ulid), name, email (unique),
+  password, remember_token,
+  phone nullable, whatsapp nullable,
+  profile_photo_path nullable,
+  is_active boolean default true,
+  last_login_at nullable timestamp,
+  email_verified_at nullable timestamp,
+  campus_id ulid nullable,
+  timestamps, softDeletes
+
+Implements: FilamentUser, HasRoles (spatie)
+canAccessPanel(): is_active = true
+
+### B3: Tenant DB Migrations
+All go in database/migrations/tenant/
+
+-- ROLES & PERMISSIONS (spatie, tenant-scoped)
+Add is_system boolean to roles table migration
+
+-- ACADEMIC SETUP
+create_academic_years_table:
+  id (ulid), name, start_date, end_date,
+  is_current boolean default false,
+  timestamps, softDeletes
+
+create_campuses_table:
+  id (ulid), name, address, city, phone, email nullable,
+  is_main_campus boolean default false,
+  campus_owner_user_id ulid nullable,
+  is_active boolean default true,
+  timestamps, softDeletes
+
+create_classes_table:
+  id (ulid), name, numeric_level tinyInt nullable,
+  sort_order unsignedInt default 0,
+  description nullable,
+  campus_id ulid nullable,
+  timestamps, softDeletes
+
+create_sections_table:
+  id (ulid), class_id ulid, name,
+  capacity unsignedInt default 40,
+  class_teacher_id ulid nullable,
+  room_number nullable,
+  timestamps, softDeletes
+
+create_subjects_table:
+  id (ulid), name, code,
+  subject_type enum('theory','practical','both') default 'theory',
+  credit_hours tinyInt default 1,
+  color varchar(7) nullable,
+  is_active boolean default true,
+  timestamps, softDeletes
+
+create_class_subjects_table:
+  id (ulid), class_id, section_id nullable, subject_id,
+  teacher_id nullable, academic_year_id,
+  is_optional boolean default false, timestamps
+  Unique: [class_id, section_id, subject_id, academic_year_id]
+
+create_class_routines_table:
+  id (ulid), class_id, section_id, academic_year_id,
+  day_of_week enum('monday'...'sunday'),
+  period_number tinyInt, subject_id nullable,
+  teacher_id nullable, room_number nullable,
+  start_time time, end_time time,
+  is_break boolean default false, break_label nullable,
+  timestamps
+  Unique: [class_id, section_id, day_of_week, 
+           period_number, academic_year_id]
+
+-- STUDENT MODULE
+create_student_categories_table:
+  id (ulid), name, description nullable,
+  color varchar(7) nullable, timestamps, softDeletes
+
+create_students_table:
+  id (ulid),
+  admission_number varchar(50) unique,
+  roll_number varchar(50) nullable,
+  admission_date date,
+  academic_year_id ulid, class_id ulid, section_id ulid,
+  category_id ulid nullable,
+  campus_id ulid nullable,
+  
+  first_name, last_name,
+  date_of_birth date nullable,
+  gender enum('male','female','other'),
+  blood_group enum('A+','A-','B+','B-','AB+','AB-','O+','O-') nullable,
+  religion nullable, nationality default 'Pakistani',
+  profile_photo_path nullable,
+  phone nullable, email nullable,
+  address text nullable, city nullable,
+  
+  -- BILLING-CRITICAL: status field
+  status enum('enrolled','left','graduated',
+              'expelled','suspended') default 'enrolled',
+  status_changed_at timestamp nullable,
+  status_change_reason text nullable,
+  
+  school_user_id ulid nullable,
+  special_needs_notes text nullable,
+  medical_notes text nullable,
+  previous_school nullable,
+  
+  -- Nullable FKs for future modules
+  transport_route_id ulid nullable,
+  hostel_room_id ulid nullable,
+  
+  timestamps, softDeletes
+  INDEX: [class_id, section_id, status, academic_year_id]
+
+create_student_guardians_table:
+  id (ulid), student_id ulid,
+  guardian_type enum('father','mother','guardian'),
+  name, relationship nullable,
+  phone, whatsapp nullable, email nullable,
+  occupation nullable, address text nullable,
+  cnic varchar(15) nullable,
+  is_primary_contact boolean default false,
+  can_access_portal boolean default false,
+  school_user_id ulid nullable,
+  timestamps
+
+create_student_documents_table:
+  id (ulid), student_id ulid,
+  document_type enum('birth_certificate','cnic','marksheet',
+    'transfer_certificate','medical','photo','other'),
+  title, file_path,
+  file_size_kb unsignedInt nullable,
+  uploaded_by ulid,
+  timestamps
+
+create_student_promotions_table:
+  id (ulid), student_id ulid,
+  from_class_id, from_section_id, from_academic_year_id,
+  to_class_id, to_section_id, to_academic_year_id,
+  promoted_by ulid, promoted_at timestamp,
+  notes nullable, timestamps
+
+-- STAFF & HR FOUNDATIONS
+create_departments_table:
+  id (ulid), name, head_id ulid nullable,
+  description nullable, timestamps, softDeletes
+
+create_designations_table:
+  id (ulid), name, department_id ulid nullable,
+  description nullable, timestamps, softDeletes
+
+create_staff_profiles_table:
+  id (ulid), school_user_id ulid unique,
+  employee_id varchar(50) unique,
+  department_id ulid nullable,
+  designation_id ulid nullable,
+  joining_date date nullable,
+  employment_type enum('permanent','contract','part_time') 
+    default 'permanent',
+  qualification text nullable,
+  experience_years tinyInt default 0,
+  emergency_contact_name nullable,
+  emergency_contact_phone nullable,
+  bank_name nullable, bank_account nullable,
+  basic_salary_paisas unsignedBigInt default 0,
+  campus_id ulid nullable,
+  timestamps, softDeletes
+
+-- PAYROLL FOUNDATIONS
+create_salary_components_table:
+  id (ulid), name,
+  component_type enum('allowance','deduction') default 'allowance',
+  calculation_type enum('fixed','percentage') default 'fixed',
+  default_value_paisas unsignedBigInt default 0,
+  is_taxable boolean default false,
+  is_active boolean default true,
+  timestamps, softDeletes
+
+create_staff_payrolls_table:
+  id (ulid), staff_profile_id ulid, school_user_id ulid,
+  month tinyInt, year smallInt,
+  working_days tinyInt, present_days tinyInt,
+  basic_salary_paisas unsignedBigInt,
+  allowances_paisas unsignedBigInt default 0,
+  deductions_paisas unsignedBigInt default 0,
+  net_salary_paisas unsignedBigInt,
+  status enum('draft','processed','paid') default 'draft',
+  paid_at timestamp nullable,
+  payslip_path nullable,
+  processed_by ulid nullable,
+  timestamps, softDeletes
+  Unique: [staff_profile_id, month, year]
+
+-- EXPENSE & BUDGET FOUNDATIONS
+create_expense_categories_table:
+  id (ulid), name, description nullable,
+  parent_id ulid nullable,
+  timestamps, softDeletes
+
+create_budgets_table:
+  id (ulid), academic_year_id ulid,
+  category_id ulid, title,
+  budgeted_amount_paisas unsignedBigInt,
+  spent_amount_paisas unsignedBigInt default 0,
+  notes text nullable,
+  timestamps, softDeletes
+
+create_expenses_table:
+  id (ulid), category_id ulid,
+  budget_id ulid nullable,
+  title, description text nullable,
+  amount_paisas unsignedBigInt,
+  expense_date date,
+  payment_method enum('cash','bank','cheque','online') 
+    default 'cash',
+  reference_number nullable,
+  receipt_path nullable,
+  recorded_by ulid,
+  approved_by ulid nullable,
+  approval_status enum('pending','approved','rejected') 
+    default 'pending',
+  timestamps, softDeletes
+
+-- FEES FOUNDATIONS  
+create_fee_groups_table:
+  id (ulid), name, description nullable,
+  timestamps, softDeletes
+
+create_fee_types_table:
+  id (ulid), fee_group_id ulid, name,
+  is_recurring boolean default true,
+  timestamps, softDeletes
+
+create_fee_masters_table:
+  id (ulid), class_id ulid, fee_type_id ulid,
+  academic_year_id ulid, amount_paisas unsignedBigInt,
+  due_day tinyInt default 10,
+  timestamps, softDeletes
+  Unique: [class_id, fee_type_id, academic_year_id]
+
+create_student_fees_table:
+  id (ulid), student_id ulid, fee_type_id ulid,
+  academic_year_id ulid,
+  due_date date, amount_paisas unsignedBigInt,
+  discount_paisas unsignedBigInt default 0,
+  fine_paisas unsignedBigInt default 0,
+  paid_paisas unsignedBigInt default 0,
+  status enum('pending','partial','paid','waived') 
+    default 'pending',
+  timestamps, softDeletes
+  INDEX: [student_id, status, due_date]
+
+create_fee_payments_table:
+  id (ulid), student_id ulid,
+  receipt_number varchar(50) unique,
+  total_amount_paisas unsignedBigInt,
+  payment_date date,
+  payment_method enum('cash','bank','online','wallet') 
+    default 'cash',
+  bank_reference nullable,
+  collected_by ulid,
+  notes nullable,
+  timestamps, softDeletes
+
+create_fee_payment_items_table:
+  id (ulid), payment_id ulid, student_fee_id ulid,
+  amount_paisas unsignedBigInt,
+  timestamps
+
+-- LEAVE MANAGEMENT
+create_leave_types_table:
+  id (ulid), name, 
+  applicable_to enum('staff','student','both') default 'staff',
+  max_days_per_year tinyInt default 0,
+  is_paid boolean default true,
+  timestamps, softDeletes
+
+create_leave_requests_table:
+  id (ulid), school_user_id ulid,
+  leave_type_id ulid,
+  from_date date, to_date date,
+  total_days tinyInt,
+  reason text,
+  status enum('pending','approved','rejected','cancelled') 
+    default 'pending',
+  reviewed_by ulid nullable,
+  reviewed_at timestamp nullable,
+  review_note nullable,
+  timestamps, softDeletes
+
+-- ONLINE CLASSES FOUNDATIONS
+create_online_class_platforms_table:
+  id (ulid), name,
+  platform_type enum('zoom','google_meet','jitsi',
+                     'bigbluebutton','teams') default 'zoom',
+  config json nullable,
+  is_active boolean default true,
+  timestamps, softDeletes
+
+create_online_classes_table:
+  id (ulid), title, class_id ulid, section_id ulid nullable,
+  subject_id ulid nullable, teacher_id ulid,
+  platform_id ulid,
+  meeting_url text, meeting_id nullable, passcode nullable,
+  scheduled_at timestamp, duration_minutes unsignedInt default 60,
+  status enum('scheduled','live','ended','cancelled') 
+    default 'scheduled',
+  recording_url nullable,
+  notes text nullable,
+  timestamps, softDeletes
+
+-- COMMUNICATION LOGS (for usage billing)
+create_communication_logs_table:
+  id (ulid),
+  channel enum('sms','whatsapp_text','whatsapp_template',
+               'email','push'),
+  recipient_phone nullable, recipient_email nullable,
+  message_preview varchar(160) nullable,
+  status enum('queued','sent','delivered','failed') 
+    default 'queued',
+  provider_used string nullable,
+  provider_message_id nullable,
+  sent_at timestamp nullable,
+  failed_reason nullable,
+  feature_context string nullable 
+    (e.g. 'attendance_alert','fee_reminder','billing_invoice'),
+  timestamps
+
+  INDEX: [channel, status, created_at]
+  Note: This table is in TENANT DB. 
+  Monthly counts are synced to central invoices.
+
+### B4: Events & Listeners for Billing
+Create:
+app/Events/StudentEnrolled.php (fired when status -> enrolled)
+app/Events/StudentDeactivated.php (fired when status leaves enrolled)
+
+app/Listeners/SyncStudentCountOnEnroll.php
+app/Listeners/SyncStudentCountOnDeactivate.php
+
+Both listeners dispatch:
+app/Jobs/SyncTenantActiveStudentCount.php
+
+SyncTenantActiveStudentCount job:
+  1. Accept tenant_id
+  2. Initialize tenant: tenancy()->initialize(Tenant::find($id))
+  3. Count: Student::where('status','enrolled')->count()
+  4. Switch to central: tenancy()->end()
+  5. Tenant::find($id)->update(['active_student_count' => $count])
+
+Schedule in routes/console.php:
+  Daily at 02:00 AM: dispatch job for all active tenants
+
+### B5: Tenant Provisioning Action
+Create app/Actions/ProvisionNewTenant.php
+
+Steps:
+1. Accept Tenant $tenant
+2. tenancy()->initialize($tenant)
+3. Run tenant migrations: 
+   Artisan::call('migrate', [
+     '--path' => 'database/migrations/tenant',
+     '--force' => true
+   ])
+4. Seed default roles via TenantDefaultRolesSeeder
+5. Create SchoolUser:
+   name = $tenant->admin_name
+   email = $tenant->admin_email
+   role = SCHOOL_ADMIN
+   password = Str::random(12) — save plain for email
+6. tenancy()->end()
+7. Send welcome email via Resend:
+   Subject: "Your KynexEdu school is ready — {school_name}"
+   Login URL: https://{tenant->id}.kynexedu.com/admin
+   Credentials: email + temp password
+   WhatsApp contact: env('KYNEX_WHATSAPP')
+8. Update tenant->status (trial or active)
+9. Reset active_student_count = 0
+
+Hook into TenantResource afterCreate.
+
+### B6: Role Seeder
+app/Database/Seeders/TenantDefaultRolesSeeder.php
+
+Seed roles: SCHOOL_ADMIN, CAMPUS_OWNER, TEACHER, 
+            PARENT, STUDENT, ACCOUNTANT, LIBRARIAN, RECEPTIONIST
+
+Each with the permission list defined in the previous 
+Phase 2 prompt (copy permissions verbatim from that spec).
+
+### B7: Filament Resources — Academic Setup
+Navigation group: "Academic Setup"
+
+AcademicYearResource: Full CRUD.
+  "Set as Current" action — enforces only one current.
+  List shows CURRENT badge.
+
+ClassResource: Full CRUD.
+  Infolist shows sections count, student count.
+  Relation Manager for Sections on edit page.
+
+SubjectResource: Full CRUD.
+  ColorPicker for subject color.
+  is_active inline toggle.
+
+ClassRoutineResource (Timetable):
+  Wizard form: Step 1 select class/section/year, 
+               Step 2 repeater of periods.
+  Each period: day, number, times, subject, teacher, 
+               room, is_break toggle.
+  Post-save conflict detection: warn if teacher 
+  double-booked at same day+time.
+  "Print Timetable" PDF action via DomPDF.
+
+### B8: Filament Resources — Students
+Navigation group: "Students"
+
+StudentResource:
+  LIST: avatar, admission_number, full_name, 
+        class+section, guardian_phone, status badge.
+  FILTERS: class, section, status, category, gender, year.
+  SEARCH: name, admission_number, guardian phone.
+  
+  CREATE: 4-step Wizard (Personal → Academic → 
+          Guardian → Additional).
+  
+  EDIT: Tabs layout.
+  
+  VIEW (Infolist): 
+    Tabs: Overview, Guardians, Documents, 
+          Academic History, Portal Access, Notes.
+  
+  ACTIONS:
+    "Change Status": modal with new status + reason + date.
+      Fires StudentEnrolled or StudentDeactivated event.
+    "Promote": modal with target class/section/year.
+    "Print ID Card": placeholder notification.
+    "Download Profile PDF": DomPDF.
+
+BulkStudentOperations (Page):
+  Tabs: Bulk Promote, Import (spatie/simple-excel), Export.
+  Install if needed: composer require spatie/simple-excel
+
+StudentCategoryResource: Simple CRUD with ColorPicker.
+
+### B9: Filament Resources — Foundation Only (Stubs)
+Create stub resources with list + basic form for:
+These show in sidebar but display "Module coming in Phase 3" 
+on their list pages via a custom empty state.
+
+Navigation group "Staff & HR":
+  - StaffResource (label: "Staff Members")
+  - PayrollResource (label: "Payroll")
+  - LeaveManagementResource (label: "Leave Requests")
+  - DepartmentResource, DesignationResource
+
+Navigation group "Fees & Finance":
+  - FeeCollectionResource (label: "Collect Fees")
+  - FeeReportsResource (label: "Fee Reports")
+  - ExpenseResource (label: "Expenses")
+  - BudgetResource (label: "Budgets")
+
+Navigation group "Online Classes":
+  - OnlineClassResource (label: "Schedule Class")
+  - PlatformSettingsResource (label: "Platform Settings")
+
+### B10: Tenant Admin Dashboard
+Custom Filament page at /admin (Dashboard):
+
+Widgets:
+1. StatsOverview: 
+   Total Enrolled Students | Active Staff | 
+   Current Academic Year | Today's Date
+
+2. RecentStudents table (last 10 admitted):
+   name, class/section, admission_date, status badge
+
+3. QuickLinks grid (action buttons):
+   Add New Student → StudentResource create
+   Collect Fees → FeeCollectionResource (placeholder)
+   Mark Attendance → (placeholder)
+   Send Notice → (placeholder)
+
+4. SchoolInfoWidget:
+   Shows: school name, plan name (from central DB via 
+   tenant->plan->name), active student count,
+   subscription status badge
+
+### B11: SaaS Panel — Add ApprovalRequestResource
+Add to SaaS admin panel (/saas):
+Navigation group: "Operations"
+
+ApprovalRequestResource:
+  LIST: action_type, school name (tenant), 
+        requested_by name, subject, status badge,
+        created_at, expires_at
+  FILTERS: status, tenant, action_type
+  ACTIONS: "Approve" (with note modal), "Reject" (with note modal)
+  
+  Note: In Phase 3, school owner will have their own 
+  approval queue in the tenant panel. This is the 
+  SaaS-level oversight view.
+
+---
+
+## CONSTRAINTS
+- Tenant migrations: database/migrations/tenant/ ONLY
+- Central migrations: database/migrations/ (root)
+- Money: paisas integers always
+- ULIDs everywhere
+- Filament v5 syntax
+- Spatie permission: reinitialize per tenant connection
+- File storage: storage/app/tenants/{tenant_id}/
+- spatie/simple-excel for imports
+- Campus ID nullable on all relevant tables from day one
+- Never hardcode tenant_id in tenant models
+
+---
+
+## DELIVERABLES
+1. Full list of new/modified files only
+2. Test checklist:
+   ✓ /saas panel: new ApprovalRequest resource visible
+   ✓ Create tenant from SaaS → provisioning runs automatically
+   ✓ Visit {slug}.kynexedu.com/admin/login
+   ✓ Login as school admin
+   ✓ Create academic year → set as current
+   ✓ Create class + 2 sections
+   ✓ Admit student via wizard
+   ✓ Change student status to "left"
+   ✓ Check central DB: tenants.active_student_count decremented
+   ✓ Android SMS Gateway driver: php artisan tinker → 
+     test SmsServiceFactory::make($tenant)->send(...)
+3. Any new .env keys
+4. Phase 3 scope recommendation

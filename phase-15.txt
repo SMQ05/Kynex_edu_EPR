@@ -1,0 +1,827 @@
+## CONTEXT
+KynexEdu — Laravel 13, Filament v5, PHP 8.4, PostgreSQL 16+,
+stancl/tenancy v3 (database-per-tenant). Phases 1–14 are complete.
+
+Already built:
+- SaaS admin panel (/saas) + Tenant panel (/admin)
+- ExamService with calculateResults(), assignRanks(), getMeritList(),
+  getClassResultSummary(), saveMarks()
+  (app/Services/ExamService.php)
+- AttendanceService with getStudentAttendanceSummary()
+  (app/Services/AttendanceService.php)
+- FeesService with getClassFeeCollectionSummary()
+  (app/Services/FeesService.php)
+- SetPostgresUserRole middleware wiring app.user_role for RLS
+  (app/Http/Middleware/SetPostgresUserRole.php)
+- Full notification system (FCM, WhatsApp, SMS, Email with fallbacks)
+- Multi-campus, approval workflow, all core modules
+- All tenant migrations in database/migrations/tenant/
+- ULIDs as primary keys throughout, money stored as paisas (integer)
+
+DO NOT rebuild anything working. Replace PHP loops with SQL where
+specified. Add new migrations and modify existing services only.
+
+CONSTRAINT REMINDERS:
+- All money columns are *_paisas (integer, not decimal)
+- All PKs are ULIDs stored as varchar(26)
+- Tenant migrations go in database/migrations/tenant/
+- Use DB::statement() for raw DDL (CHECK, INDEX, MATERIALIZED VIEW)
+- All timestamps via $table->timestamps() (Laravel convention)
+- ExamResultStatus enum: Pass, Fail, Absent
+
+---
+
+## PART 1: WINDOW FUNCTIONS — REPLACE PHP LOOPS WITH SQL
+
+### 1a. ExamService::assignRanks() → PostgreSQL RANK()
+
+Current implementation (app/Services/ExamService.php:162-193) loads
+all passing ExamResult rows into PHP, loops to assign ranks with a
+manual tie-skip counter, and issues one UPDATE per student. For a
+class of 500 students, that's 500 individual UPDATE queries.
+
+Replace with a single raw query:
+
+```php
+public function assignRanks(string $examId, string $classId): void
+{
+    // Use PostgreSQL RANK() window function — single query replaces N+1 loop.
+    // RANK() handles ties automatically: tied students get the same rank,
+    // and the next rank skips (e.g., 1, 2, 2, 4 — identical to old PHP logic).
+    DB::statement("
+        UPDATE exam_results er
+        SET rank = ranked.r
+        FROM (
+            SELECT id,
+                   RANK() OVER (ORDER BY marks_obtained DESC) AS r
+            FROM exam_results
+            WHERE exam_id = ?
+              AND class_id = ?
+              AND status = ?
+        ) ranked
+        WHERE er.id = ranked.id
+    ", [$examId, $classId, ExamResultStatus::Pass->value]);
+
+    // Null out ranks for non-passing students
+    ExamResult::where('exam_id', $examId)
+        ->where('class_id', $classId)
+        ->where('status', '!=', ExamResultStatus::Pass)
+        ->update(['rank' => null]);
+}
+```
+
+Remove the old `$rank`, `$prevMarks`, `$skip` loop entirely.
+
+### 1b. getMeritList() — section-level ranking
+
+Update getMeritList() to support optional section_id partitioning,
+so merit lists can be generated per-section or per-class:
+
+```php
+public function getMeritList(
+    string $examId,
+    string $classId,
+    ?string $sectionId = null,
+    int $limit = 10,
+): Collection {
+    $query = ExamResult::with('student')
+        ->where('exam_id', $examId)
+        ->where('class_id', $classId)
+        ->where('status', ExamResultStatus::Pass)
+        ->orderBy('rank');
+
+    if ($sectionId) {
+        $query->whereHas('student', fn ($q) => $q->where('section_id', $sectionId));
+    }
+
+    return $query->limit($limit)->get();
+}
+```
+
+### 1c. AttendanceService — monthly summary via SQL
+
+Add a new method that computes monthly attendance for all students
+in a class using SQL aggregation instead of per-student PHP loops:
+
+```php
+/**
+ * Get monthly attendance percentages for all students in a class.
+ * Returns one row per student with aggregated counts.
+ */
+public function getClassMonthlyAttendance(
+    string $classId,
+    string $sectionId,
+    int $year,
+    int $month,
+): Collection {
+    return DB::table('attendance_records')
+        ->select([
+            'student_id',
+            DB::raw("COUNT(*) as total_days"),
+            DB::raw("COUNT(*) FILTER (WHERE status = 'present') as present"),
+            DB::raw("COUNT(*) FILTER (WHERE status = 'absent') as absent"),
+            DB::raw("COUNT(*) FILTER (WHERE status = 'late') as late"),
+            DB::raw("COUNT(*) FILTER (WHERE status = 'half_day') as half_day"),
+            DB::raw("COUNT(*) FILTER (WHERE status = 'excused') as excused"),
+            DB::raw("ROUND(
+                (COUNT(*) FILTER (WHERE status = 'present')
+                 + COUNT(*) FILTER (WHERE status = 'late')
+                 + COUNT(*) FILTER (WHERE status = 'half_day') * 0.5
+                ) * 100.0 / NULLIF(COUNT(*), 0), 2
+            ) as attendance_percentage"),
+        ])
+        ->where('class_id', $classId)
+        ->where('section_id', $sectionId)
+        ->whereYear('date', $year)
+        ->whereMonth('date', $month)
+        ->groupBy('student_id')
+        ->get();
+}
+```
+
+### 1d. FeesService — collection summary via SQL
+
+Add a new method to FeesService that computes per-class fee
+collection using SQL aggregation:
+
+```php
+/**
+ * Get fee collection summary for a class using SQL aggregation.
+ * Replaces PHP-side sum/count over loaded collections.
+ */
+public function getClassFeeCollectionSummarySQL(
+    string $classId,
+    ?string $sectionId,
+    string $academicYearId,
+): array {
+    $query = DB::table('student_fees')
+        ->join('students', 'student_fees.student_id', '=', 'students.id')
+        ->where('students.class_id', $classId)
+        ->where('student_fees.academic_year_id', $academicYearId);
+
+    if ($sectionId) {
+        $query->where('students.section_id', $sectionId);
+    }
+
+    $result = $query->selectRaw("
+        COUNT(DISTINCT student_fees.student_id) as total_students,
+        COALESCE(SUM(student_fees.amount_paisas + student_fees.fine_paisas - student_fees.discount_paisas), 0) as total_fees,
+        COALESCE(SUM(student_fees.paid_paisas), 0) as total_collected
+    ")->first();
+
+    $totalFees = (int) $result->total_fees;
+    $totalCollected = (int) $result->total_collected;
+
+    return [
+        'total_students'  => (int) $result->total_students,
+        'total_fees'      => $totalFees,
+        'total_collected'  => $totalCollected,
+        'total_pending'    => $totalFees - $totalCollected,
+        'collection_rate'  => $totalFees > 0
+            ? round(($totalCollected / $totalFees) * 100, 2)
+            : 0,
+    ];
+}
+```
+
+---
+
+## PART 2: MATERIALIZED VIEWS — NIGHTLY PRE-AGGREGATION
+
+### 2a. Migration: create materialized views
+
+Create migration: create_materialized_views_for_analytics
+File: database/migrations/tenant/2026_04_05_100_create_materialized_views.php
+
+```php
+public function up(): void
+{
+    // ── mv_student_attendance_summary ─────────────────────────
+    // Pre-aggregated monthly attendance percentages per student.
+    // Analytics dashboards query this instead of scanning raw
+    // attendance_records (which grows ~30 rows/student/month).
+    DB::statement("
+        CREATE MATERIALIZED VIEW IF NOT EXISTS mv_student_attendance_summary AS
+        SELECT
+            student_id,
+            class_id,
+            section_id,
+            EXTRACT(YEAR FROM date)::int AS year,
+            EXTRACT(MONTH FROM date)::int AS month,
+            COUNT(*) AS total_days,
+            COUNT(*) FILTER (WHERE status = 'present') AS present_days,
+            COUNT(*) FILTER (WHERE status = 'absent') AS absent_days,
+            COUNT(*) FILTER (WHERE status = 'late') AS late_days,
+            COUNT(*) FILTER (WHERE status = 'half_day') AS half_days,
+            COUNT(*) FILTER (WHERE status = 'excused') AS excused_days,
+            ROUND(
+                (COUNT(*) FILTER (WHERE status = 'present')
+                 + COUNT(*) FILTER (WHERE status = 'late')
+                 + COUNT(*) FILTER (WHERE status = 'half_day') * 0.5
+                ) * 100.0 / NULLIF(COUNT(*), 0),
+                2
+            ) AS attendance_percentage
+        FROM attendance_records
+        GROUP BY student_id, class_id, section_id,
+                 EXTRACT(YEAR FROM date), EXTRACT(MONTH FROM date)
+    ");
+
+    DB::statement("
+        CREATE UNIQUE INDEX idx_mv_attendance_student_month
+        ON mv_student_attendance_summary (student_id, year, month)
+    ");
+
+    // ── mv_fee_collection_summary ────────────────────────────
+    // Monthly revenue totals per tenant. Dashboards and reports
+    // read from here instead of aggregating student_fees + fee_payments.
+    DB::statement("
+        CREATE MATERIALIZED VIEW IF NOT EXISTS mv_fee_collection_summary AS
+        SELECT
+            s.class_id,
+            s.section_id,
+            sf.academic_year_id,
+            EXTRACT(YEAR FROM sf.created_at)::int AS year,
+            EXTRACT(MONTH FROM sf.created_at)::int AS month,
+            COUNT(DISTINCT sf.student_id) AS total_students,
+            COALESCE(SUM(sf.amount_paisas + sf.fine_paisas - sf.discount_paisas), 0) AS total_fees_paisas,
+            COALESCE(SUM(sf.paid_paisas), 0) AS total_collected_paisas,
+            COALESCE(SUM(sf.amount_paisas + sf.fine_paisas - sf.discount_paisas - sf.paid_paisas), 0) AS total_pending_paisas,
+            CASE
+                WHEN SUM(sf.amount_paisas + sf.fine_paisas - sf.discount_paisas) > 0
+                THEN ROUND(
+                    SUM(sf.paid_paisas) * 100.0
+                    / SUM(sf.amount_paisas + sf.fine_paisas - sf.discount_paisas), 2
+                )
+                ELSE 0
+            END AS collection_rate
+        FROM student_fees sf
+        JOIN students s ON sf.student_id = s.id
+        GROUP BY s.class_id, s.section_id, sf.academic_year_id,
+                 EXTRACT(YEAR FROM sf.created_at), EXTRACT(MONTH FROM sf.created_at)
+    ");
+
+    DB::statement("
+        CREATE UNIQUE INDEX idx_mv_fee_collection_class_month
+        ON mv_fee_collection_summary (class_id, section_id, academic_year_id, year, month)
+    ");
+}
+
+public function down(): void
+{
+    DB::statement('DROP MATERIALIZED VIEW IF EXISTS mv_fee_collection_summary');
+    DB::statement('DROP MATERIALIZED VIEW IF EXISTS mv_student_attendance_summary');
+}
+```
+
+### 2b. Refresh command
+
+Create app/Console/Commands/RefreshMaterializedViews.php:
+
+```php
+class RefreshMaterializedViews extends Command
+{
+    protected $signature = 'app:refresh-materialized-views';
+    protected $description = 'Refresh analytics materialized views for all tenants';
+
+    public function handle(): int
+    {
+        $tenants = \App\Models\Tenant::all();
+
+        foreach ($tenants as $tenant) {
+            $tenant->run(function () use ($tenant) {
+                DB::statement('REFRESH MATERIALIZED VIEW CONCURRENTLY mv_student_attendance_summary');
+                DB::statement('REFRESH MATERIALIZED VIEW CONCURRENTLY mv_fee_collection_summary');
+                $this->info("Refreshed views for tenant: {$tenant->id}");
+            });
+        }
+
+        return self::SUCCESS;
+    }
+}
+```
+
+### 2c. Schedule nightly refresh
+
+In routes/console.php (or bootstrap/app.php scheduler), add:
+
+```php
+Schedule::command('app:refresh-materialized-views')->dailyAt('02:00');
+```
+
+### 2d. Query helpers
+
+Add to AttendanceService:
+```php
+public function getMonthlyAttendanceFromView(
+    string $classId,
+    string $sectionId,
+    int $year,
+    int $month,
+): Collection {
+    return DB::table('mv_student_attendance_summary')
+        ->where('class_id', $classId)
+        ->where('section_id', $sectionId)
+        ->where('year', $year)
+        ->where('month', $month)
+        ->get();
+}
+```
+
+Add to FeesService:
+```php
+public function getFeeCollectionFromView(
+    string $classId,
+    ?string $sectionId,
+    string $academicYearId,
+    ?int $year = null,
+    ?int $month = null,
+): Collection {
+    $query = DB::table('mv_fee_collection_summary')
+        ->where('class_id', $classId)
+        ->where('academic_year_id', $academicYearId);
+
+    if ($sectionId) {
+        $query->where('section_id', $sectionId);
+    }
+    if ($year) {
+        $query->where('year', $year);
+    }
+    if ($month) {
+        $query->where('month', $month);
+    }
+
+    return $query->get();
+}
+```
+
+---
+
+## PART 3: CHECK CONSTRAINTS — DATA INTEGRITY AT THE DB LEVEL
+
+### 3a. Migration: add CHECK constraints
+
+Create migration: add_check_constraints_to_core_tables
+File: database/migrations/tenant/2026_04_05_101_add_check_constraints.php
+
+These protect data integrity when the PHP layer is bypassed
+(direct DB access, queue jobs, imports, bulk inserts).
+
+```php
+public function up(): void
+{
+    // ── exam_marks: obtained cannot exceed max ───────────────
+    // Prevents invalid marks entry from any source (Filament form,
+    // API, queue job, direct SQL import).
+    DB::statement("
+        ALTER TABLE exam_marks
+        ADD CONSTRAINT chk_exam_marks_obtained
+        CHECK (marks_obtained >= 0)
+    ");
+
+    // exam_schedules: full_marks and pass_marks must be sane
+    DB::statement("
+        ALTER TABLE exam_schedules
+        ADD CONSTRAINT chk_exam_schedules_marks
+        CHECK (full_marks > 0 AND pass_marks >= 0 AND pass_marks <= full_marks)
+    ");
+
+    // ── student_fees: amounts must be non-negative ──────────
+    // Money is stored as paisas (integer). Negative paisas
+    // should never exist — refunds use a separate workflow.
+    DB::statement("
+        ALTER TABLE student_fees
+        ADD CONSTRAINT chk_student_fees_amount
+        CHECK (amount_paisas >= 0)
+    ");
+
+    DB::statement("
+        ALTER TABLE student_fees
+        ADD CONSTRAINT chk_student_fees_paid
+        CHECK (paid_paisas >= 0)
+    ");
+
+    DB::statement("
+        ALTER TABLE student_fees
+        ADD CONSTRAINT chk_student_fees_discount
+        CHECK (discount_paisas >= 0)
+    ");
+
+    DB::statement("
+        ALTER TABLE student_fees
+        ADD CONSTRAINT chk_student_fees_fine
+        CHECK (fine_paisas >= 0)
+    ");
+
+    // ── students: date_of_birth must be in the past ─────────
+    // Prevents future birth dates from data entry errors.
+    DB::statement("
+        ALTER TABLE students
+        ADD CONSTRAINT chk_students_dob
+        CHECK (date_of_birth < CURRENT_DATE)
+    ");
+}
+
+public function down(): void
+{
+    DB::statement('ALTER TABLE exam_marks DROP CONSTRAINT IF EXISTS chk_exam_marks_obtained');
+    DB::statement('ALTER TABLE exam_schedules DROP CONSTRAINT IF EXISTS chk_exam_schedules_marks');
+    DB::statement('ALTER TABLE student_fees DROP CONSTRAINT IF EXISTS chk_student_fees_amount');
+    DB::statement('ALTER TABLE student_fees DROP CONSTRAINT IF EXISTS chk_student_fees_paid');
+    DB::statement('ALTER TABLE student_fees DROP CONSTRAINT IF EXISTS chk_student_fees_discount');
+    DB::statement('ALTER TABLE student_fees DROP CONSTRAINT IF EXISTS chk_student_fees_fine');
+    DB::statement('ALTER TABLE students DROP CONSTRAINT IF EXISTS chk_students_dob');
+}
+```
+
+---
+
+## PART 4: PARTIAL INDEXES — SPEED UP FILTERED QUERIES
+
+### 4a. Migration: add partial indexes
+
+Create migration: add_partial_indexes_to_hot_tables
+File: database/migrations/tenant/2026_04_05_102_add_partial_indexes.php
+
+Partial indexes only index rows matching the WHERE condition,
+keeping the index small and fast for the most common queries.
+
+```php
+public function up(): void
+{
+    // ── Active students — most queries filter by status='active' ──
+    // The students table may have thousands of inactive/graduated rows.
+    // Dashboards, attendance pages, and fee pages always query active only.
+    DB::statement("
+        CREATE INDEX IF NOT EXISTS idx_students_active
+        ON students (class_id, section_id)
+        WHERE status = 'active'
+    ");
+
+    // ── Pending approvals — the approval queue only shows pending ──
+    // Most approval_requests are resolved (approved/rejected).
+    // The pending queue page scans only this small subset.
+    DB::statement("
+        CREATE INDEX IF NOT EXISTS idx_approvals_pending
+        ON approval_requests (created_at DESC)
+        WHERE status = 'pending'
+    ");
+
+    // ── Unpaid fees — fee collection pages filter unpaid ──────────
+    // Most fee records are eventually paid. The "collect fee" page
+    // and overdue reports only care about unpaid/partial rows.
+    DB::statement("
+        CREATE INDEX IF NOT EXISTS idx_fees_unpaid
+        ON student_fees (student_id, due_date)
+        WHERE status != 'paid'
+    ");
+
+    // ── Active device tokens — FCM driver always queries active ──
+    // Deactivated tokens (InvalidRegistration) accumulate over time.
+    DB::statement("
+        CREATE INDEX IF NOT EXISTS idx_device_tokens_active
+        ON device_tokens (school_user_id)
+        WHERE is_active = true
+    ");
+}
+
+public function down(): void
+{
+    DB::statement('DROP INDEX IF EXISTS idx_students_active');
+    DB::statement('DROP INDEX IF EXISTS idx_approvals_pending');
+    DB::statement('DROP INDEX IF EXISTS idx_fees_unpaid');
+    DB::statement('DROP INDEX IF EXISTS idx_device_tokens_active');
+}
+```
+
+---
+
+## PART 5: FULL-TEXT SEARCH — STUDENT LOOKUP
+
+### 5a. Migration: add tsvector column and GIN index
+
+Create migration: add_fts_to_students
+File: database/migrations/tenant/2026_04_05_103_add_fts_to_students.php
+
+```php
+public function up(): void
+{
+    // Add the tsvector column for full-text search
+    DB::statement("
+        ALTER TABLE students
+        ADD COLUMN IF NOT EXISTS search_vector tsvector
+    ");
+
+    // GIN index for fast full-text lookups
+    DB::statement("
+        CREATE INDEX IF NOT EXISTS idx_students_fts
+        ON students USING GIN(search_vector)
+    ");
+
+    // Trigger to auto-update search_vector on INSERT or UPDATE
+    // of name or admission_number fields.
+    DB::statement("
+        CREATE OR REPLACE FUNCTION students_search_vector_update() RETURNS trigger AS $$
+        BEGIN
+            NEW.search_vector :=
+                setweight(to_tsvector('simple', COALESCE(NEW.first_name, '')), 'A') ||
+                setweight(to_tsvector('simple', COALESCE(NEW.last_name, '')), 'A') ||
+                setweight(to_tsvector('simple', COALESCE(NEW.admission_number, '')), 'B') ||
+                setweight(to_tsvector('simple', COALESCE(NEW.roll_number, '')), 'C');
+            RETURN NEW;
+        END
+        $$ LANGUAGE plpgsql
+    ");
+
+    DB::statement("
+        CREATE TRIGGER trg_students_search_vector
+        BEFORE INSERT OR UPDATE OF first_name, last_name, admission_number, roll_number
+        ON students
+        FOR EACH ROW
+        EXECUTE FUNCTION students_search_vector_update()
+    ");
+
+    // Backfill existing rows
+    DB::statement("
+        UPDATE students SET search_vector =
+            setweight(to_tsvector('simple', COALESCE(first_name, '')), 'A') ||
+            setweight(to_tsvector('simple', COALESCE(last_name, '')), 'A') ||
+            setweight(to_tsvector('simple', COALESCE(admission_number, '')), 'B') ||
+            setweight(to_tsvector('simple', COALESCE(roll_number, '')), 'C')
+    ");
+}
+
+public function down(): void
+{
+    DB::statement('DROP TRIGGER IF EXISTS trg_students_search_vector ON students');
+    DB::statement('DROP FUNCTION IF EXISTS students_search_vector_update()');
+    DB::statement('DROP INDEX IF EXISTS idx_students_fts');
+    DB::statement('ALTER TABLE students DROP COLUMN IF EXISTS search_vector');
+}
+```
+
+### 5b. Search scope on Student model
+
+Add to app/Models/Tenant/Student.php:
+
+```php
+/**
+ * Full-text search scope using PostgreSQL tsvector.
+ * Supports partial matching via :* prefix operator.
+ *
+ * Usage: Student::search('ahmed kh')->get()
+ */
+public function scopeSearch(Builder $query, string $term): Builder
+{
+    $sanitized = preg_replace('/[^\w\s]/', '', $term);
+    $tsQuery = collect(explode(' ', trim($sanitized)))
+        ->filter()
+        ->map(fn ($word) => $word . ':*')
+        ->implode(' & ');
+
+    return $query->whereRaw('search_vector @@ to_tsquery(\'simple\', ?)', [$tsQuery])
+        ->orderByRaw('ts_rank(search_vector, to_tsquery(\'simple\', ?)) DESC', [$tsQuery]);
+}
+```
+
+---
+
+## PART 6 (MEDIUM PRIORITY): RLS ON CORE TABLES
+
+### 6a. Extend RLS to students, student_fees, exam_marks
+
+The SetPostgresUserRole middleware (app/Http/Middleware/SetPostgresUserRole.php)
+already sets `app.user_role` per request. The health_records table already has
+RLS policies. Extend the same pattern to core tables.
+
+Create migration: add_rls_policies_to_core_tables
+File: database/migrations/tenant/2026_04_05_104_add_rls_policies.php
+
+```php
+public function up(): void
+{
+    // ── Students table ───────────────────────────────────────
+    DB::statement('ALTER TABLE students ENABLE ROW LEVEL SECURITY');
+
+    // All authenticated roles can read students
+    DB::statement("
+        CREATE POLICY students_read ON students
+        FOR SELECT
+        USING (true)
+    ");
+
+    // Only SCHOOL_ADMIN and CAMPUS_OWNER can modify students
+    DB::statement("
+        CREATE POLICY students_modify ON students
+        FOR ALL
+        USING (current_setting('app.user_role') IN ('SCHOOL_ADMIN', 'CAMPUS_OWNER'))
+    ");
+
+    // ── Student fees ─────────────────────────────────────────
+    DB::statement('ALTER TABLE student_fees ENABLE ROW LEVEL SECURITY');
+
+    DB::statement("
+        CREATE POLICY fees_read ON student_fees
+        FOR SELECT
+        USING (current_setting('app.user_role') IN ('SCHOOL_ADMIN', 'CAMPUS_OWNER', 'ACCOUNTANT', 'PARENT'))
+    ");
+
+    DB::statement("
+        CREATE POLICY fees_modify ON student_fees
+        FOR ALL
+        USING (current_setting('app.user_role') IN ('SCHOOL_ADMIN', 'ACCOUNTANT'))
+    ");
+
+    // ── Exam marks ───────────────────────────────────────────
+    DB::statement('ALTER TABLE exam_marks ENABLE ROW LEVEL SECURITY');
+
+    DB::statement("
+        CREATE POLICY marks_read ON exam_marks
+        FOR SELECT
+        USING (true)
+    ");
+
+    DB::statement("
+        CREATE POLICY marks_modify ON exam_marks
+        FOR ALL
+        USING (current_setting('app.user_role') IN ('SCHOOL_ADMIN', 'TEACHER'))
+    ");
+}
+
+public function down(): void
+{
+    DB::statement('DROP POLICY IF EXISTS marks_modify ON exam_marks');
+    DB::statement('DROP POLICY IF EXISTS marks_read ON exam_marks');
+    DB::statement('ALTER TABLE exam_marks DISABLE ROW LEVEL SECURITY');
+
+    DB::statement('DROP POLICY IF EXISTS fees_modify ON student_fees');
+    DB::statement('DROP POLICY IF EXISTS fees_read ON student_fees');
+    DB::statement('ALTER TABLE student_fees DISABLE ROW LEVEL SECURITY');
+
+    DB::statement('DROP POLICY IF EXISTS students_modify ON students');
+    DB::statement('DROP POLICY IF EXISTS students_read ON students');
+    DB::statement('ALTER TABLE students DISABLE ROW LEVEL SECURITY');
+}
+```
+
+IMPORTANT: The DB user used by the Laravel app must NOT be a superuser
+(superusers bypass RLS). Verify with: SELECT rolsuper FROM pg_roles
+WHERE rolname = current_user; — must return false.
+
+---
+
+## PART 7 (MEDIUM PRIORITY): JSONB GIN INDEXES
+
+### 7a. Migration: add GIN indexes on JSONB columns
+
+Create migration: add_gin_indexes_to_jsonb_columns
+File: database/migrations/tenant/2026_04_05_105_add_jsonb_gin_indexes.php
+
+```php
+public function up(): void
+{
+    // ── approval_requests.payload — queried for action-specific data ──
+    // The ApprovalService filters by payload fields (student_id, amount,
+    // action_type details). Without a GIN index, PostgreSQL does a
+    // sequential scan on the JSON column.
+    DB::statement("
+        CREATE INDEX IF NOT EXISTS idx_approval_payload
+        ON approval_requests USING GIN(payload)
+    ");
+
+    // ── notices.target_roles — checked when filtering notices by role ──
+    // Stored as JSON array: ["PARENT", "STUDENT"]. GIN index supports
+    // @> containment queries: WHERE target_roles @> '["PARENT"]'
+    DB::statement("
+        CREATE INDEX IF NOT EXISTS idx_notice_roles
+        ON notices USING GIN(target_roles)
+    ");
+}
+
+public function down(): void
+{
+    DB::statement('DROP INDEX IF EXISTS idx_notice_roles');
+    DB::statement('DROP INDEX IF EXISTS idx_approval_payload');
+}
+```
+
+---
+
+## PART 8 (MEDIUM PRIORITY): PGBOUNCER CONFIGURATION
+
+### 8a. PgBouncer setup notes (infrastructure, not code)
+
+Configure PgBouncer in transaction pooling mode before production
+launch. At 20+ concurrent tenants with heavy queries, direct
+PostgreSQL connections will exhaust max_connections (default 100).
+
+Recommended pgbouncer.ini settings:
+```ini
+[databases]
+; Central database
+kynexedu_central = host=127.0.0.1 port=5432 dbname=kynexedu_central
+
+; Wildcard for tenant databases (stancl/tenancy creates these dynamically)
+* = host=127.0.0.1 port=5432
+
+[pgbouncer]
+listen_addr = 127.0.0.1
+listen_port = 6432
+pool_mode = transaction
+max_client_conn = 500
+default_pool_size = 25
+min_pool_size = 5
+reserve_pool_size = 5
+server_lifetime = 3600
+server_idle_timeout = 600
+```
+
+Update .env for production:
+```
+DB_PORT=6432          # PgBouncer port instead of 5432
+DB_HOST=127.0.0.1    # PgBouncer address
+```
+
+IMPORTANT: With transaction pooling, SET commands (like app.user_role
+for RLS) only persist within a single transaction. The
+SetPostgresUserRole middleware must ensure the SET and subsequent
+queries run within the same database transaction. Verify this works
+correctly with PgBouncer before deploying RLS policies.
+
+### 8b. Laravel config adjustment
+
+In config/database.php, add a note:
+
+```php
+// When using PgBouncer in transaction pooling mode:
+// 1. Persistent connections must be disabled (no 'persistent' => true)
+// 2. Session-level SET commands (e.g., SET app.user_role) only persist
+//    within a transaction — wrap in DB::transaction() or use middleware
+//    that runs within a transaction context.
+// 3. LISTEN/NOTIFY won't work — don't use Laravel's database broadcaster.
+```
+
+---
+
+## PART 9 (LOW PRIORITY — DOCUMENT ONLY, DO NOT IMPLEMENT)
+
+Add this block as a comment at the top of a new file:
+docs/phase-15-deferred-decisions.md
+
+### 9a. PostgreSQL schemas per tenant — NOT NEEDED
+
+The stancl/tenancy database-per-tenant model already provides
+stronger isolation than schemas. A dedicated database per tenant
+means: separate pg_dump, independent PITR, no cross-tenant query
+risk. Schema-per-tenant is a downgrade. Skip this.
+
+### 9b. pg_cron — NOT NEEDED
+
+pg_cron only makes sense if you move scheduled tasks out of
+Laravel's scheduler into PostgreSQL. Laravel's scheduler
+(routes/console.php) already handles the materialized view
+refresh and all other periodic tasks. Adding pg_cron creates
+two scheduling systems to maintain. Skip this.
+
+### 9c. ULID-as-varchar — NOT A PROBLEM
+
+PostgreSQL optimizes varchar(26) comparisons well. ULID's
+time-ordered property means B-tree indexes stay mostly sequential.
+Changing to a binary type (bytea or custom type) would require
+rewriting every migration, every foreign key, and every model cast.
+The performance gain is negligible. Leave as-is.
+
+---
+
+## DELIVERABLES
+
+### Files to create:
+- [ ] database/migrations/tenant/2026_04_05_100_create_materialized_views.php
+- [ ] database/migrations/tenant/2026_04_05_101_add_check_constraints.php
+- [ ] database/migrations/tenant/2026_04_05_102_add_partial_indexes.php
+- [ ] database/migrations/tenant/2026_04_05_103_add_fts_to_students.php
+- [ ] database/migrations/tenant/2026_04_05_104_add_rls_policies.php (medium)
+- [ ] database/migrations/tenant/2026_04_05_105_add_jsonb_gin_indexes.php (medium)
+- [ ] app/Console/Commands/RefreshMaterializedViews.php
+- [ ] docs/phase-15-deferred-decisions.md
+
+### Files to modify:
+- [ ] app/Services/ExamService.php — replace assignRanks() with window function
+- [ ] app/Services/ExamService.php — update getMeritList() signature
+- [ ] app/Services/AttendanceService.php — add getClassMonthlyAttendance() + view helper
+- [ ] app/Services/FeesService.php — add getClassFeeCollectionSummarySQL() + view helper
+- [ ] app/Models/Tenant/Student.php — add scopeSearch()
+- [ ] routes/console.php — schedule materialized view refresh
+
+### Verification checklist:
+- [ ] php artisan migrate (tenant) — all 6 migrations run cleanly
+- [ ] ExamService::assignRanks() produces identical ranks to old PHP loop
+- [ ] assignRanks() handles ties correctly (1, 2, 2, 4 pattern)
+- [ ] Materialized views return data after REFRESH
+- [ ] CHECK constraints reject: negative paisas, future DOB, marks > max
+- [ ] Student::search('partial name') returns ranked results
+- [ ] Partial indexes show up in EXPLAIN ANALYZE for filtered queries
+- [ ] RLS blocks unauthorized access (test with different app.user_role values)
+- [ ] PgBouncer + RLS: SET app.user_role persists within transaction
+
+### New .env keys:
+None — all features use existing config.

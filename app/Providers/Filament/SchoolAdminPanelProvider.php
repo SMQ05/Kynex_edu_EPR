@@ -1,0 +1,173 @@
+<?php
+
+namespace App\Providers\Filament;
+
+use App\Http\Middleware\EnsureTenantIsActive;
+use App\Http\Middleware\InitializeTenancyBySubdomain;
+use App\Http\Middleware\RedirectToPortalLogin;
+use App\Http\Middleware\SetPostgresUserRole;
+use Filament\Http\Middleware\Authenticate;
+use Filament\Http\Middleware\AuthenticateSession;
+use Filament\Http\Middleware\DisableBladeIconComponents;
+use Filament\Http\Middleware\DispatchServingFilamentEvent;
+use Filament\Navigation\MenuItem;
+use Filament\Panel;
+use Filament\PanelProvider;
+use Filament\Support\Colors\Color;
+use Filament\View\PanelsRenderHook;
+use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
+use Illuminate\Cookie\Middleware\EncryptCookies;
+use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
+use Illuminate\Routing\Middleware\SubstituteBindings;
+use Illuminate\Session\Middleware\StartSession;
+use Illuminate\Support\Facades\App;
+use Illuminate\View\Middleware\ShareErrorsFromSession;
+
+class SchoolAdminPanelProvider extends PanelProvider
+{
+    public function panel(Panel $panel): Panel
+    {
+        return $panel
+            ->id('school-admin')
+            ->path('admin')
+            ->authGuard('school_users')
+            ->login()
+            ->profile(isSimple: true)
+            ->userMenuItems([
+                'switch-role' => MenuItem::make()
+                    ->label('Switch Role')
+                    ->icon('heroicon-o-arrows-right-left')
+                    ->url(fn () => route('filament.school-admin.pages.switch-role'))
+                    ->visible(fn () => auth()->check() && auth()->user()->roles->count() > 1),
+                MenuItem::make()
+                    ->label('Logout')
+                    ->icon('heroicon-o-arrow-left-on-rectangle')
+                    ->url(fn () => route('filament.school-admin.auth.logout'))
+                    ->postAction(fn () => route('filament.school-admin.auth.logout')),
+            ])
+            ->brandName('KynexEdu School Panel')
+            ->colors([
+                'primary' => Color::Emerald,
+                'danger'  => Color::Red,
+                'success' => Color::Green,
+                'warning' => Color::Amber,
+                'gray'    => Color::Slate,
+            ])
+            ->darkMode()
+            ->discoverResources(
+                in: app_path('Filament/SchoolAdmin/Resources'),
+                for: 'App\\Filament\\SchoolAdmin\\Resources',
+            )
+            ->discoverPages(
+                in: app_path('Filament/SchoolAdmin/Pages'),
+                for: 'App\\Filament\\SchoolAdmin\\Pages',
+            )
+            ->discoverWidgets(
+                in: app_path('Filament/SchoolAdmin/Widgets'),
+                for: 'App\\Filament\\SchoolAdmin\\Widgets',
+            )
+            ->navigationGroups([
+                'Dashboard',
+                'Academic Setup',
+                'Academics',
+                'Students',
+                'Staff & HR',
+                'Attendance',
+                'Examinations',
+                'Fees & Finance',
+                'Communication',
+                'Front Office',
+                'Library',
+                'Transport',
+                'Health & Wellbeing',
+                'Cafeteria',
+                'Hostel',
+                'Inventory',
+                'Online Classes',
+                'CMS / Website',
+                'Reports',
+                'System',
+            ])
+            ->middleware([
+                EncryptCookies::class,
+                AddQueuedCookiesToResponse::class,
+                StartSession::class,
+                AuthenticateSession::class,
+                ShareErrorsFromSession::class,
+                VerifyCsrfToken::class,
+                SubstituteBindings::class,
+                DisableBladeIconComponents::class,
+                DispatchServingFilamentEvent::class,
+                'tenant.initial',
+                'tenant.active',
+                SetPostgresUserRole::class,
+            ])
+            // Re-run these on Livewire AJAX updates so tenancy and auth guard are always initialized.
+            ->middleware([DispatchServingFilamentEvent::class, InitializeTenancyBySubdomain::class, EnsureTenantIsActive::class, SetPostgresUserRole::class], isPersistent: true)
+            ->authMiddleware([
+                RedirectToPortalLogin::class,
+            ])
+            ->renderHook(
+                'panels::head.end',
+                fn () => app(\Illuminate\Foundation\Vite::class)('resources/css/filament-custom.css'),
+            )
+            ->renderHook(
+                'panels::head.end',
+                fn () => $this->getUrduFontLink(),
+            )
+            ->renderHook(
+                'panels::body.start',
+                fn () => $this->getUrduBodyClass(),
+            )
+            ->renderHook(
+                PanelsRenderHook::GLOBAL_SEARCH_AFTER,
+                fn () => view('livewire.notification-bell-wrapper'),
+            );
+    }
+
+    public function boot(): void
+    {
+        // ── Urdu / Bilingual locale support ──────────────────────
+        $tenant = function_exists('tenant') ? tenant() : null;
+
+        if ($tenant && ($tenant->preferred_language ?? 'en') === 'ur') {
+            App::setLocale('ur');
+        }
+    }
+
+    /**
+     * Inject the Noto Nastaliq Urdu font when locale is Urdu.
+     */
+    private function getUrduFontLink(): string
+    {
+        if (App::getLocale() !== 'ur') {
+            return '';
+        }
+
+        return <<<'HTML'
+<link href="https://fonts.googleapis.com/css2?family=Noto+Nastaliq+Urdu&display=swap" rel="stylesheet">
+<style>
+    body { direction: rtl; font-family: 'Noto Nastaliq Urdu', sans-serif; }
+    .fi-sidebar-nav { text-align: right; }
+    .fi-topbar { direction: rtl; }
+    .fi-header { direction: rtl; }
+    .fi-main { direction: rtl; }
+    /* RTL table adjustments */
+    .fi-ta-header-cell { text-align: right; }
+    .fi-ta-cell { text-align: right; }
+</style>
+HTML;
+    }
+
+    /**
+     * Add RTL direction attribute to body when Urdu is active.
+     */
+    private function getUrduBodyClass(): string
+    {
+        if (App::getLocale() !== 'ur') {
+            return '';
+        }
+
+        return '<script>document.documentElement.setAttribute("dir","rtl");</script>';
+    }
+}

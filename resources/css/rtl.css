@@ -1,0 +1,195 @@
+/**
+ * KynexEdu RTL (Right-to-Left) overrides for Urdu locale.
+ *
+ * Applied conditionally via SchoolAdminPanelProvider when tenant
+ * preferred_language is 'ur'. Works with Filament v3 default layout.
+ */
+
+/* ── Global Direction ─────────────────────────────────────────────── */
+html[dir="rtl"],
+body.urdu-locale {
+    direction: rtl;
+    text-align: right;
+    font-family: 'Noto Nastaliq Urdu', 'Jameel Noori Nastaleeq', serif;
+}
+
+/* ── Filament Sidebar ─────────────────────────────────────────────── */
+body.urdu-locale .fi-sidebar {
+    right: 0;
+    left: auto;
+    border-left: 1px solid var(--gray-200);
+    border-right: none;
+}
+
+body.urdu-locale .fi-sidebar-nav {
+    direction: rtl;
+}
+
+body.urdu-locale .fi-sidebar-item-icon {
+    margin-left: 0.75rem;
+    margin-right: 0;
+}
+
+body.urdu-locale .fi-sidebar-group-button svg {
+    transform: scaleX(-1);
+}
+
+/* ── Main Content Area ────────────────────────────────────────────── */
+body.urdu-locale .fi-main {
+    margin-right: var(--sidebar-width, 16rem);
+    margin-left: 0;
+}
+
+@media (max-width: 1024px) {
+    body.urdu-locale .fi-main {
+        margin-right: 0;
+    }
+}
+
+/* ── Topbar / Header ──────────────────────────────────────────────── */
+body.urdu-locale .fi-topbar {
+    direction: rtl;
+}
+
+body.urdu-locale .fi-header-heading {
+    text-align: right;
+}
+
+/* ── Breadcrumbs ──────────────────────────────────────────────────── */
+body.urdu-locale .fi-breadcrumbs {
+    direction: rtl;
+}
+
+body.urdu-locale .fi-breadcrumbs li + li::before {
+    transform: scaleX(-1);
+}
+
+/* ── Tables ───────────────────────────────────────────────────────── */
+body.urdu-locale .fi-ta-table {
+    direction: rtl;
+}
+
+body.urdu-locale .fi-ta-header-cell {
+    text-align: right;
+}
+
+body.urdu-locale .fi-ta-cell {
+    text-align: right;
+}
+
+body.urdu-locale .fi-ta-actions {
+    justify-content: flex-start;
+}
+
+/* ── Forms ─────────────────────────────────────────────────────────── */
+body.urdu-locale .fi-fo-field-wrp {
+    direction: rtl;
+}
+
+body.urdu-locale .fi-fo-field-wrp label {
+    text-align: right;
+}
+
+body.urdu-locale .fi-input {
+    direction: rtl;
+    text-align: right;
+}
+
+body.urdu-locale .fi-select {
+    direction: rtl;
+}
+
+/* Keep number inputs LTR for readability */
+body.urdu-locale input[type="number"],
+body.urdu-locale input[type="tel"],
+body.urdu-locale input[type="email"],
+body.urdu-locale input[type="url"] {
+    direction: ltr;
+    text-align: left;
+}
+
+/* ── Cards & Widgets ──────────────────────────────────────────────── */
+body.urdu-locale .fi-wi-stats-overview-stat {
+    direction: rtl;
+}
+
+body.urdu-locale .fi-wi-stats-overview-stat-value {
+    direction: ltr;
+    text-align: right;
+}
+
+body.urdu-locale .fi-card {
+    direction: rtl;
+}
+
+/* ── Modals & Notifications ───────────────────────────────────────── */
+body.urdu-locale .fi-modal {
+    direction: rtl;
+}
+
+body.urdu-locale .fi-no-notification {
+    direction: rtl;
+}
+
+/* ── Tabs ──────────────────────────────────────────────────────────── */
+body.urdu-locale .fi-tabs {
+    direction: rtl;
+}
+
+/* ── Buttons ──────────────────────────────────────────────────────── */
+body.urdu-locale .fi-btn {
+    direction: rtl;
+}
+
+body.urdu-locale .fi-btn svg {
+    margin-left: 0.25rem;
+    margin-right: 0;
+}
+
+/* ── Action Dropdowns ─────────────────────────────────────────────── */
+body.urdu-locale .fi-dropdown-panel {
+    direction: rtl;
+    text-align: right;
+}
+
+/* ── Pagination ───────────────────────────────────────────────────── */
+body.urdu-locale .fi-pagination {
+    direction: rtl;
+}
+
+body.urdu-locale .fi-pagination nav svg {
+    transform: scaleX(-1);
+}
+
+/* ── Global helper classes ────────────────────────────────────────── */
+.rtl-flip {
+    transform: scaleX(-1);
+}
+
+.rtl-text-left {
+    text-align: left !important;
+}
+
+.rtl-text-right {
+    text-align: right !important;
+}
+
+/* ── Language toggle button in topbar ─────────────────────────────── */
+.lang-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: background-color 0.15s;
+}
+
+.lang-toggle:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+body.dark .lang-toggle:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}

@@ -1,0 +1,92 @@
+[
+  {
+    "content": "Part A1: Install missing packages (already done in composer.json)",
+    "activeForm": "Installing missing packages",
+    "status": "completed"
+  },
+  {
+    "content": "Part A2: Create approval_requests migration and model (already done)",
+    "activeForm": "Creating approval_requests migration and model",
+    "status": "completed"
+  },
+  {
+    "content": "Part A3: Document communication channel configs in Tenant model (already done)",
+    "activeForm": "Documenting communication channel configs",
+    "status": "completed"
+  },
+  {
+    "content": "Part A4: SMS services (already done)",
+    "activeForm": "Creating SMS service classes and drivers",
+    "status": "completed"
+  },
+  {
+    "content": "Part A4: WhatsApp services (already done)",
+    "activeForm": "Creating WhatsApp service classes and drivers",
+    "status": "completed"
+  },
+  {
+    "content": "Part B1: Configure tenancy subdomain routing + central DB + middleware",
+    "activeForm": "Configuring tenancy and subdomain routing",
+    "status": "in_progress"
+  },
+  {
+    "content": "Part B2: Create SchoolUser model + migration",
+    "activeForm": "Creating SchoolUser model and seeder",
+    "status": "pending"
+  },
+  {
+    "content": "Part B3: Create all 20+ tenant DB migrations",
+    "activeForm": "Creating all tenant DB migrations",
+    "status": "pending"
+  },
+  {
+    "content": "Part A5: Create OpenRouter AI service",
+    "activeForm": "Creating OpenRouter AI service",
+    "status": "pending"
+  },
+  {
+    "content": "Part B4: Create events, listeners, and jobs for billing",
+    "activeForm": "Creating events, listeners, and jobs",
+    "status": "pending"
+  },
+  {
+    "content": "Part B5: Create tenant provisioning action",
+    "activeForm": "Creating tenant provisioning action",
+    "status": "pending"
+  },
+  {
+    "content": "Part B6: Create role seeder",
+    "activeForm": "Creating role seeder",
+    "status": "pending"
+  },
+  {
+    "content": "Part B7: Create academic setup Filament resources",
+    "activeForm": "Creating academic setup resources",
+    "status": "pending"
+  },
+  {
+    "content": "Part B8: Create student Filament resources",
+    "activeForm": "Creating student resources",
+    "status": "pending"
+  },
+  {
+    "content": "Part B9: Create stub resources for Phase 3 modules",
+    "activeForm": "Creating stub resources for Phase 3 modules",
+    "status": "pending"
+  },
+  {
+    "content": "Part B10: Create tenant admin dashboard + widgets",
+    "activeForm": "Creating tenant admin dashboard",
+    "status": "pending"
+  },
+  {
+    "content": "Part B11: Add ApprovalRequestResource to SaaS panel",
+    "activeForm": "Adding ApprovalRequest resource",
+    "status": "pending"
+  },
+  {
+    "content": "Update .env.example with new keys",
+    "activeForm": "Updating .env.example",
+    "status": "pending"
+  }
+]

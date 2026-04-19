@@ -1,0 +1,1137 @@
+## CONTEXT
+KynexEdu — Laravel 13, Filament v5, PHP 8.4, PostgreSQL, 
+stancl/tenancy v3. Phases 1 and 2 are complete.
+
+Already built:
+- SaaS admin panel (/saas) with Tenants, Plans, Invoices, Signups,
+  ApprovalRequests (basic table only)
+- Tenant panel (/admin) with SchoolUser, Academic Setup resources,
+  Student module, stub resources for HR/Fees/Online Classes
+- Communication service layer (SMS drivers, WhatsApp drivers,
+  OpenRouter AI service)
+- Active student count sync (events + job)
+- All Phase 1+2 migrations
+
+DO NOT rebuild anything working. Add and extend only.
+
+---
+
+## PART 1: COMPLETE MULTI-CAMPUS FOUNDATION
+
+### 1a. Add missing campus_id columns (tenant DB)
+Create migration: add_campus_id_to_remaining_tables
+Add campus_id ulid nullable to these tables if not already present:
+  class_routines, staff_profiles, online_classes,
+  student_fees, fee_masters, leave_requests,
+  hostel_buildings (new — see Part 4),
+  library_books (new — see Part 5)
+
+### 1b. CampusResource (tenant panel)
+Navigation group: "System"
+Full CRUD for campuses table.
+Fields: name, address, city, phone, email, 
+        is_main_campus toggle (only one allowed),
+        campus_owner_user_id (Select school_users with 
+        CAMPUS_OWNER role), is_active toggle.
+
+"Set as Main" action — enforces single main campus.
+
+### 1c. Campus Owner Dashboard
+When a SchoolUser with role CAMPUS_OWNER logs in,
+show a campus-filtered dashboard:
+  - Stats filtered to their campus_id only
+  - Cannot see other campuses' data
+  - Can see: students, staff, attendance, fees for their campus
+  - Cannot access: System settings, Plan settings, 
+    global reports, other campuses
+
+Implement via Filament panel policy:
+  CampusOwnerPolicy: filters all queries by 
+  auth()->user()->campus_id when role = CAMPUS_OWNER.
+
+---
+
+## PART 2: FULL APPROVAL WORKFLOW SYSTEM
+
+### 2a. Approval Request Service
+Create app/Services/ApprovalService.php
+
+Methods:
+  request(
+    string $actionType,
+    Model $subject,
+    Model $requestedBy,
+    array $payload = [],
+    ?string $tenantId = null,
+    ?Carbon $expiresAt = null
+  ): ApprovalRequest
+  — Creates approval_request record, fires 
+    ApprovalRequested event.
+
+  approve(ApprovalRequest $req, Model $reviewer, 
+          string $notes = ''): void
+  — Sets status=approved, reviewed_by, reviewed_at.
+  — Fires ApprovalGranted event.
+  — Dispatches ExecuteApprovedAction job.
+
+  reject(ApprovalRequest $req, Model $reviewer,
+         string $notes = ''): void
+  — Sets status=rejected, fires ApprovalRejected event.
+
+  cancel(ApprovalRequest $req): void
+
+### 2b. ExecuteApprovedAction Job
+app/Jobs/ExecuteApprovedAction.php
+
+Handles executing the actual action after approval.
+Uses a match() on $approval->action_type:
+
+  'delete_student' => Student::find($id)->delete()
+  'expel_student' => Student::find($id)
+                       ->update(['status'=>'expelled'])
+  'bulk_fee_waiver' => (applies waiver from payload)
+  'large_expense' => Expense::find($id)
+                       ->update(['approval_status'=>'approved'])
+  'change_fee_structure' => (applies fee change from payload)
+  'suspend_staff' => SchoolUser::find($id)
+                       ->update(['is_active'=>false])
+  'role_assignment' => (assigns role from payload)
+  'role_revocation' => (revokes role from payload)
+  default => Log::warning('Unknown action type: '.$type)
+
+### 2c. Actions requiring approval (middleware approach)
+Create app/Filament/Concerns/RequiresApproval.php trait.
+
+Actions in these resources must call ApprovalService::request()
+instead of executing directly, when the current user does NOT 
+have 'bypass_approvals' permission:
+
+  StudentResource:
+    - Delete student → requires approval (action_type: delete_student)
+    - Expel student → requires approval (expel_student)
+    - Bulk status change → requires approval (bulk_status_change)
+
+  FeeResource (Phase 4 — stub the check now):
+    - Waive fee > PKR 5,000 → requires approval (fee_waiver)
+    - Change fee structure → requires approval (change_fee_structure)
+
+  ExpenseResource:
+    - Any expense > PKR 50,000 → requires approval (large_expense)
+
+  SchoolUserResource:
+    - Assign sensitive role (ACCOUNTANT, CAMPUS_OWNER) 
+      → requires approval (role_assignment)
+    - Disable staff account → requires approval (suspend_staff)
+
+### 2d. ApprovalQueue Page (tenant panel)
+Navigation group: "System"
+Navigation label: "Pending Approvals"
+Navigation icon: heroicon-o-clipboard-document-check
+Badge: count of pending approvals (red badge)
+
+A Filament Page (not resource) showing:
+  Table of pending approval_requests for this tenant.
+  Columns: action_type badge, subject description,
+           requested_by name, created_at, expires_at.
+  Row actions: "Approve" (modal with notes), 
+               "Reject" (modal with notes required).
+  
+  Visible to: SCHOOL_ADMIN and CAMPUS_OWNER roles only.
+  CAMPUS_OWNER sees only approvals for their campus.
+
+### 2e. SaaS-level approval view
+Already created ApprovalRequestResource in SaaS panel.
+Extend it: add "Approve" and "Reject" actions with note modals.
+SaaS admin can override any school-level approval.
+
+---
+
+## PART 3: FULL PERMISSION & ROLE DELEGATION SYSTEM
+
+### 3a. Add active_role to school_users
+Migration: add_active_role_to_school_users
+  active_role string nullable (stores role name, 
+  used when user has multiple roles)
+  
+  Note: If user has only one role, active_role = that role.
+  If user has multiple roles, they can switch via UI.
+
+### 3b. Role Switcher in Filament Nav
+In SchoolAdminPanelProvider, add a custom navigation item
+in the user menu (top right profile area):
+
+"Switch Role" item — only visible if user has 2+ roles.
+Opens a modal listing their assigned roles as buttons.
+On select: updates school_users.active_role for current user,
+           redirects to /admin (dashboard refreshes with new role).
+
+### 3c. RoleManagementResource (tenant panel)
+Navigation group: "System"
+Navigation label: "Roles & Permissions"
+
+This resource manages custom roles beyond the system defaults.
+
+LIST: role name, is_system badge, permissions count, 
+      users_count (how many users have this role), 
+      created_at.
+
+CREATE/EDIT form:
+  Section "Role Details":
+    name (TextInput — blocked if is_system=true),
+    description (Textarea)
+  
+  Section "Permissions" (CheckboxList, grouped same as 
+  subscription plan modules):
+    Group "Student Management":
+      view_students, manage_students, delete_students,
+      view_guardians, manage_guardians, promote_students,
+      change_student_status, view_student_documents,
+      manage_student_documents, bulk_student_operations
+    
+    Group "Academic":
+      view_timetable, manage_timetable, view_subjects,
+      manage_subjects, view_classes, manage_classes,
+      manage_academic_year, view_homework, manage_homework,
+      view_study_materials, manage_study_materials,
+      manage_lesson_plans, view_syllabus
+    
+    Group "Examinations":
+      view_exams, manage_exams, enter_marks,
+      view_results, publish_results, manage_online_exams,
+      generate_admit_cards, manage_seat_plans
+    
+    Group "Fees & Finance":
+      view_fees, collect_fees, manage_fee_structure,
+      give_discounts, waive_fees, view_accounts,
+      manage_accounts, manage_expenses, manage_budget,
+      manage_payroll, view_financial_reports
+    
+    Group "Staff & HR":
+      view_staff, manage_staff, manage_departments,
+      manage_designations, approve_leave, manage_payroll,
+      evaluate_staff, manage_attendance
+    
+    Group "Communication":
+      send_sms, send_whatsapp, send_email,
+      manage_notices, manage_events, 
+      use_ai_assistant, manage_announcements
+    
+    Group "Operations":
+      manage_library, manage_transport, manage_hostel,
+      manage_inventory, manage_cafeteria,
+      manage_visitors, manage_front_office
+    
+    Group "System":
+      manage_roles, manage_users, manage_settings,
+      view_reports, manage_approvals, bypass_approvals,
+      manage_campus, view_audit_log, manage_ai_settings
+
+ACTIONS:
+  "Duplicate Role" — copies role with all permissions,
+                     appends " (Copy)" to name.
+  Delete — blocked for is_system=true roles.
+           Blocked if any users currently have this role.
+
+### 3d. Role assignment on SchoolUserResource
+Extend SchoolUserResource form Section "Access":
+  roles (CheckboxList — show all non-system roles + system roles)
+  Note below: "User will see role switcher if multiple roles 
+  are assigned. Sensitive roles require approval."
+  
+  When assigning ACCOUNTANT or CAMPUS_OWNER:
+    If current user lacks 'bypass_approvals' permission:
+      Call ApprovalService::request('role_assignment', ...)
+      instead of saving immediately.
+      Show: "Role assignment sent for approval."
+
+### 3e. Permission Revocation
+On SchoolUserResource edit form, show current roles.
+"Revoke Role" action per role (inline in roles list):
+  - Removes that specific role only
+  - User keeps all other roles
+  - Updates active_role if needed (set to first remaining role)
+  - Sensitive revocations (CAMPUS_OWNER, ACCOUNTANT) 
+    require approval same as assignment
+
+---
+
+## PART 4: FULL NOTIFICATION SYSTEM
+
+### 4a. Migrations (tenant DB)
+
+create_notification_templates_table:
+  id (ulid), name, slug (unique),
+  event_trigger string 
+    (e.g. 'student.absent', 'fee.overdue', 
+          'exam.result_published', 'leave.approved'),
+  channels json (array: ['sms','whatsapp','email','push']),
+  sms_template text nullable (supports {variables}),
+  whatsapp_template text nullable,
+  email_subject nullable,
+  email_body text nullable,
+  is_active boolean default true,
+  send_to json (array: ['student','parent','teacher','admin']),
+  timestamps, softDeletes
+
+create_notification_queue_table:
+  id (ulid),
+  template_id ulid nullable,
+  channel enum('sms','whatsapp','email','push','in_app'),
+  recipient_user_id ulid nullable,
+  recipient_phone nullable,
+  recipient_email nullable,
+  subject nullable,
+  body text,
+  status enum('pending','sent','failed','cancelled') 
+    default 'pending',
+  attempts tinyInt default 0,
+  last_attempt_at timestamp nullable,
+  sent_at timestamp nullable,
+  error_message nullable,
+  context json nullable (original event data),
+  timestamps
+
+create_in_app_notifications_table:
+  id (ulid), user_id ulid,
+  title, body text,
+  type string (info/success/warning/danger),
+  action_url nullable,
+  is_read boolean default false,
+  read_at timestamp nullable,
+  data json nullable,
+  timestamps
+
+  INDEX: [user_id, is_read, created_at]
+
+### 4b. NotificationService
+app/Services/NotificationService.php
+
+Methods:
+  dispatch(
+    string $eventTrigger,
+    array $recipients,   // ['type'=>'parent','id'=>$userId]
+    array $variables     // ['student_name'=>'Ahmed', ...]
+  ): void
+  — Finds active template for event_trigger
+  — Interpolates variables into template body
+  — Creates notification_queue records per channel per recipient
+  — Dispatches ProcessNotificationQueue job
+
+  sendImmediate(
+    string $channel,
+    string $recipient,  // phone or email
+    string $message,
+    ?string $tenantId = null
+  ): bool
+  — For manual/direct sends (not template-based)
+
+  markRead(string $notificationId): void
+  
+  getUnreadCount(string $userId): int
+
+### 4c. ProcessNotificationQueue Job
+app/Jobs/ProcessNotificationQueue.php
+
+Processes pending notifications_queue records:
+  - For SMS: uses SmsServiceFactory::make($tenant)->send()
+  - For WhatsApp: uses WhatsAppServiceFactory::make($tenant)->send()
+  - For Email: uses Resend via Laravel Mail
+  - For in_app: creates in_app_notifications record
+  - Logs result to communication_logs table
+  - Updates notification_queue status
+  - On failure: increments attempts, retries up to 3 times
+  - After 3 failures: status = failed, logs error
+
+### 4d. Notification Bell (Filament UI)
+Add to SchoolAdminPanelProvider a custom Filament Widget 
+in the top navigation bar:
+
+NotificationBellWidget:
+  Shows bell icon with unread count badge (red, updates every 
+  60 seconds via Livewire polling).
+  On click: dropdown shows last 10 unread in_app_notifications.
+  Each notification: icon, title, body preview, time ago, 
+                     "mark read" button, action_url link.
+  "Mark All Read" button at bottom.
+  "View All" link → /admin/notifications page.
+
+/admin/notifications Page:
+  Full list of in_app_notifications for current user.
+  Filters: unread only, by type.
+  Bulk "Mark all read" action.
+
+### 4e. NotificationTemplateResource (tenant panel)
+Navigation group: "Communication"
+Navigation label: "Notification Templates"
+
+LIST: name, event_trigger, channels badges, 
+      send_to badges, is_active toggle.
+
+FORM:
+  name, slug (auto from name), event_trigger (Select 
+  with all available triggers listed),
+  send_to (CheckboxList: student/parent/teacher/admin),
+  channels (CheckboxList: sms/whatsapp/email/in_app),
+  sms_template (Textarea, hint: "Use {student_name}, 
+    {class}, {date}, {fee_amount}, {school_name} etc."),
+  whatsapp_template (Textarea),
+  email_subject (TextInput, visible if email in channels),
+  email_body (Textarea, visible if email in channels),
+  is_active toggle.
+
+Seed default templates on tenant provisioning:
+  - student.absent: SMS+WhatsApp to parent
+    "Dear {parent_name}, your child {student_name} 
+     was absent on {date}. — {school_name}"
+  - fee.overdue: SMS+WhatsApp to parent
+    "Dear {parent_name}, fee of PKR {amount} for 
+     {student_name} is overdue since {due_date}. 
+     Please pay at earliest. — {school_name}"
+  - exam.result_published: in_app to student+parent
+    "{student_name}'s result for {exam_name} is 
+     now available."
+  - leave.approved: in_app to teacher/staff
+    "Your leave request from {from_date} to 
+     {to_date} has been approved."
+  - leave.rejected: in_app to teacher/staff
+    "Your leave request has been rejected. 
+     Reason: {reason}"
+  - monthly_billing: WhatsApp to admin+owner
+    "KynexEdu Bill for {month}: Active students: 
+     {count}. Amount due: PKR {amount}. 
+     View details: {billing_url}"
+
+### 4f. Manual Notification Composer
+Navigation group: "Communication"
+Navigation label: "Send Notification"
+Navigation icon: heroicon-o-paper-airplane
+
+A Filament Page with a form:
+
+  Section "Recipients":
+    recipient_type (Select: All Students, All Parents, 
+      All Teachers, All Staff, Specific Class, 
+      Specific Section, Individual User)
+    class_id (visible when Specific Class selected)
+    section_id (visible when Specific Section)
+    user_id (searchable Select, visible for Individual)
+  
+  Section "Message":
+    channels (CheckboxList: SMS, WhatsApp, Email, In-App)
+    title (visible when In-App or Email selected)
+    message (Textarea, required)
+    schedule_at (DateTimePicker nullable — 
+                 "Leave empty to send immediately")
+  
+  Preview button: shows estimated recipient count 
+  and message preview per channel.
+  
+  Send button: calls NotificationService::dispatch()
+  or queues for scheduled_at time.
+
+---
+
+## PART 5: HOSTEL MANAGEMENT MODULE
+
+### 5a. Migrations (tenant DB)
+
+create_hostel_buildings_table:
+  id (ulid), name,
+  type enum('boys','girls','mixed') default 'boys',
+  address nullable, total_floors tinyInt default 1,
+  warden_id ulid nullable (foreign -> school_users),
+  campus_id ulid nullable,
+  is_active boolean default true,
+  timestamps, softDeletes
+
+create_hostel_room_types_table:
+  id (ulid), name (e.g. 'Single','Double','Triple','Dormitory'),
+  capacity tinyInt default 1,
+  description nullable,
+  monthly_fee_paisas unsignedBigInt default 0,
+  timestamps, softDeletes
+
+create_hostel_rooms_table:
+  id (ulid), building_id ulid, room_type_id ulid,
+  room_number varchar(20),
+  floor_number tinyInt default 0,
+  total_beds tinyInt default 1,
+  occupied_beds tinyInt default 0,
+  status enum('available','full','maintenance','closed') 
+    default 'available',
+  facilities json nullable (e.g. ['ac','attached_bathroom']),
+  monthly_fee_paisas unsignedBigInt nullable 
+    (overrides room_type fee if set),
+  timestamps, softDeletes
+  Unique: [building_id, room_number]
+
+create_hostel_allocations_table:
+  id (ulid), student_id ulid, room_id ulid,
+  bed_number tinyInt nullable,
+  allocated_by ulid,
+  check_in_date date,
+  check_out_date date nullable,
+  expected_check_out date nullable,
+  status enum('active','checked_out','transferred') 
+    default 'active',
+  monthly_fee_paisas unsignedBigInt,
+  notes nullable,
+  timestamps, softDeletes
+  
+  Note: When allocation is created, increment 
+  hostel_rooms.occupied_beds.
+  When checked_out, decrement occupied_beds.
+
+create_hostel_gate_passes_table:
+  id (ulid), student_id ulid,
+  purpose text,
+  out_date_time timestamp,
+  expected_return_date_time timestamp nullable,
+  actual_return_date_time timestamp nullable,
+  approved_by ulid nullable,
+  status enum('pending','approved','out','returned','overdue') 
+    default 'pending',
+  parent_notified_at timestamp nullable,
+  timestamps
+
+### 5b. Hostel Resources (tenant panel)
+Navigation group: "Hostel"
+
+HostelBuildingResource:
+  CRUD with: name, type, address, floors, warden select,
+  campus_id, is_active.
+  Relation Manager: "Rooms" tab showing rooms + occupancy.
+
+HostelRoomTypeResource: Simple CRUD.
+
+HostelRoomResource:
+  LIST: building, room_number, type, capacity, 
+        occupied/total beds (e.g. "2/4"), status badge.
+  FILTERS: building, status, type.
+  FORM: building, room_type, room_number, floor, 
+        total_beds, facilities (CheckboxList), 
+        monthly_fee override.
+  "View Occupants" action: shows current allocated students.
+
+HostelAllocationResource:
+  Navigation label: "Room Allocation"
+  LIST: student name + photo, room+building, bed, 
+        check_in_date, monthly_fee PKR, status badge.
+  FILTERS: building, status, class.
+  
+  CREATE form:
+    student_id (searchable Select — shows unallocated 
+                enrolled students only),
+    room_id (searchable Select — shows available rooms,
+             shows "2/4 beds" remaining hint),
+    bed_number, check_in_date, expected_check_out, 
+    monthly_fee (auto-filled from room_type, overrideable).
+  
+  ACTIONS:
+    "Check Out": sets status=checked_out, 
+                 check_out_date=today, 
+                 decrements room occupied_beds.
+    "Transfer Room": modal to select new room,
+                     creates new allocation, 
+                     closes current one.
+
+HostelGatePassResource:
+  Navigation label: "Gate Passes"
+  LIST: student, purpose, out_time, expected_return, 
+        actual_return, status badge.
+  
+  CREATE: student (Select from allocated students),
+          purpose, out_date_time, expected_return.
+  
+  ACTIONS:
+    "Approve" (pending → approved, 
+               notifies parent via WhatsApp template).
+    "Mark Returned" (out → returned, 
+                    sets actual_return_date_time=now).
+    Late returns automatically flag as 'overdue' 
+    via scheduled job running every 30 min.
+
+---
+
+## PART 6: VISITOR MANAGEMENT MODULE
+
+### 6a. Migration (tenant DB)
+
+create_visitors_table:
+  id (ulid),
+  visitor_name, phone, cnic varchar(15) nullable,
+  organization nullable,
+  purpose text,
+  whom_to_meet string nullable (free text or user name),
+  school_user_to_meet_id ulid nullable,
+  check_in_time timestamp default now(),
+  check_out_time timestamp nullable,
+  badge_number varchar(20) nullable,
+  photo_path nullable,
+  vehicle_number nullable,
+  status enum('checked_in','checked_out') default 'checked_in',
+  campus_id ulid nullable,
+  recorded_by ulid,
+  timestamps
+
+  INDEX: [check_in_time, status]
+
+### 6b. VisitorResource (tenant panel)
+Navigation group: "Front Office"
+Navigation label: "Visitors"
+
+LIST: visitor_name, phone, purpose (truncated),
+      whom_to_meet, check_in_time, check_out_time,
+      status badge (checked_in=green, checked_out=gray),
+      badge_number.
+      
+FILTERS: status, date range, campus.
+
+LIVE VIEW tab (default): shows only checked_in visitors today.
+ALL VISITORS tab: full history with date filter.
+
+CREATE (quick check-in form):
+  visitor_name (required), phone, cnic,
+  organization, purpose (required),
+  school_user_to_meet_id (searchable Select),
+  vehicle_number, badge_number (auto-suggest next number),
+  campus_id.
+
+ACTIONS:
+  "Check Out": sets check_out_time=now, status=checked_out.
+  "Print Badge": generates simple PDF badge via DomPDF with:
+    visitor name, badge number, date, whom to meet,
+    school logo/name, "VISITOR" label.
+
+"Today's Summary" Header Widget:
+  Current visitors inside: X
+  Total visitors today: X
+  Average visit duration: X minutes
+
+---
+
+## PART 7: INVENTORY & ASSET MANAGEMENT MODULE
+
+### 7a. Migrations (tenant DB)
+
+create_inventory_categories_table:
+  id (ulid), name, parent_id ulid nullable,
+  description nullable, timestamps, softDeletes
+
+create_inventory_stores_table:
+  id (ulid), name, location nullable,
+  manager_id ulid nullable, campus_id ulid nullable,
+  timestamps, softDeletes
+
+create_inventory_items_table:
+  id (ulid), name, code varchar(50) unique,
+  category_id ulid, store_id ulid,
+  unit string default 'piece',
+  current_quantity unsignedInt default 0,
+  minimum_quantity unsignedInt default 0 
+    (for low stock alerts),
+  unit_price_paisas unsignedBigInt default 0,
+  description text nullable,
+  timestamps, softDeletes
+
+create_inventory_suppliers_table:
+  id (ulid), name, phone, email nullable,
+  address text nullable, contact_person nullable,
+  timestamps, softDeletes
+
+create_inventory_transactions_table:
+  id (ulid), item_id ulid,
+  transaction_type enum('receive','issue','return',
+                        'adjust','write_off'),
+  quantity int (positive = in, negative = out),
+  unit_price_paisas unsignedBigInt nullable,
+  reference_number nullable,
+  supplier_id ulid nullable (for receives),
+  issued_to_user_id ulid nullable (for issues),
+  issued_to_department nullable,
+  notes nullable,
+  recorded_by ulid,
+  timestamps
+  
+  -- After each transaction, update current_quantity:
+  -- current_quantity += quantity (can be negative for issues)
+
+### 7b. Inventory Resources (tenant panel)
+Navigation group: "Inventory"
+
+InventoryCategoryResource: Simple CRUD with parent_id.
+InventoryStoreResource: Simple CRUD.
+InventorySupplierResource: Simple CRUD.
+
+InventoryItemResource:
+  LIST: name, code, category, store, 
+        current_quantity (red if <= minimum_quantity),
+        minimum_quantity, unit.
+  Low Stock filter: items where current <= minimum.
+  FORM: all fields.
+  Relation Manager: "Transaction History" showing 
+  last 20 transactions.
+
+InventoryTransactionResource:
+  Navigation label: "Stock Movement"
+  Tabs: "Receive Stock", "Issue Stock", "History"
+  
+  Receive tab form:
+    item_id (searchable), supplier_id, quantity 
+    (positive), unit_price, reference_number, notes.
+    On save: creates transaction, updates item quantity.
+  
+  Issue tab form:
+    item_id, issued_to_user_id OR issued_to_department,
+    quantity (entered as positive, stored as negative),
+    notes, reference_number.
+  
+  History: full transaction log with filters.
+
+Low Stock Alert: 
+  Scheduled job (daily 8 AM): find items where 
+  current_quantity <= minimum_quantity.
+  Creates in_app notification for inventory manager role.
+
+---
+
+## PART 8: ALL 13 ROLE DASHBOARDS
+
+Each role gets a custom Filament Dashboard page.
+The panel checks auth()->user()->active_role and 
+renders the matching dashboard.
+
+Implement via a DashboardResolver in 
+SchoolAdminPanelProvider:
+  In the dashboard page boot(), check active_role,
+  render different widget sets accordingly.
+
+### Role 1: SCHOOL_ADMIN
+Already built in Phase 2. Keep as is.
+
+### Role 2: CAMPUS_OWNER
+Stats: enrolled students (campus), staff (campus),
+       today's attendance %, fees collected this month.
+Tables: Recent admissions (campus), pending approvals.
+Quick links: View students, View fees, Announcements.
+
+### Role 3: TEACHER
+Stats: My classes count, students in my classes,
+       pending homework submissions to review,
+       today's periods count.
+Tables: Today's timetable (time, subject, class/section).
+        Recent homework submissions.
+Quick links: Mark attendance, Enter marks, Add homework.
+Widget: "My Students" — quick list of classes I teach.
+
+### Role 4: PARENT
+Stats: My children count,
+       total fees due (sum across all children),
+       next exam date (nearest upcoming exam).
+Per-child cards: each child gets a card showing:
+  name, class, today's attendance status,
+  latest result, fee status.
+Quick links: Pay fees, View attendance, View results.
+Notification feed: recent notifications for my children.
+
+### Role 5: STUDENT
+Stats: Attendance % this month,
+       pending homework count, upcoming exams count,
+       library books issued.
+Today widget: Today's timetable.
+Homework widget: Due today / this week.
+Quick links: Take online exam, Submit homework,
+             View results, Library.
+Notification feed: recent notices + events.
+
+### Role 6: ACCOUNTANT
+Stats: Fees collected today (PKR), 
+       fees collected this month (PKR),
+       due fees total (PKR), 
+       pending bank transfers count.
+Tables: Recent fee collections (last 10).
+        Due fees by class (top 5 classes).
+        Recent expenses.
+Quick links: Collect fee, Add expense, 
+             Payroll, Reports.
+Chart widget: Monthly collection trend (6 months bar).
+
+### Role 7: LIBRARIAN
+Stats: Total books, books issued today,
+       overdue books count, 
+       fines collected this month.
+Tables: Books due for return this week.
+        Today's issues and returns.
+Quick links: Issue book, Return book, Add book.
+Search widget: Quick book search bar.
+
+### Role 8: TRANSPORT_MANAGER
+Stats: Total vehicles, routes, 
+       students using transport,
+       maintenance alerts.
+Tables: Today's route status.
+        Students per route.
+Quick links: Manage routes, Assign student, 
+             Add vehicle.
+Map placeholder widget: "GPS tracking coming soon."
+
+### Role 9: HOSTEL_WARDEN
+Stats: Total rooms, occupied beds, 
+       available beds, 
+       pending gate passes.
+Tables: Students checked out today (gate passes).
+        Pending gate pass approvals.
+        Room occupancy summary.
+Quick links: New allocation, Approve gate pass,
+             Room status.
+
+### Role 10: NURSE / HEALTH_OFFICER
+Stats: Students with medical notes count,
+       clinic visits today, 
+       students on medication count.
+Tables: Recent clinic visits (if health log exists — 
+        stub if not yet built).
+        Students with known allergies/conditions.
+Quick links: Log clinic visit (stub),
+             View medical records.
+Note: Health module detail = Phase 5.
+
+### Role 11: COUNSELOR
+Stats: Active counseling cases,
+       behavior incidents this month,
+       pending follow-ups.
+Tables: Recent behavior incidents.
+        Students flagged for follow-up.
+Quick links: Log incident, View student profile,
+             Schedule session.
+Note: Behavior/counseling module detail = Phase 5.
+
+### Role 12: CAFETERIA_MANAGER
+Stats: Wallet balance transactions today,
+       menu items active, 
+       low stock items count.
+Tables: Recent transactions.
+        Low stock inventory items (cafeteria store).
+Quick links: Manage menu (stub), 
+             View transactions, 
+             Manage inventory.
+Note: Cafeteria POS detail = Phase 5.
+
+### Role 13: RECEPTIONIST / FRONT_OFFICE
+Stats: Visitors currently inside,
+       total visitors today,
+       new admission inquiries this week.
+Tables: Current visitors (checked in).
+        Recent admission inquiries.
+Quick links: Log visitor, Check out visitor,
+             New admission inquiry.
+
+### Dashboard Resolver Implementation
+In the Dashboard.php page of tenant panel:
+
+public function getWidgets(): array
+{
+    $role = auth()->user()->active_role 
+            ?? auth()->user()->roles->first()?->name;
+    
+    return match($role) {
+        'SCHOOL_ADMIN' => [/* admin widgets */],
+        'CAMPUS_OWNER' => [/* campus owner widgets */],
+        'TEACHER'      => [/* teacher widgets */],
+        'PARENT'       => [/* parent widgets */],
+        'STUDENT'      => [/* student widgets */],
+        'ACCOUNTANT'   => [/* accountant widgets */],
+        'LIBRARIAN'    => [/* librarian widgets */],
+        'TRANSPORT_MANAGER' => [/* transport widgets */],
+        'HOSTEL_WARDEN'     => [/* hostel widgets */],
+        'NURSE'        => [/* nurse widgets */],
+        'COUNSELOR'    => [/* counselor widgets */],
+        'CAFETERIA_MANAGER' => [/* cafeteria widgets */],
+        'RECEPTIONIST' => [/* receptionist widgets */],
+        default        => [StatsOverviewWidget::class],
+    };
+}
+
+---
+
+## PART 9: PAYROLL MODULE (Full Implementation)
+
+### 9a. PayrollResource (tenant panel)
+Navigation group: "Staff & HR"
+Remove stub. Build fully.
+
+SalaryComponentResource:
+  CRUD for allowances and deductions.
+  name, component_type (allowance/deduction),
+  calculation_type (fixed/percentage), 
+  default_value (PKR), is_taxable, is_active.
+
+StaffPayrollResource:
+  Navigation label: "Payroll"
+  
+  LIST: staff name, month/year, basic salary PKR,
+        allowances PKR, deductions PKR, 
+        net salary PKR, status badge, paid_at.
+  FILTERS: month, year, status.
+  
+  "Generate Monthly Payroll" Header Action:
+    Modal: select month + year.
+    For each active staff member:
+      Creates payroll record with:
+        basic_salary from staff_profiles.basic_salary_paisas
+        working_days = working days in month (excluding weekends)
+        present_days = from staff attendance if available, 
+                       else = working_days
+        allowances = sum of active salary components 
+                     (type=allowance) for staff
+        deductions = sum of deductions
+        net_salary = basic + allowances - deductions
+        status = draft
+    Shows: "X payroll records created for {month}."
+  
+  "Process All" action: 
+    Changes all draft → processed for selected month/year.
+    Requires bypass_approvals OR approval if total 
+    payroll > configurable threshold.
+  
+  "Mark Paid" action (individual):
+    Sets status=paid, paid_at=now.
+  
+  "Download Payslip" (individual):
+    Generates PDF payslip via DomPDF:
+      School header, staff name + employee_id + designation,
+      month/year, basic salary, 
+      itemized allowances, itemized deductions,
+      net salary in PKR, signature lines.
+  
+  "Email Payslip" action:
+    Sends payslip PDF to staff email via Resend.
+  
+  "WhatsApp Payslip" action:
+    Sends notification via WhatsApp driver:
+    "Dear {name}, your payslip for {month} {year} is 
+     ready. Net salary: PKR {amount}. 
+     Login to view details: {url}"
+
+---
+
+## PART 10: EXPENSE TRACKING & BUDGET MODULE (Full)
+
+### 10a. ExpenseCategoryResource
+Navigation group: "Fees & Finance"
+Navigation label: "Expense Categories"
+Simple CRUD with parent_id for hierarchy (max 2 levels).
+
+### 10b. BudgetResource
+Navigation group: "Fees & Finance"
+Navigation label: "Budgets"
+
+LIST: academic_year, category, title, 
+      budgeted PKR, spent PKR, 
+      remaining PKR (budgeted - spent),
+      utilization % (spent/budgeted * 100),
+      color-coded: green < 70%, orange 70-90%, red > 90%.
+
+FORM: academic_year_id, category_id, title, 
+      budgeted_amount (PKR).
+      
+"Budget Overview" Header widget on list page:
+  Total budgeted this year (PKR),
+  Total spent (PKR), Remaining (PKR),
+  Over-budget items count.
+
+### 10c. ExpenseResource (Full)
+Navigation group: "Fees & Finance"
+Navigation label: "Expenses"
+
+LIST: date, title, category, amount PKR,
+      payment_method badge, 
+      approval_status badge,
+      recorded_by name.
+FILTERS: category, date range, payment_method, 
+         approval_status.
+
+FORM: category_id, budget_id (filtered to same category),
+      title, description, amount (PKR → paisas),
+      expense_date, payment_method, reference_number,
+      receipt_path (FileUpload).
+
+On save:
+  If amount > 50,000 PKR AND user lacks bypass_approvals:
+    Call ApprovalService::request('large_expense', ...)
+    Set approval_status = 'pending'
+    Show: "Expense submitted for approval (> PKR 50,000)"
+  Else:
+    approval_status = 'approved', update budget spent_amount.
+
+When approved via ApprovalService:
+  Update budget.spent_amount += expense.amount_paisas.
+  Fire notification to ACCOUNTANT role.
+
+---
+
+## PART 11: PUBLIC API FOUNDATION (Enterprise Tier)
+
+### 11a. API Routes Setup
+Create routes/api.php tenant-aware routes:
+  All routes under /api/v1/ prefix.
+  Middleware: tenant identification (subdomain) + 
+              api auth (Laravel Sanctum).
+
+### 11b. API Authentication
+Create migration (tenant DB): create_api_tokens_table
+  (Use Laravel Sanctum — it already handles this via 
+  personal_access_tokens table, just configure it 
+  for tenant context)
+
+  Create app/Http/Controllers/Api/V1/AuthController.php:
+    POST /api/v1/auth/login
+    POST /api/v1/auth/logout
+    POST /api/v1/auth/refresh
+
+### 11c. Core API Endpoints (stubs with correct structure)
+Create these controllers with proper responses 
+but stub data for now (full logic = Phase 6):
+
+  GET  /api/v1/students          → StudentController@index
+  GET  /api/v1/students/{id}     → StudentController@show
+  POST /api/v1/students          → StudentController@store
+  
+  GET  /api/v1/attendance        → AttendanceController@index
+  POST /api/v1/attendance        → AttendanceController@store
+  
+  GET  /api/v1/results           → ResultController@index
+  GET  /api/v1/fees/{studentId}  → FeeController@show
+  
+  GET  /api/v1/timetable         → TimetableController@index
+  GET  /api/v1/homework          → HomeworkController@index
+  GET  /api/v1/notices           → NoticeController@index
+
+Each controller returns JSON with structure:
+  { "success": true, "data": [...], 
+    "meta": { "page": 1, "total": X } }
+
+### 11d. API Access control in subscription plans
+Add api_access boolean to subscription_plans table.
+In api middleware: check tenant->plan->api_access.
+If false: return 403 with message 
+  "API access requires Enterprise plan."
+
+---
+
+## PART 12: ONLINE CLASSES — DEEPER INTEGRATION
+
+### 12a. Extend online_classes_table
+Migration: extend_online_classes_table
+Add:
+  actual_start_at timestamp nullable,
+  actual_end_at timestamp nullable,
+  attendance_required boolean default false,
+  quiz_enabled boolean default false,
+  max_participants unsignedInt nullable,
+  join_before_minutes tinyInt default 5
+
+create_online_class_attendance_table:
+  id (ulid), online_class_id ulid, student_id ulid,
+  joined_at timestamp nullable,
+  left_at timestamp nullable,
+  duration_minutes unsignedInt nullable,
+  status enum('present','absent','late') default 'absent',
+  timestamps
+  Unique: [online_class_id, student_id]
+
+create_online_class_quizzes_table:
+  id (ulid), online_class_id ulid,
+  title, questions json, 
+  duration_minutes tinyInt default 10,
+  is_active boolean default false,
+  timestamps
+
+### 12b. OnlineClassResource (full, replace stub)
+Navigation group: "Online Classes"
+
+LIST: title, class/section, teacher, 
+      platform badge, scheduled_at, 
+      duration, status badge.
+FILTERS: teacher, class, status, platform.
+
+FORM:
+  title, class_id, section_id, subject_id, 
+  teacher_id, platform_id,
+  meeting_url, meeting_id, passcode,
+  scheduled_at (DateTimePicker),
+  duration_minutes, attendance_required toggle,
+  notes, campus_id.
+
+"Start Class" action:
+  Sets status=live, actual_start_at=now.
+  Sends notification to all class students:
+    in_app + WhatsApp: "Your online class '{title}' 
+    has started. Join: {meeting_url}"
+
+"End Class" action:
+  Sets status=ended, actual_end_at=now.
+  If attendance_required: marks absent any student 
+  not in online_class_attendance.
+
+"View Attendance" action:
+  Shows online_class_attendance as a modal table.
+  Teacher can manually mark present/absent.
+
+PlatformSettingsResource:
+  CRUD for online_class_platforms.
+  Fields: name, platform_type (Select), config (KeyValue),
+  is_active toggle.
+  Config keys per platform:
+    zoom: api_key, api_secret, account_id
+    google_meet: oauth_token (placeholder)
+    jitsi: server_url (default: meet.jit.si)
+    bigbluebutton: server_url, secret_key
+    teams: tenant_id, client_id, client_secret
+
+// Add to TenantDefaultRolesSeeder in Phase 3:
+ATTENDANCE_CLERK (is_system=true):
+  Permissions: view_dashboard, mark_attendance, 
+               view_students, view_timetable, 
+               view_classes, send_sms, send_whatsapp,
+               view_reports (attendance only)
+---
+
+## CONSTRAINTS (all phases)
+- Tenant migrations: database/migrations/tenant/
+- Central migrations: database/migrations/
+- Money: paisas integers, never floats
+- ULIDs all PKs
+- Filament v5 syntax only
+- No hardcoded tenant_id in tenant models
+- File storage: storage/app/tenants/{tenant_id}/
+- Campus-aware: all new resources filter by campus 
+  when user role = CAMPUS_OWNER
+- All notification sends go through NotificationService
+  (never call SMS/WhatsApp drivers directly from resources)
+- Approval system: use ApprovalService for all 
+  actions defined in Part 2c
+
+---
+
+## DELIVERABLES
+1. New/modified files list only (grouped by Part)
+2. Test checklist:
+   ✓ Create a hostel building + room + allocate a student
+   ✓ Log a visitor, print badge
+   ✓ Create a role with custom permissions, assign to user
+   ✓ User with 2 roles sees role switcher in nav
+   ✓ Trigger an action requiring approval → 
+     appears in approval queue
+   ✓ Approve it → action executes
+   ✓ Notification bell shows unread count
+   ✓ Send manual notification to a class
+   ✓ Generate monthly payroll, download payslip
+   ✓ Create expense > 50,000 → goes to approval
+   ✓ Budget utilization shows red when > 90%
+   ✓ GET /api/v1/students returns JSON on Enterprise plan
+   ✓ GET /api/v1/students returns 403 on Starter plan
+   ✓ All 13 role dashboards render without errors
+   ✓ CAMPUS_OWNER sees only their campus data
+3. New .env keys (if any)
+4. Phase 4 scope recommendation
