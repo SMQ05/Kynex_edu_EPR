@@ -1,0 +1,22 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('staff_profiles', function (Blueprint $table) {
+            $table->string('personal_whatsapp', 15)->nullable()->after('emergency_contact_phone');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('staff_profiles', function (Blueprint $table) {
+            $table->dropColumn('personal_whatsapp');
+        });
+    }
+};

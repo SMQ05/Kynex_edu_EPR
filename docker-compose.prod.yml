@@ -1,0 +1,86 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: kynexedu-erp:prod
+    container_name: kynexedu-app
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    environment:
+      RUN_MIGRATIONS_AND_SEED: "true"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - kynexedu_storage:/var/www/html/storage
+    networks:
+      - kynex_kynex
+      - kynexedu_internal
+
+  queue:
+    image: kynexedu-erp:prod
+    container_name: kynexedu-queue
+    restart: unless-stopped
+    command: ["/usr/local/bin/start-queue"]
+    env_file:
+      - .env.production
+    environment:
+      RUN_MIGRATIONS_AND_SEED: "false"
+    depends_on:
+      db:
+        condition: service_healthy
+      app:
+        condition: service_started
+    volumes:
+      - kynexedu_storage:/var/www/html/storage
+    networks:
+      - kynexedu_internal
+
+  scheduler:
+    image: kynexedu-erp:prod
+    container_name: kynexedu-scheduler
+    restart: unless-stopped
+    command: ["/usr/local/bin/start-scheduler"]
+    env_file:
+      - .env.production
+    environment:
+      RUN_MIGRATIONS_AND_SEED: "false"
+    depends_on:
+      db:
+        condition: service_healthy
+      app:
+        condition: service_started
+    volumes:
+      - kynexedu_storage:/var/www/html/storage
+    networks:
+      - kynexedu_internal
+
+  db:
+    image: postgres:16-alpine
+    container_name: kynexedu-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: kynexedu_central
+      POSTGRES_USER: kynexedu
+      POSTGRES_PASSWORD: kynexedu_prod_2026!
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kynexedu -d kynexedu_central"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - kynexedu_db_data:/var/lib/postgresql/data
+    networks:
+      - kynexedu_internal
+
+volumes:
+  kynexedu_storage:
+  kynexedu_db_data:
+
+networks:
+  kynex_kynex:
+    external: true
+  kynexedu_internal:
+    driver: bridge

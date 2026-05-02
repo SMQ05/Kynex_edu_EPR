@@ -1,0 +1,4 @@
+;; PgBouncer user list — format: "username" "password-or-md5hash"
+;; Generate md5 hash: echo -n "md5$(echo -n 'passwordusername' | md5sum | cut -d' ' -f1)"
+;; Replace with your actual credentials before deploying.
+"kynexedu_app" "md5-hash-of-password-here"
