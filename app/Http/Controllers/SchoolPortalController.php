@@ -211,111 +211,102 @@ class SchoolPortalController extends Controller
             'password' => 'required|string',
         ]);
 
-        // We need to find which tenant this user belongs to
-        // Try to auth against school_users guard (tenant-scoped)
-        // The tenant context must be set by finding the right tenant DB
+        $host    = $request->getHost();
+        $central = config('tenancy.central_domains', []);
 
-        // Find all tenants where admin_email matches
-        $tenants = Tenant::where('admin_email', $credentials['email'])->get();
-
-        foreach ($tenants as $tenant) {
-            try {
-                tenancy()->initialize($tenant);
-
-                $user = SchoolUser::where('email', $credentials['email'])->first();
-
-                if ($user && Hash::check($credentials['password'], $user->password) && $user->is_active) {
-                    Auth::guard('school_users')->login($user, $request->boolean('remember'));
-
-                    $user->update(['last_login_at' => now()]);
-
-                    // Store tenant ID in session so middleware can initialize tenancy
-                    // when accessed via the central domain (e.g. 127.0.0.1 in local dev)
-                    $request->session()->put('tenant_id', $tenant->id);
-
-                    tenancy()->end();
-
-                    // Redirect to their school admin panel
-                    // Prefer the host the user logged in from when it's one of
-                    // this tenant's verified custom domains — keeps cookies on
-                    // the host the user already has a session on. Otherwise pick
-                    // any verified custom domain. Fall back to the central host.
-                    $currentHost = $request->getHost();
-                    $domain = $tenant->domains()
-                        ->where('domain_type', 'custom')
-                        ->where('is_verified', true)
-                        ->where('domain', $currentHost)
-                        ->first()
-                        ?? $tenant->domains()
-                            ->where('domain_type', 'custom')
-                            ->where('is_verified', true)
-                            ->first();
-                    $adminUrl = $domain ? 'https://'.$domain->domain.'/admin' : config('app.url').'/admin';
-
-                    return redirect()->away($adminUrl);
+        if (in_array($host, $central, true)) {
+            // Central host: any tenant is eligible. Try admin_email matches
+            // first (fast path), then fall back to scanning all tenants.
+            foreach (Tenant::where('admin_email', $credentials['email'])->get() as $tenant) {
+                if ($redirect = $this->attemptTenantLogin($request, $tenant, $credentials)) {
+                    return $redirect;
                 }
+            }
+            foreach (Tenant::all() as $tenant) {
+                if ($redirect = $this->attemptTenantLogin($request, $tenant, $credentials)) {
+                    return $redirect;
+                }
+            }
+        } else {
+            // Tenant host: only the tenant bound to this verified custom
+            // domain is eligible. Other tenants' users must not be able to
+            // log in here. The error response is identical to the central
+            // "no match" path so we don't leak whether the user exists in
+            // some other tenant.
+            $domain = \Stancl\Tenancy\Database\Models\Domain::where('domain', $host)
+                ->where('is_verified', true)
+                ->where('domain_type', 'custom')
+                ->first();
 
-                tenancy()->end();
-            } catch (\Exception $e) {
-                // Tenant database does not exist or is unreachable — skip it
-                Log::warning('Tenancy initialize failed for tenant during login', [
-                    'tenant_id' => $tenant->id,
-                    'error'     => $e->getMessage(),
-                ]);
-                tenancy()->end();
+            if ($domain && $tenant = Tenant::find($domain->tenant_id)) {
+                if ($redirect = $this->attemptTenantLogin($request, $tenant, $credentials)) {
+                    return $redirect;
+                }
             }
         }
 
-        // If not found as admin_email, search all tenants (for non-admin users)
-        $allTenants = Tenant::all();
-        foreach ($allTenants as $tenant) {
-            try {
-                tenancy()->initialize($tenant);
+        return back()
+            ->withErrors(['email' => 'These credentials do not match our records.'])
+            ->withInput(['email' => $credentials['email']]);
+    }
 
-                $user = SchoolUser::where('email', $credentials['email'])->first();
+    /**
+     * Attempt to authenticate the credentials against a specific tenant.
+     * Returns a RedirectResponse to the tenant admin URL on success, or
+     * null on failure (caller continues to the next candidate / error).
+     *
+     * Always restores the tenancy context to "none" before returning.
+     */
+    private function attemptTenantLogin(Request $request, Tenant $tenant, array $credentials): ?RedirectResponse
+    {
+        try {
+            tenancy()->initialize($tenant);
 
-                if ($user && Hash::check($credentials['password'], $user->password) && $user->is_active) {
-                    Auth::guard('school_users')->login($user, $request->boolean('remember'));
+            $user = SchoolUser::where('email', $credentials['email'])->first();
 
-                    $user->update(['last_login_at' => now()]);
+            if ($user && Hash::check($credentials['password'], $user->password) && $user->is_active) {
+                Auth::guard('school_users')->login($user, $request->boolean('remember'));
+                $user->update(['last_login_at' => now()]);
 
-                    // Store tenant ID in session so middleware can initialize tenancy
-                    // when accessed via the central domain (e.g. 127.0.0.1 in local dev)
-                    $request->session()->put('tenant_id', $tenant->id);
+                // Store tenant ID in session so middleware can initialize tenancy
+                // when accessed via the central domain (e.g. 127.0.0.1 in local dev)
+                $request->session()->put('tenant_id', $tenant->id);
 
-                    tenancy()->end();
+                tenancy()->end();
 
-                    // Prefer the host the user logged in from when it's one of
-                    // this tenant's verified custom domains — keeps cookies on
-                    // the host the user already has a session on. Otherwise pick
-                    // any verified custom domain. Fall back to the central host.
-                    $currentHost = $request->getHost();
-                    $domain = $tenant->domains()
+                // Redirect to the school admin panel. Prefer the host the user
+                // logged in from when it's one of this tenant's verified custom
+                // domains — keeps cookies on the host the user already has a
+                // session on. Otherwise pick any verified custom domain. Fall
+                // back to the central host.
+                $currentHost = $request->getHost();
+                $domain = $tenant->domains()
+                    ->where('domain_type', 'custom')
+                    ->where('is_verified', true)
+                    ->where('domain', $currentHost)
+                    ->first()
+                    ?? $tenant->domains()
                         ->where('domain_type', 'custom')
                         ->where('is_verified', true)
-                        ->where('domain', $currentHost)
-                        ->first()
-                        ?? $tenant->domains()
-                            ->where('domain_type', 'custom')
-                            ->where('is_verified', true)
-                            ->first();
-                    $adminUrl = $domain ? 'https://'.$domain->domain.'/admin' : config('app.url').'/admin';
+                        ->first();
+                $adminUrl = $domain ? 'https://'.$domain->domain.'/admin' : config('app.url').'/admin';
 
-                    return redirect()->away($adminUrl);
-                }
+                return redirect()->away($adminUrl);
+            }
 
-                tenancy()->end();
-            } catch (\Exception $e) {
-                // Tenant database does not exist or is unreachable — skip it
-                Log::warning('Tenancy initialize failed for tenant during login', [
-                    'tenant_id' => $tenant->id,
-                    'error'     => $e->getMessage(),
-                ]);
+            tenancy()->end();
+            return null;
+        } catch (\Exception $e) {
+            // Tenant database does not exist or is unreachable — skip it.
+            Log::warning('Tenancy initialize failed for tenant during login', [
+                'tenant_id' => $tenant->id,
+                'error'     => $e->getMessage(),
+            ]);
+            if (tenancy()->initialized) {
                 tenancy()->end();
             }
+            return null;
         }
-
-        return back()->withErrors(['email' => 'These credentials do not match our records.'])->withInput(['email' => $credentials['email']]);
     }
 
     public function logout(Request $request): RedirectResponse
