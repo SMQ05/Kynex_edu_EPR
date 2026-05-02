@@ -236,10 +236,11 @@ class SchoolPortalController extends Controller
                     tenancy()->end();
 
                     // Redirect to their school admin panel
-                    $domain = $tenant->domains()->first();
-                    $adminUrl = $domain
-                        ? 'https://'.$domain->domain.'/admin'
-                        : config('app.url').'/admin';
+                    $domain = $tenant->domains()
+                        ->where('domain_type', 'custom')
+                        ->where('is_verified', true)
+                        ->first();
+                    $adminUrl = $domain ? 'https://'.$domain->domain.'/admin' : config('app.url').'/admin';
 
                     return redirect()->away($adminUrl);
                 }
@@ -274,10 +275,11 @@ class SchoolPortalController extends Controller
 
                     tenancy()->end();
 
-                    $domain = $tenant->domains()->first();
-                    $adminUrl = $domain
-                        ? 'https://'.$domain->domain.'/admin'
-                        : config('app.url').'/admin';
+                    $domain = $tenant->domains()
+                        ->where('domain_type', 'custom')
+                        ->where('is_verified', true)
+                        ->first();
+                    $adminUrl = $domain ? 'https://'.$domain->domain.'/admin' : config('app.url').'/admin';
 
                     return redirect()->away($adminUrl);
                 }
