@@ -236,10 +236,20 @@ class SchoolPortalController extends Controller
                     tenancy()->end();
 
                     // Redirect to their school admin panel
+                    // Prefer the host the user logged in from when it's one of
+                    // this tenant's verified custom domains — keeps cookies on
+                    // the host the user already has a session on. Otherwise pick
+                    // any verified custom domain. Fall back to the central host.
+                    $currentHost = $request->getHost();
                     $domain = $tenant->domains()
                         ->where('domain_type', 'custom')
                         ->where('is_verified', true)
-                        ->first();
+                        ->where('domain', $currentHost)
+                        ->first()
+                        ?? $tenant->domains()
+                            ->where('domain_type', 'custom')
+                            ->where('is_verified', true)
+                            ->first();
                     $adminUrl = $domain ? 'https://'.$domain->domain.'/admin' : config('app.url').'/admin';
 
                     return redirect()->away($adminUrl);
@@ -275,10 +285,20 @@ class SchoolPortalController extends Controller
 
                     tenancy()->end();
 
+                    // Prefer the host the user logged in from when it's one of
+                    // this tenant's verified custom domains — keeps cookies on
+                    // the host the user already has a session on. Otherwise pick
+                    // any verified custom domain. Fall back to the central host.
+                    $currentHost = $request->getHost();
                     $domain = $tenant->domains()
                         ->where('domain_type', 'custom')
                         ->where('is_verified', true)
-                        ->first();
+                        ->where('domain', $currentHost)
+                        ->first()
+                        ?? $tenant->domains()
+                            ->where('domain_type', 'custom')
+                            ->where('is_verified', true)
+                            ->first();
                     $adminUrl = $domain ? 'https://'.$domain->domain.'/admin' : config('app.url').'/admin';
 
                     return redirect()->away($adminUrl);

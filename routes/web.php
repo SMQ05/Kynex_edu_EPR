@@ -4,6 +4,7 @@ use App\Http\Controllers\PayslipController;
 use App\Http\Controllers\PublicAdmissionController;
 use App\Http\Controllers\ResultCardController;
 use App\Http\Controllers\SchoolPortalController;
+use App\Http\Middleware\EnsureCentralHost;
 use App\Http\Middleware\InitializeTenancyBySubdomainOrDomain;
 use Illuminate\Support\Facades\Route;
 use Stancl\Tenancy\Database\Models\Domain;
@@ -64,17 +65,26 @@ Route::get('/admin/login', fn () => redirect()->route('school.login'))->name('ad
 
 // ─────────────────────────────────────────────────────────────────
 // Root `/` — host-aware landing.
-//   - Verified custom-domain host → tenant CMS home (Cms\PublicController@home).
-//   - Central host or unknown host → SaaS marketing landing (portal.landing).
-// Tenancy middleware runs ahead of the closure so tenancy()->initialized
-// reflects whether the host resolved to a tenant.
+//   - Central host                  → SaaS marketing landing (portal.landing).
+//     Checked first so a session-tenancy fallback on the central host
+//     (set after a tenant admin logs in) does NOT cause the central / to
+//     render the tenant CMS.
+//   - Verified custom-domain host   → tenant CMS home (Cms\PublicController@home).
+//   - Unknown / unverified host     → neutral 404 (errors.domain-not-configured).
+//     The SaaS landing must never appear on a non-central host.
 // ─────────────────────────────────────────────────────────────────
 Route::middleware([InitializeTenancyBySubdomainOrDomain::class])->group(function () {
     Route::get('/', function () {
+        $host = request()->getHost();
+        $central = config('tenancy.central_domains', []);
+
+        if (in_array($host, $central, true)) {
+            return view('portal.landing');
+        }
         if (tenancy()->initialized) {
             return app(\App\Http\Controllers\Cms\PublicController::class)->home();
         }
-        return view('portal.landing');
+        return response()->view('errors.domain-not-configured', [], 404);
     })->name('school.landing');
 });
 
@@ -84,9 +94,11 @@ Route::middleware([InitializeTenancyBySubdomainOrDomain::class])->group(function
 // reset password here. No SaaS admin login is shown here.
 // ─────────────────────────────────────────────────────────────────
 Route::name('school.')->group(function () {
-    // ── Self-registration ─────────────────────────────────────────
-    Route::get('/register', [SchoolPortalController::class, 'showRegister'])->name('register');
-    Route::post('/register', [SchoolPortalController::class, 'register'])->name('register.submit');
+    // ── Self-registration (central host only — SaaS-level concern) ──
+    Route::middleware(EnsureCentralHost::class)->group(function () {
+        Route::get('/register', [SchoolPortalController::class, 'showRegister'])->name('register');
+        Route::post('/register', [SchoolPortalController::class, 'register'])->name('register.submit');
+    });
 
     // Email verification (link in email)
     Route::get('/verify-email/{token}', [SchoolPortalController::class, 'verifyEmail'])->name('verify-email');
