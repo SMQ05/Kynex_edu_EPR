@@ -63,14 +63,27 @@ Route::middleware([InitializeTenancyBySubdomainOrDomain::class])->group(function
 Route::get('/admin/login', fn () => redirect()->route('school.login'))->name('admin.login.redirect');
 
 // ─────────────────────────────────────────────────────────────────
-// School Portal — Public landing page at edu.kynexsolutions.com
+// Root `/` — host-aware landing.
+//   - Verified custom-domain host → tenant CMS home (Cms\PublicController@home).
+//   - Central host or unknown host → SaaS marketing landing (portal.landing).
+// Tenancy middleware runs ahead of the closure so tenancy()->initialized
+// reflects whether the host resolved to a tenant.
+// ─────────────────────────────────────────────────────────────────
+Route::middleware([InitializeTenancyBySubdomainOrDomain::class])->group(function () {
+    Route::get('/', function () {
+        if (tenancy()->initialized) {
+            return app(\App\Http\Controllers\Cms\PublicController::class)->home();
+        }
+        return view('portal.landing');
+    })->name('school.landing');
+});
+
+// ─────────────────────────────────────────────────────────────────
+// School Portal — Public pages at the central host.
 // Schools self-register, verify email, set password, login, and
 // reset password here. No SaaS admin login is shown here.
 // ─────────────────────────────────────────────────────────────────
 Route::name('school.')->group(function () {
-    // Landing page
-    Route::get('/', [SchoolPortalController::class, 'landing'])->name('landing');
-
     // ── Self-registration ─────────────────────────────────────────
     Route::get('/register', [SchoolPortalController::class, 'showRegister'])->name('register');
     Route::post('/register', [SchoolPortalController::class, 'register'])->name('register.submit');
