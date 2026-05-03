@@ -33,9 +33,30 @@ class StudentProfile extends Page
 
     public Student $record;
 
-    public function mount(string|int $record): void
+    /**
+     * Custom resource pages need their own access gate. Without this, Filament
+     * falls through to Gate::check('view', $record) — which returns false when
+     * no StudentPolicy exists, producing a misleading 404. Delegate to the
+     * resource's read-permission check (view_students), same gate as the list.
+     */
+    public static function canAccess(array $parameters = []): bool
     {
-        $this->record = Student::with([
+        return StudentResource::canViewAny();
+    }
+
+    /**
+     * Filament v4 route-binds {record} to a Student model automatically. Accept
+     * the bound model and just hydrate the extra relations the view needs;
+     * never re-cast the model to a string and re-find it (that path stringifies
+     * the model to JSON and produces a misleading 404).
+     */
+    public function mount(Student|string|int $record): void
+    {
+        $student = $record instanceof Student
+            ? $record
+            : Student::query()->findOrFail($record);
+
+        $this->record = $student->load([
             'schoolClass',
             'section',
             'campus',
@@ -43,7 +64,7 @@ class StudentProfile extends Page
             'academicYear',
             'guardians',
             'schoolUser',
-        ])->findOrFail($record);
+        ]);
     }
 
     public function getTitle(): string

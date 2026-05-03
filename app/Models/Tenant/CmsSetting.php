@@ -18,12 +18,24 @@ class CmsSetting extends Model
         'primary_color', 'about_text',
         'principal_message', 'principal_name', 'principal_photo_path',
         'admission_open', 'admission_form_url',
+        // Extended (2026-05-01)
+        'vision_text', 'mission_text',
+        'why_choose_us', 'facilities', 'testimonials',
+        'stats', 'exam_highlights', 'admission_steps',
+        'hero_video_url', 'hero_image_path',
+        'about_image_path', 'address_map_iframe',
     ];
 
     protected function casts(): array
     {
         return [
-            'admission_open' => 'boolean',
+            'admission_open'  => 'boolean',
+            'why_choose_us'   => 'array',
+            'facilities'      => 'array',
+            'testimonials'    => 'array',
+            'stats'           => 'array',
+            'exam_highlights' => 'array',
+            'admission_steps' => 'array',
         ];
     }
 

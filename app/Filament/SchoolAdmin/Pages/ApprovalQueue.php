@@ -63,6 +63,142 @@ class ApprovalQueue extends Page implements HasTable
         return $count > 0 ? (string) $count : null;
     }
 
+    /**
+     * Header actions: bulk Approve All / Reject All for the current tenant queue.
+     * Available to anyone who can access the page (SCHOOL_ADMIN, INSTITUTE_HEAD,
+     * MULTI_INSTITUTE_HEAD per canAccess()).
+     */
+    protected function getHeaderActions(): array
+    {
+        return [
+            Action::make('approveAll')
+                ->label('Approve All Pending')
+                ->icon('heroicon-o-check-circle')
+                ->color('success')
+                ->requiresConfirmation()
+                ->modalHeading('Approve all pending requests?')
+                ->modalDescription(fn () => sprintf(
+                    'This will approve %d pending request(s) for this institute. The same note will be attached to each.',
+                    $this->pendingCount(),
+                ))
+                ->modalSubmitActionLabel('Approve all')
+                ->visible(fn (): bool => $this->pendingCount() > 0)
+                ->form([
+                    Components\Textarea::make('admin_note')
+                        ->label('Reason / note for bulk approval')
+                        ->required()
+                        ->rows(3),
+                ])
+                ->action(function (array $data): void {
+                    $reviewer = auth()->guard('school_users')->user();
+                    if (! $reviewer) {
+                        Notification::make()->title('No active session')->danger()->send();
+                        return;
+                    }
+
+                    $service = app(ApprovalService::class);
+                    $tenantId = tenancy()->initialized ? tenant()->id : null;
+
+                    $pending = ApprovalRequest::query()
+                        ->where('status', ApprovalStatus::Pending)
+                        ->when($tenantId, fn ($q) => $q->where('tenant_id', $tenantId))
+                        ->get();
+
+                    $approved = 0;
+                    $failed = 0;
+
+                    foreach ($pending as $request) {
+                        try {
+                            $service->approve(
+                                request: $request,
+                                reviewer: $reviewer,
+                                adminNote: $data['admin_note'],
+                            );
+                            $approved++;
+                        } catch (\Throwable $e) {
+                            $failed++;
+                            \Illuminate\Support\Facades\Log::warning('Bulk approveAll: failed for request', [
+                                'request_id' => $request->id,
+                                'error' => $e->getMessage(),
+                            ]);
+                        }
+                    }
+
+                    Notification::make()
+                        ->title($approved . ' request(s) approved')
+                        ->body($failed > 0 ? $failed . ' could not be approved (see logs)' : null)
+                        ->success()
+                        ->send();
+                }),
+
+            Action::make('rejectAll')
+                ->label('Reject All Pending')
+                ->icon('heroicon-o-x-circle')
+                ->color('danger')
+                ->requiresConfirmation()
+                ->modalHeading('Reject all pending requests?')
+                ->modalDescription(fn () => sprintf(
+                    'This will reject %d pending request(s) for this institute. The same note will be attached to each.',
+                    $this->pendingCount(),
+                ))
+                ->modalSubmitActionLabel('Reject all')
+                ->visible(fn (): bool => $this->pendingCount() > 0)
+                ->form([
+                    Components\Textarea::make('admin_note')
+                        ->label('Reason for bulk rejection')
+                        ->required()
+                        ->rows(3),
+                ])
+                ->action(function (array $data): void {
+                    $reviewer = auth()->guard('school_users')->user();
+                    if (! $reviewer) {
+                        Notification::make()->title('No active session')->danger()->send();
+                        return;
+                    }
+
+                    $service = app(ApprovalService::class);
+                    $tenantId = tenancy()->initialized ? tenant()->id : null;
+
+                    $pending = ApprovalRequest::query()
+                        ->where('status', ApprovalStatus::Pending)
+                        ->when($tenantId, fn ($q) => $q->where('tenant_id', $tenantId))
+                        ->get();
+
+                    $rejected = 0;
+                    foreach ($pending as $request) {
+                        try {
+                            $service->reject(
+                                request: $request,
+                                reviewer: $reviewer,
+                                adminNote: $data['admin_note'],
+                            );
+                            $rejected++;
+                        } catch (\Throwable $e) {
+                            \Illuminate\Support\Facades\Log::warning('Bulk rejectAll: failed for request', [
+                                'request_id' => $request->id,
+                                'error' => $e->getMessage(),
+                            ]);
+                        }
+                    }
+
+                    Notification::make()
+                        ->title($rejected . ' request(s) rejected')
+                        ->danger()
+                        ->send();
+                }),
+        ];
+    }
+
+    private function pendingCount(): int
+    {
+        $tenantId = tenancy()->initialized ? tenant()->id : null;
+
+        return ApprovalRequest::query()
+            ->where('status', ApprovalStatus::Pending)
+            ->when($tenantId, fn ($q) => $q->where('tenant_id', $tenantId))
+            ->count();
+    }
+
     public function table(Table $table): Table
     {
         return $table
@@ -86,12 +222,19 @@ class ApprovalQueue extends Page implements HasTable
 
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
-                    ->color(fn (ApprovalStatus $state): string => match ($state) {
-                        ApprovalStatus::Pending   => 'warning',
-                        ApprovalStatus::Approved  => 'success',
-                        ApprovalStatus::Rejected  => 'danger',
-                        ApprovalStatus::Cancelled => 'gray',
+                    ->color(function ($state): string {
+                        $value = $state instanceof ApprovalStatus ? $state->value : (string) $state;
+                        return match ($value) {
+                            'pending'   => 'warning',
+                            'approved'  => 'success',
+                            'rejected'  => 'danger',
+                            'cancelled' => 'gray',
+                            default     => 'gray',
+                        };
                     })
+                    ->formatStateUsing(fn ($state): string => $state instanceof ApprovalStatus
+                        ? ucfirst($state->value)
+                        : ucfirst((string) $state))
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('expires_at')

@@ -24,11 +24,13 @@ class StudentFee extends Model
         'fee_type_id',
         'academic_year_id',
         'due_date',
+        'month',
         'amount_paisas',
         'discount_paisas',
         'fine_paisas',
         'paid_paisas',
         'status',
+        'remarks',
     ];
 
     /** @return array<string, string> */
@@ -95,5 +97,16 @@ class StudentFee extends Model
     public function scopeUnpaid($query)
     {
         return $query->whereIn('status', [StudentFeeStatus::Pending, StudentFeeStatus::Partial]);
+    }
+
+    /**
+     * Return the status as a plain string regardless of whether the
+     * cast resolved it to an enum instance or it's still a raw column
+     * value. Useful in Blade and array/enum-aware comparisons.
+     */
+    public function status_value(): string
+    {
+        $status = $this->getAttribute('status');
+        return $status instanceof \BackedEnum ? $status->value : (string) $status;
     }
 }

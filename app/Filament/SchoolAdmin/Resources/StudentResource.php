@@ -74,18 +74,7 @@ class StudentResource extends Resource
                         ->preload()
                         ->required(),
 
-                    Components\Select::make('campus_id')
-                        ->label('Campus')
-                        ->relationship('campus', 'name')
-                        ->searchable()
-                        ->preload()
-                        ->default(fn () => static::scopedCampusId())
-                        // Locked to the admin's own campus unless they are
-                        // institute-level or SaaS-level — those roles can
-                        // place a student at any campus.
-                        ->disabled(fn () => static::scopedCampusId() !== null && ! static::canChooseAnyCampus())
-                        ->dehydrated(true)
-                        ->required(fn () => static::scopedCampusId() !== null),
+                    \App\Support\CampusField::make(required: true),
 
                     Components\Select::make('class_id')
                         ->label('Class')
@@ -195,6 +184,78 @@ class StudentResource extends Resource
                         ->label('Medical Notes')
                         ->rows(2)
                         ->nullable(),
+                ]),
+
+            Section::make('Parents / Guardians')
+                ->description('At least one contact is required. The email is used to send the parent portal invitation. Add up to two — typically father and mother, or a single guardian.')
+                ->schema([
+                    Components\Repeater::make('guardians')
+                        ->relationship('guardians')
+                        ->minItems(1)
+                        ->maxItems(2)
+                        ->defaultItems(1)
+                        ->itemLabel(function (array $state): ?string {
+                            $name = $state['name'] ?? null;
+                            if (! $name) return 'New contact';
+                            $type = $state['guardian_type'] ?? 'guardian';
+                            // guardian_type may arrive as an enum instance
+                            // (when hydrating an existing row) or a string
+                            // (when the user picks an option in the form).
+                            if ($type instanceof \BackedEnum) $type = $type->value;
+                            return trim(ucfirst((string) $type) . ' — ' . $name);
+                        })
+                        ->columns(2)
+                        ->reorderable(false)
+                        ->addActionLabel('Add another contact (max 2)')
+                        ->schema([
+                            Components\Select::make('guardian_type')
+                                ->label('Relationship type')
+                                ->options(\App\Enums\GuardianType::class)
+                                ->default(\App\Enums\GuardianType::Father)
+                                ->required(),
+
+                            Components\TextInput::make('name')
+                                ->required()
+                                ->maxLength(255),
+
+                            Components\TextInput::make('email')
+                                ->label('Email (parent portal login)')
+                                ->email()
+                                ->maxLength(255)
+                                ->helperText('Used to send the parent-portal set-password link.')
+                                ->nullable(),
+
+                            Components\TextInput::make('phone')
+                                ->tel()
+                                ->required()
+                                ->placeholder('e.g. 03xx-xxxxxxx')
+                                ->maxLength(20),
+
+                            Components\TextInput::make('whatsapp')
+                                ->label('WhatsApp number (optional)')
+                                ->tel()
+                                ->maxLength(20)
+                                ->nullable(),
+
+                            Components\TextInput::make('occupation')
+                                ->maxLength(100)
+                                ->nullable(),
+
+                            Components\TextInput::make('cnic')
+                                ->label('CNIC / National ID')
+                                ->maxLength(20)
+                                ->nullable(),
+
+                            Components\Toggle::make('is_primary_contact')
+                                ->label('Primary contact')
+                                ->default(true)
+                                ->helperText('All school messages go to the primary first.'),
+
+                            Components\Toggle::make('can_access_portal')
+                                ->label('Can access parent portal')
+                                ->default(true)
+                                ->helperText('Toggle off if this contact is informational only.'),
+                        ]),
                 ]),
         ]);
     }

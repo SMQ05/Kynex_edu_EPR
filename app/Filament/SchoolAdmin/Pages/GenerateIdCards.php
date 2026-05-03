@@ -18,8 +18,9 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
-use Illuminate\Support\Facades\Storage;
 use Filament\Actions\BulkAction;
+use Illuminate\Support\Collection;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class GenerateIdCards extends Page implements HasForms, HasTable
 {
@@ -85,31 +86,47 @@ class GenerateIdCards extends Page implements HasForms, HasTable
             ])
             ->bulkActions([
                 BulkAction::make('generate_id_cards')
-                    ->label('Generate ID Cards')
+                    ->label('Generate & Download')
                     ->icon('heroicon-o-identification')
                     ->requiresConfirmation()
+                    ->modalHeading('Generate ID cards and download')
+                    ->modalDescription('A PDF card will be generated per selected student. Multiple students will be bundled into a single ZIP archive.')
                     ->deselectRecordsAfterCompletion()
-                    ->action(function ($records) {
+                    ->action(function (Collection $records) {
                         if (! $this->template_id) {
                             Notification::make()
                                 ->title('Please select an ID card template first')
                                 ->danger()
                                 ->send();
-                            return;
+                            return null;
+                        }
+
+                        if ($records->isEmpty()) {
+                            Notification::make()
+                                ->title('No students selected')
+                                ->warning()
+                                ->send();
+                            return null;
                         }
 
                         $template = IdCardTemplate::findOrFail($this->template_id);
-                        $service = app(CertificateService::class);
+                        $service  = app(CertificateService::class);
 
-                        $filename = $service->generateBulkStudentIdCards($template, $records);
+                        if ($records->count() === 1) {
+                            $built = $service->buildStudentIdCardPdf($template, $records->first());
+                            return $this->streamBytes($built['bytes'], $built['filename'], 'application/pdf');
+                        }
+
+                        $items = $records->map(fn (Student $s) => $service->buildStudentIdCardPdf($template, $s));
+                        $zipName = 'student-id-cards-' . now()->format('Ymd-His');
+                        $bundle  = $service->bundleAsZip(collect($items), $zipName);
 
                         Notification::make()
                             ->title("Generated ID cards for {$records->count()} students")
-                            ->body('Download will start shortly.')
                             ->success()
                             ->send();
 
-                        return Storage::disk('tenant')->download($filename, 'student-id-cards.pdf');
+                        return $this->streamBytes($bundle['bytes'], $bundle['filename'], 'application/zip');
                     }),
             ]);
     }
@@ -122,5 +139,16 @@ class GenerateIdCards extends Page implements HasForms, HasTable
     public static function getNavigationLabel(): string
     {
         return 'Generate ID Cards';
+    }
+
+    private function streamBytes(string $bytes, string $filename, string $mime): StreamedResponse
+    {
+        return response()->streamDownload(
+            function () use ($bytes) {
+                echo $bytes;
+            },
+            $filename,
+            ['Content-Type' => $mime, 'Content-Length' => (string) strlen($bytes)],
+        );
     }
 }

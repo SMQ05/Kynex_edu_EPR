@@ -63,10 +63,7 @@ class HealthRecordResource extends Resource
                     ->required()
                     ->default(now()),
 
-                Select::make('campus_id')
-                    ->relationship('campus', 'name')
-                    ->searchable()
-                    ->preload(),
+                \App\Support\CampusField::make(required: false),
 
                 Textarea::make('description')
                     ->rows(3)

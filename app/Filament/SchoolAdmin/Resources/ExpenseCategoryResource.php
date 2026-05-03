@@ -27,7 +27,7 @@ class ExpenseCategoryResource extends Resource
 
     protected static string | \BackedEnum | null $navigationIcon = 'heroicon-o-tag';
 
-    protected static string | \UnitEnum | null $navigationGroup = 'Fees & Finance';
+    protected static string | \UnitEnum | null $navigationGroup = 'Finance';
 
     protected static ?string $navigationLabel = 'Expense Categories';
 

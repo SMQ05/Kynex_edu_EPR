@@ -1,138 +1,114 @@
 @extends('cms.layout')
 
-@section('title', 'Admissions - ' . ($settings->school_name ?? 'School'))
+@section('title', 'Admissions — ' . ($settings->school_name ?? 'School'))
 
 @section('content')
-
-    {{-- Page Header --}}
-    <div class="bg-gradient-to-r from-primary to-blue-800 text-white py-16">
-        <div class="max-w-7xl mx-auto px-4 text-center">
-            <h1 class="text-4xl font-bold mb-2">Admissions</h1>
-            <p class="text-lg text-white/80">Join our family of learners</p>
-        </div>
+{{-- Hero --}}
+<section class="bg-gradient-to-r from-primary to-blue-700 text-white py-16">
+    <div class="max-w-7xl mx-auto px-6 text-center">
+        <h1 class="text-4xl md:text-5xl font-bold">Admissions</h1>
+        <p class="mt-3 text-lg text-white/85">Begin your child's journey at {{ $settings->school_name ?? 'our school' }}.</p>
+        <nav class="mt-4 text-sm text-white/70">
+            <a href="{{ $siteBase ?: '/' }}" class="hover:underline">Home</a>
+            <span class="mx-2">/</span>
+            <span>Admissions</span>
+        </nav>
     </div>
+</section>
 
-    {{-- Breadcrumb --}}
-    <div class="bg-gray-50 border-b">
-        <div class="max-w-7xl mx-auto px-4 py-3">
-            <nav class="text-sm text-gray-500">
-                <a href="/" class="hover:text-primary">Home</a>
-                <span class="mx-2">/</span>
-                <span class="text-gray-800">Admissions</span>
-            </nav>
-        </div>
-    </div>
-
-    {{-- Admission Status Banner --}}
-    @if($settings->admission_open)
-        <div class="bg-green-50 border-b border-green-200">
-            <div class="max-w-7xl mx-auto px-4 py-6 text-center">
-                <div class="inline-flex items-center gap-2 bg-green-100 text-green-800 px-4 py-2 rounded-full text-sm font-semibold mb-3">
-                    <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+{{-- Status banner --}}
+<section class="py-12">
+    <div class="max-w-5xl mx-auto px-6">
+        @if ($settings->admission_open ?? false)
+            <div class="rounded-2xl bg-emerald-50 border-2 border-emerald-200 p-8 text-center">
+                <div class="inline-flex items-center gap-2 bg-emerald-100 text-emerald-800 px-4 py-2 rounded-full text-sm font-semibold mb-4">
+                    <span class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
                     Admissions Open
                 </div>
-                <h2 class="text-2xl font-bold text-gray-900 mb-2">We are accepting applications!</h2>
-                <p class="text-gray-600 mb-4">Apply now for the upcoming academic session.</p>
-                @if($settings->admission_form_url)
-                    <a href="{{ $settings->admission_form_url }}"
-                       target="_blank"
-                       class="inline-block bg-green-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-green-700 transition">
+                <h2 class="text-2xl md:text-3xl font-bold text-gray-900">We are accepting applications</h2>
+                <p class="mt-2 text-gray-600 max-w-2xl mx-auto">Apply online today — fill the form, upload documents, and we'll get back to you with the next steps.</p>
+                <div class="mt-6 flex flex-wrap justify-center gap-3">
+                    <a href="{{ $applyBase }}" class="bg-emerald-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-emerald-700 transition">
                         Apply Online →
                     </a>
-                @endif
+                    @if ($settings->admission_form_url)
+                        <a href="{{ $settings->admission_form_url }}" target="_blank"
+                           class="border-2 border-emerald-600 text-emerald-700 px-6 py-3 rounded-lg font-semibold hover:bg-emerald-50">
+                            Use External Form ↗
+                        </a>
+                    @endif
+                </div>
             </div>
-        </div>
-    @else
-        <div class="bg-gray-50 border-b">
-            <div class="max-w-7xl mx-auto px-4 py-6 text-center">
-                <div class="inline-flex items-center gap-2 bg-gray-200 text-gray-600 px-4 py-2 rounded-full text-sm font-semibold mb-3">
+        @else
+            <div class="rounded-2xl bg-gray-100 p-8 text-center">
+                <div class="inline-flex items-center gap-2 bg-gray-200 text-gray-700 px-4 py-2 rounded-full text-sm font-semibold mb-4">
                     Admissions Closed
                 </div>
-                <p class="text-gray-600">Admissions for the current session are currently closed. Please check back later or contact us for more information.</p>
+                <h2 class="text-2xl font-bold text-gray-900">Applications are not currently open</h2>
+                <p class="mt-2 text-gray-600">Please check back later or contact us for the next admission cycle.</p>
+                <a href="{{ $siteBase }}/contact" class="mt-4 inline-block bg-primary text-white px-6 py-2 rounded-lg font-semibold hover:opacity-90">Contact us</a>
             </div>
-        </div>
-    @endif
+        @endif
+    </div>
+</section>
 
-    {{-- Admission Process --}}
-    <section class="py-16">
-        <div class="max-w-7xl mx-auto px-4">
+{{-- Admission process steps --}}
+@php $steps = is_array($settings->admission_steps ?? null) ? $settings->admission_steps : []; @endphp
+@if (! empty($steps))
+    <section class="py-16 bg-white">
+        <div class="max-w-5xl mx-auto px-6">
             <div class="text-center mb-12">
-                <h2 class="text-3xl font-bold text-gray-900 mb-2">Admission Process</h2>
-                <div class="w-16 h-1 bg-primary mx-auto mb-4"></div>
-                <p class="text-gray-600 max-w-2xl mx-auto">Follow these simple steps to enrol your child at our school.</p>
+                <div class="text-sm uppercase tracking-widest text-primary font-semibold">How it works</div>
+                <h2 class="mt-1 text-3xl font-bold text-gray-900">The admission process</h2>
             </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
-                <div class="text-center">
-                    <div class="w-16 h-16 rounded-full bg-primary text-white flex items-center justify-center text-2xl font-bold mx-auto mb-4">1</div>
-                    <h3 class="font-bold text-gray-900 mb-2">Enquiry</h3>
-                    <p class="text-sm text-gray-600">Visit the school or call us to learn about programs and fee structure.</p>
-                </div>
-                <div class="text-center">
-                    <div class="w-16 h-16 rounded-full bg-primary text-white flex items-center justify-center text-2xl font-bold mx-auto mb-4">2</div>
-                    <h3 class="font-bold text-gray-900 mb-2">Application</h3>
-                    <p class="text-sm text-gray-600">Fill out the admission form online or collect it from the office.</p>
-                </div>
-                <div class="text-center">
-                    <div class="w-16 h-16 rounded-full bg-primary text-white flex items-center justify-center text-2xl font-bold mx-auto mb-4">3</div>
-                    <h3 class="font-bold text-gray-900 mb-2">Assessment</h3>
-                    <p class="text-sm text-gray-600">Students undergo a basic assessment and interview process.</p>
-                </div>
-                <div class="text-center">
-                    <div class="w-16 h-16 rounded-full bg-primary text-white flex items-center justify-center text-2xl font-bold mx-auto mb-4">4</div>
-                    <h3 class="font-bold text-gray-900 mb-2">Enrolment</h3>
-                    <p class="text-sm text-gray-600">Submit required documents, pay the fee, and welcome aboard!</p>
-                </div>
-            </div>
+            <ol class="relative space-y-6">
+                @foreach ($steps as $i => $step)
+                    <li class="flex gap-4">
+                        <div class="flex-shrink-0 w-12 h-12 rounded-full bg-primary text-white flex items-center justify-center font-bold text-lg shadow-lg">
+                            {{ $i + 1 }}
+                        </div>
+                        <div class="flex-1">
+                            <h3 class="font-semibold text-lg text-gray-900">{{ $step['title'] ?? '—' }}</h3>
+                            <p class="mt-1 text-gray-600">{{ $step['description'] ?? '' }}</p>
+                        </div>
+                    </li>
+                @endforeach
+            </ol>
         </div>
     </section>
+@endif
 
-    {{-- Required Documents --}}
+{{-- Why choose us re-iteration --}}
+@php $reasons = is_array($settings->why_choose_us ?? null) ? array_slice($settings->why_choose_us, 0, 3) : []; @endphp
+@if (! empty($reasons))
     <section class="py-16 bg-gray-50">
-        <div class="max-w-7xl mx-auto px-4">
+        <div class="max-w-7xl mx-auto px-6">
             <div class="text-center mb-12">
-                <h2 class="text-3xl font-bold text-gray-900 mb-2">Required Documents</h2>
-                <div class="w-16 h-1 bg-primary mx-auto"></div>
+                <h2 class="text-3xl font-bold text-gray-900">Why choose {{ $settings->school_name ?? 'us' }}?</h2>
             </div>
-            <div class="max-w-3xl mx-auto">
-                <div class="bg-white rounded-xl shadow-sm p-8">
-                    <ul class="space-y-4">
-                        @foreach([
-                            'Birth Certificate (original & copy)',
-                            'Previous School Leaving Certificate / Transfer Certificate',
-                            'Recent passport-size photographs (4)',
-                            'Parent / Guardian CNIC copies',
-                            'Previous academic reports / report cards',
-                            'Immunization / Vaccination record',
-                            'Domicile Certificate (if applicable)',
-                        ] as $doc)
-                            <li class="flex items-start gap-3">
-                                <svg class="w-5 h-5 text-primary shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                                <span class="text-gray-700">{{ $doc }}</span>
-                            </li>
-                        @endforeach
-                    </ul>
-                </div>
+            <div class="grid md:grid-cols-3 gap-6">
+                @foreach ($reasons as $r)
+                    <div class="rounded-xl bg-white p-6 shadow-sm">
+                        <h3 class="font-semibold text-lg text-gray-900">⭐ {{ $r['title'] ?? '—' }}</h3>
+                        <p class="mt-2 text-sm text-gray-600">{{ $r['description'] ?? '' }}</p>
+                    </div>
+                @endforeach
             </div>
         </div>
     </section>
+@endif
 
-    {{-- Contact CTA --}}
-    <section class="py-16">
-        <div class="max-w-4xl mx-auto px-4 text-center">
-            <h2 class="text-3xl font-bold text-gray-900 mb-4">Have Questions?</h2>
-            <p class="text-gray-600 mb-8 text-lg">Our admissions team is ready to help you with any queries.</p>
-            <div class="flex flex-wrap justify-center gap-4">
-                <a href="/contact" class="bg-primary text-white px-8 py-3 rounded-lg font-semibold hover:opacity-90 transition">
-                    Contact Admissions Office
-                </a>
-                @if($settings->phone)
-                    <a href="tel:{{ $settings->phone }}" class="border-2 border-primary text-primary px-8 py-3 rounded-lg font-semibold hover:bg-primary hover:text-white transition">
-                        Call {{ $settings->phone }}
-                    </a>
-                @endif
-            </div>
+{{-- CTA --}}
+<section class="py-16 bg-primary text-white">
+    <div class="max-w-4xl mx-auto px-6 text-center">
+        <h2 class="text-2xl md:text-3xl font-bold">Have a question?</h2>
+        <p class="mt-2 text-white/85">Reach out to our admissions office and we'll be happy to help.</p>
+        <div class="mt-6 flex flex-wrap justify-center gap-3">
+            <a href="{{ $siteBase }}/contact" class="bg-white text-primary px-6 py-3 rounded-lg font-semibold hover:bg-gray-100">Contact admissions</a>
+            @if ($settings->admission_open ?? false)
+                <a href="{{ $applyBase }}" class="border-2 border-white text-white px-6 py-3 rounded-lg font-semibold hover:bg-white hover:text-primary transition">Apply Now</a>
+            @endif
         </div>
-    </section>
-
+    </div>
+</section>
 @endsection

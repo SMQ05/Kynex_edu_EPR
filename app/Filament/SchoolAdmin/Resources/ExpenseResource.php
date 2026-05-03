@@ -34,7 +34,7 @@ class ExpenseResource extends Resource
 
     protected static string | \BackedEnum | null $navigationIcon = 'heroicon-o-banknotes';
 
-    protected static string | \UnitEnum | null $navigationGroup = 'Fees & Finance';
+    protected static string | \UnitEnum | null $navigationGroup = 'Finance';
 
     protected static ?string $navigationLabel = 'Expenses';
 
@@ -80,14 +80,14 @@ class ExpenseResource extends Resource
                         TextInput::make('amount_pkr')
                             ->label('Amount (PKR)')
                             ->numeric()
+                            ->minValue(0.01)
+                            ->step('0.01')
                             ->required()
                             ->prefix('PKR')
-                            ->dehydrateStateUsing(fn ($state) => (int) (($state ?? 0) * 100))
-                            ->formatStateUsing(fn ($state, $record) => $record ? $record->amount_paisas / 100 : 0)
-                            ->dehydrated(false)
+                            ->helperText('Enter the rupee amount — will be stored as paisas internally.')
                             ->afterStateHydrated(function (TextInput $component, $record) {
                                 if ($record) {
-                                    $component->state($record->amount_paisas / 100);
+                                    $component->state(number_format($record->amount_paisas / 100, 2, '.', ''));
                                 }
                             }),
 
@@ -142,10 +142,17 @@ class ExpenseResource extends Resource
 
                 TextColumn::make('approval_status')
                     ->badge()
-                    ->color(fn (ExpenseApprovalStatus $state): string => match ($state) {
-                        ExpenseApprovalStatus::Approved => 'success',
-                        ExpenseApprovalStatus::Pending => 'warning',
-                        ExpenseApprovalStatus::Rejected => 'danger',
+                    ->formatStateUsing(fn ($state): string => ucfirst(
+                        $state instanceof \BackedEnum ? $state->value : (string) $state,
+                    ))
+                    ->color(function ($state): string {
+                        $v = $state instanceof \BackedEnum ? $state->value : (string) $state;
+                        return match ($v) {
+                            'approved' => 'success',
+                            'pending'  => 'warning',
+                            'rejected' => 'danger',
+                            default    => 'gray',
+                        };
                     })
                     ->sortable(),
 
@@ -179,6 +186,62 @@ class ExpenseResource extends Resource
                         return $query
                             ->when($data['from'] ?? null, fn (Builder $q, $date) => $q->whereDate('expense_date', '>=', $date))
                             ->when($data['until'] ?? null, fn (Builder $q, $date) => $q->whereDate('expense_date', '<=', $date));
+                    }),
+            ])
+            ->actions([
+                \Filament\Actions\EditAction::make(),
+
+                \Filament\Actions\Action::make('approve')
+                    ->label('Approve')
+                    ->icon('heroicon-o-check-circle')
+                    ->color('success')
+                    ->visible(function ($record): bool {
+                        $u = auth('school_users')->user() ?? auth()->user();
+                        if (! $u) return false;
+                        $role = (string) ($u->active_role ?? $u->roles?->first()?->name ?? '');
+                        return in_array($role, ['INSTITUTE_HEAD', 'MULTI_INSTITUTE_HEAD'], true)
+                            && (($record->approval_status instanceof \BackedEnum ? $record->approval_status->value : (string) $record->approval_status) === 'pending');
+                    })
+                    ->requiresConfirmation()
+                    ->modalDescription('Approve this expense and reflect it in finance reports?')
+                    ->action(function ($record) {
+                        $u = auth('school_users')->user() ?? auth()->user();
+                        $record->update([
+                            'approval_status' => \App\Enums\ExpenseApprovalStatus::Approved->value,
+                            'approved_by'     => $u?->id,
+                        ]);
+                        if ($record->budget_id) {
+                            if ($budget = \App\Models\Tenant\Budget::find($record->budget_id)) {
+                                $budget->increment('spent_amount_paisas', $record->amount_paisas);
+                            }
+                        }
+                        \Filament\Notifications\Notification::make()
+                            ->title('Expense approved')->success()->send();
+                    }),
+
+                \Filament\Actions\Action::make('reject')
+                    ->label('Reject')
+                    ->icon('heroicon-o-x-circle')
+                    ->color('danger')
+                    ->visible(function ($record): bool {
+                        $u = auth('school_users')->user() ?? auth()->user();
+                        if (! $u) return false;
+                        $role = (string) ($u->active_role ?? $u->roles?->first()?->name ?? '');
+                        return in_array($role, ['INSTITUTE_HEAD', 'MULTI_INSTITUTE_HEAD'], true)
+                            && (($record->approval_status instanceof \BackedEnum ? $record->approval_status->value : (string) $record->approval_status) === 'pending');
+                    })
+                    ->requiresConfirmation()
+                    ->form([
+                        \Filament\Forms\Components\Textarea::make('reason')
+                            ->required()->minLength(5)->rows(2)
+                            ->label('Reason for rejection'),
+                    ])
+                    ->action(function ($record, array $data) {
+                        $record->update([
+                            'approval_status' => \App\Enums\ExpenseApprovalStatus::Rejected->value,
+                        ]);
+                        \Filament\Notifications\Notification::make()
+                            ->title('Expense rejected')->danger()->send();
                     }),
             ]);
     }

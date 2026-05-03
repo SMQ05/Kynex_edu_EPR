@@ -23,7 +23,15 @@ class FeeGroupResource extends Resource
 
     protected static string | \BackedEnum | null $navigationIcon = 'heroicon-o-rectangle-stack';
 
-    protected static string | \UnitEnum | null $navigationGroup = 'Fees & Finance';
+    protected static string | \UnitEnum | null $navigationGroup = 'Fees';
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        // Fee Groups + Fee Types are now managed under "Fee Catalog".
+        // Keep the resource accessible via direct URL for power users
+        // but hide from the sidebar to keep the nav user-friendly.
+        return false;
+    }
 
     protected static ?int $navigationSort = 1;
 

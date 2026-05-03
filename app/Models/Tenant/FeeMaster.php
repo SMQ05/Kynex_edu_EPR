@@ -19,10 +19,12 @@ class FeeMaster extends Model
 
     protected $fillable = [
         'class_id',
+        'section_id',
         'fee_type_id',
         'academic_year_id',
         'amount_paisas',
         'due_day',
+        'is_active',
     ];
 
     /** @return array<string, string> */
@@ -31,6 +33,7 @@ class FeeMaster extends Model
         return [
             'amount_paisas' => 'integer',
             'due_day' => 'integer',
+            'is_active' => 'boolean',
         ];
     }
 
@@ -39,6 +42,11 @@ class FeeMaster extends Model
     public function schoolClass(): BelongsTo
     {
         return $this->belongsTo(SchoolClass::class, 'class_id');
+    }
+
+    public function section(): BelongsTo
+    {
+        return $this->belongsTo(Section::class, 'section_id');
     }
 
     public function feeType(): BelongsTo

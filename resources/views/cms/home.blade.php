@@ -1,277 +1,277 @@
 @extends('cms.layout')
 
-@section('title', ($settings->school_name ?? 'School') . ' - Welcome')
+@section('title', $settings->school_name ?? 'Welcome')
 
 @section('content')
-
-    {{-- Hero Slider --}}
-    @if($sliders->count())
-        <div id="hero-slider" class="relative overflow-hidden bg-gray-900" style="height: 520px;">
-            @foreach($sliders as $index => $slider)
-                <div class="slide absolute inset-0 transition-opacity duration-700 {{ $index === 0 ? 'opacity-100' : 'opacity-0' }}"
-                     data-index="{{ $index }}">
-                    @if($slider->image_path)
-                        <img src="{{ asset('storage/' . $slider->image_path) }}"
-                             alt="{{ $slider->title }}"
-                             class="w-full h-full object-cover">
-                    @endif
-                    <div class="absolute inset-0 bg-black/50"></div>
-                    <div class="absolute inset-0 flex items-center justify-center text-center px-4">
-                        <div class="max-w-3xl">
-                            @if($slider->title)
-                                <h1 class="text-4xl md:text-5xl font-bold text-white mb-4 drop-shadow-lg">{{ $slider->title }}</h1>
-                            @endif
-                            @if($slider->subtitle)
-                                <p class="text-lg md:text-xl text-gray-200 mb-6">{{ $slider->subtitle }}</p>
-                            @endif
-                            @if($slider->button_text && $slider->button_url)
-                                <a href="{{ $slider->button_url }}"
-                                   class="inline-block bg-primary text-white px-8 py-3 rounded-lg font-semibold hover:opacity-90 transition text-lg">
-                                    {{ $slider->button_text }}
-                                </a>
-                            @endif
-                        </div>
+{{-- ── HERO ────────────────────────────────────────────────── --}}
+<section class="relative overflow-hidden">
+    @if ($sliders && $sliders->isNotEmpty())
+        <div x-data="{ idx: 0, max: {{ $sliders->count() }} }"
+             x-init="setInterval(() => idx = (idx + 1) % max, 6000)"
+             class="relative h-[480px] md:h-[600px]">
+            @foreach ($sliders as $i => $slide)
+                <div x-show="idx === {{ $i }}" x-transition.opacity.duration.700ms
+                     class="absolute inset-0 bg-cover bg-center" style="background-image: url('{{ asset('storage/' . $slide->image_path) }}');">
+                    <div class="absolute inset-0 bg-gradient-to-r from-black/70 via-black/40 to-transparent"></div>
+                    <div class="relative h-full max-w-7xl mx-auto px-6 flex flex-col justify-center text-white">
+                        <h1 class="text-3xl md:text-5xl font-bold leading-tight max-w-2xl">{{ $slide->title }}</h1>
+                        @if ($slide->subtitle)
+                            <p class="mt-4 text-lg md:text-xl text-white/90 max-w-2xl">{{ $slide->subtitle }}</p>
+                        @endif
+                        @if ($slide->button_text)
+                            <a href="{{ $slide->button_url ?: $applyBase }}"
+                               class="mt-6 inline-block bg-white text-primary font-semibold px-7 py-3 rounded-lg hover:bg-gray-100 transition w-fit">
+                                {{ $slide->button_text }}
+                            </a>
+                        @endif
                     </div>
                 </div>
             @endforeach
-
-            @if($sliders->count() > 1)
-                <button onclick="changeSlide(-1)"
-                        class="absolute left-4 top-1/2 -translate-y-1/2 bg-white/20 hover:bg-white/40 text-white p-3 rounded-full transition z-10">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
-                </button>
-                <button onclick="changeSlide(1)"
-                        class="absolute right-4 top-1/2 -translate-y-1/2 bg-white/20 hover:bg-white/40 text-white p-3 rounded-full transition z-10">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-                </button>
-
-                <div class="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-10">
-                    @foreach($sliders as $index => $slider)
-                        <button onclick="goToSlide({{ $index }})"
-                                class="slider-dot w-3 h-3 rounded-full transition {{ $index === 0 ? 'bg-white' : 'bg-white/50' }}"
-                                data-index="{{ $index }}"></button>
+            @if ($sliders->count() > 1)
+                <div class="absolute bottom-6 left-0 right-0 flex justify-center gap-2 z-10">
+                    @foreach ($sliders as $i => $_)
+                        <button type="button" @click="idx = {{ $i }}"
+                                class="h-2 rounded-full transition-all"
+                                :class="idx === {{ $i }} ? 'w-8 bg-white' : 'w-2 bg-white/50'"></button>
                     @endforeach
                 </div>
             @endif
         </div>
     @else
-        {{-- Default Hero when no sliders --}}
-        <div class="bg-gradient-to-r from-primary to-blue-800 text-white py-24">
-            <div class="max-w-7xl mx-auto px-4 text-center">
-                <h1 class="text-4xl md:text-5xl font-bold mb-4">{{ $settings->school_name ?? 'Welcome to Our School' }}</h1>
-                <p class="text-xl text-gray-200 mb-8">{{ $settings->tagline ?? 'Excellence in Education' }}</p>
-                @if($settings->admission_open)
-                    <a href="/admissions" class="inline-block bg-white text-primary px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition text-lg">
-                        Apply for Admission
-                    </a>
-                @endif
-            </div>
-        </div>
-    @endif
-
-    {{-- Admission Banner --}}
-    @if($settings->admission_open)
-        <div class="bg-yellow-50 border-b border-yellow-200">
-            <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
-                <div class="flex items-center gap-2">
-                    <span class="flex h-3 w-3">
-                        <span class="animate-ping absolute inline-flex h-3 w-3 rounded-full bg-yellow-400 opacity-75"></span>
-                        <span class="relative inline-flex rounded-full h-3 w-3 bg-yellow-500"></span>
-                    </span>
-                    <span class="font-semibold text-yellow-800">🎓 Admissions are now open!</span>
-                </div>
-                <a href="/admissions" class="bg-yellow-500 text-white px-4 py-1.5 rounded font-medium text-sm hover:bg-yellow-600 transition">
-                    Learn More →
-                </a>
-            </div>
-        </div>
-    @endif
-
-    {{-- Announcements Ticker --}}
-    @if($announcements->count())
-        <div class="bg-primary/5 border-b">
-            <div class="max-w-7xl mx-auto px-4 py-3 flex items-center gap-4">
-                <span class="bg-primary text-white text-xs font-bold px-3 py-1 rounded shrink-0 uppercase tracking-wide">Latest</span>
-                <div class="overflow-hidden flex-1">
-                    <div class="announcement-ticker flex whitespace-nowrap">
-                        @foreach($announcements as $announcement)
-                            <span class="inline-block px-8 text-gray-700">
-                                📢 {{ $announcement->title }}
-                                @if($announcement->published_at)
-                                    <span class="text-gray-400 text-sm ml-2">{{ $announcement->published_at->diffForHumans() }}</span>
-                                @endif
-                            </span>
-                        @endforeach
-                    </div>
-                </div>
-            </div>
-        </div>
-    @endif
-
-    {{-- About Section --}}
-    @if($settings->about_text)
-        <section class="py-16">
-            <div class="max-w-7xl mx-auto px-4">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
-                    <div>
-                        <h2 class="text-3xl font-bold text-gray-900 mb-2">About Our School</h2>
-                        <div class="w-16 h-1 bg-primary mb-6"></div>
-                        <div class="text-gray-600 leading-relaxed prose prose-sm max-w-none">
-                            {!! Str::limit(strip_tags($settings->about_text), 500) !!}
-                        </div>
-                        <a href="/about" class="inline-block mt-6 text-primary font-semibold hover:underline">
-                            Read More →
-                        </a>
-                    </div>
-                    @if($settings->principal_photo_path || $settings->principal_name)
-                        <div class="bg-gray-50 rounded-2xl p-8 text-center">
-                            @if($settings->principal_photo_path)
-                                <img src="{{ asset('storage/' . $settings->principal_photo_path) }}"
-                                     alt="{{ $settings->principal_name }}"
-                                     class="w-40 h-40 rounded-full mx-auto mb-4 object-cover shadow-lg border-4 border-white">
-                            @else
-                                <div class="w-40 h-40 rounded-full mx-auto mb-4 bg-primary/10 flex items-center justify-center">
-                                    <svg class="w-20 h-20 text-primary/30" fill="currentColor" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
-                                </div>
-                            @endif
-                            <h3 class="text-lg font-bold text-gray-900">{{ $settings->principal_name ?? 'Principal' }}</h3>
-                            <p class="text-sm text-primary font-medium mb-4">Principal</p>
-                            @if($settings->principal_message)
-                                <blockquote class="text-gray-600 text-sm italic leading-relaxed">
-                                    "{{ Str::limit(strip_tags($settings->principal_message), 250) }}"
-                                </blockquote>
-                            @endif
-                        </div>
+        <div class="h-[420px] md:h-[520px] bg-cover bg-center"
+             @if ($settings->hero_image_path)
+                style="background-image: url('{{ asset('storage/' . $settings->hero_image_path) }}');"
+             @else
+                style="background: linear-gradient(135deg, var(--primary, #1e3a8a) 0%, #0f172a 100%);"
+             @endif
+        >
+            <div class="absolute inset-0 bg-gradient-to-r from-black/70 via-black/40 to-transparent"></div>
+            <div class="relative h-full max-w-7xl mx-auto px-6 flex flex-col justify-center text-white">
+                <h1 class="text-3xl md:text-5xl font-bold leading-tight max-w-2xl">{{ $settings->school_name ?? 'Welcome to our school' }}</h1>
+                <p class="mt-4 text-lg md:text-xl text-white/90 max-w-2xl">{{ $settings->tagline ?? 'Excellence in education and character building' }}</p>
+                <div class="mt-6 flex flex-wrap gap-3">
+                    @if ($settings->admission_open ?? false)
+                        <a href="{{ $applyBase }}" class="bg-white text-primary font-semibold px-7 py-3 rounded-lg hover:bg-gray-100 transition">Apply for Admission</a>
                     @endif
-                </div>
-            </div>
-        </section>
-    @endif
-
-    {{-- Quick Stats --}}
-    <section class="bg-primary text-white py-12">
-        <div class="max-w-7xl mx-auto px-4">
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
-                <div>
-                    <div class="text-4xl font-bold mb-1">20+</div>
-                    <div class="text-white/80 text-sm">Years of Excellence</div>
-                </div>
-                <div>
-                    <div class="text-4xl font-bold mb-1">1000+</div>
-                    <div class="text-white/80 text-sm">Students Enrolled</div>
-                </div>
-                <div>
-                    <div class="text-4xl font-bold mb-1">50+</div>
-                    <div class="text-white/80 text-sm">Qualified Teachers</div>
-                </div>
-                <div>
-                    <div class="text-4xl font-bold mb-1">95%</div>
-                    <div class="text-white/80 text-sm">Pass Rate</div>
+                    <a href="{{ $siteBase }}/about" class="bg-transparent border-2 border-white text-white font-semibold px-7 py-3 rounded-lg hover:bg-white hover:text-primary transition">Learn More</a>
                 </div>
             </div>
         </div>
-    </section>
-
-    {{-- Latest News --}}
-    @if($announcements->count())
-        <section class="py-16 bg-gray-50">
-            <div class="max-w-7xl mx-auto px-4">
-                <div class="text-center mb-10">
-                    <h2 class="text-3xl font-bold text-gray-900 mb-2">Latest News & Announcements</h2>
-                    <div class="w-16 h-1 bg-primary mx-auto"></div>
-                </div>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    @foreach($announcements->take(3) as $news)
-                        <div class="bg-white rounded-xl shadow-sm hover:shadow-md transition overflow-hidden">
-                            <div class="bg-primary/5 px-6 py-3 border-b">
-                                <span class="text-xs text-primary font-semibold uppercase tracking-wide">
-                                    {{ $news->published_at ? $news->published_at->format('M d, Y') : 'Announcement' }}
-                                </span>
-                            </div>
-                            <div class="p-6">
-                                <h3 class="text-lg font-bold text-gray-900 mb-2">{{ $news->title }}</h3>
-                                <p class="text-gray-600 text-sm leading-relaxed">{{ Str::limit(strip_tags($news->content), 120) }}</p>
-                                <a href="/news" class="inline-block mt-4 text-primary text-sm font-semibold hover:underline">Read More →</a>
-                            </div>
-                        </div>
-                    @endforeach
-                </div>
-                <div class="text-center mt-8">
-                    <a href="/news" class="inline-block border-2 border-primary text-primary px-6 py-2 rounded-lg font-semibold hover:bg-primary hover:text-white transition">
-                        View All News
-                    </a>
-                </div>
-            </div>
-        </section>
     @endif
+</section>
 
-    {{-- CTA Section --}}
-    <section class="py-16">
-        <div class="max-w-4xl mx-auto px-4 text-center">
-            <h2 class="text-3xl font-bold text-gray-900 mb-4">Ready to Join Our School?</h2>
-            <p class="text-gray-600 mb-8 text-lg">Give your child the best education. Contact us today to learn more about our programs and admission process.</p>
-            <div class="flex flex-wrap justify-center gap-4">
-                <a href="/contact" class="bg-primary text-white px-8 py-3 rounded-lg font-semibold hover:opacity-90 transition text-lg">
-                    Contact Us
-                </a>
-                @if($settings->admission_open)
-                    <a href="/admissions" class="border-2 border-primary text-primary px-8 py-3 rounded-lg font-semibold hover:bg-primary hover:text-white transition text-lg">
-                        Apply Now
-                    </a>
+{{-- ── ADMISSION RIBBON ─────────────────────────────────────── --}}
+@if ($settings->admission_open ?? false)
+    <section class="bg-yellow-400 text-yellow-900">
+        <div class="max-w-7xl mx-auto px-6 py-3 flex flex-wrap items-center justify-between gap-3">
+            <div class="font-medium">📣 Admissions are <strong>open</strong> — applications are being accepted now.</div>
+            <a href="{{ $applyBase }}" class="bg-yellow-900 text-white px-5 py-1.5 rounded font-semibold text-sm hover:bg-yellow-950 transition">Apply Online →</a>
+        </div>
+    </section>
+@endif
+
+{{-- ── STATS ───────────────────────────────────────────────── --}}
+@php $stats = is_array($settings->stats ?? null) ? $settings->stats : []; @endphp
+@if (! empty($stats))
+    <section class="bg-white py-12">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="grid grid-cols-2 md:grid-cols-{{ min(4, count($stats)) }} gap-6 text-center">
+                @foreach ($stats as $stat)
+                    <div class="rounded-xl bg-gray-50 p-6 hover:shadow-lg transition">
+                        <div class="text-3xl md:text-4xl font-bold text-primary">{{ $stat['value'] ?? '—' }}</div>
+                        <div class="text-sm text-gray-600 mt-1">{{ $stat['label'] ?? '' }}</div>
+                    </div>
+                @endforeach
+            </div>
+        </div>
+    </section>
+@endif
+
+{{-- ── WHY CHOOSE US ───────────────────────────────────────── --}}
+@php $reasons = is_array($settings->why_choose_us ?? null) ? $settings->why_choose_us : []; @endphp
+@if (! empty($reasons))
+    <section class="py-16 bg-gray-50">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="text-center mb-12">
+                <h2 class="text-3xl font-bold text-gray-900">Why choose {{ $settings->school_name ?? 'us' }}?</h2>
+                <div class="mt-3 mx-auto h-1 w-16 bg-primary rounded"></div>
+            </div>
+            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                @foreach ($reasons as $r)
+                    <div class="rounded-xl bg-white p-6 shadow-sm hover:shadow-xl transition border border-gray-100">
+                        <div class="w-12 h-12 rounded-lg bg-primary/10 text-primary flex items-center justify-center mb-4 text-2xl">
+                            ⭐
+                        </div>
+                        <h3 class="font-semibold text-lg text-gray-900">{{ $r['title'] ?? '—' }}</h3>
+                        <p class="mt-2 text-sm text-gray-600 leading-relaxed">{{ $r['description'] ?? '' }}</p>
+                    </div>
+                @endforeach
+            </div>
+        </div>
+    </section>
+@endif
+
+{{-- ── ABOUT + PRINCIPAL ───────────────────────────────────── --}}
+@if (filled($settings->about_text) || filled($settings->principal_message))
+    <section class="py-16 bg-white">
+        <div class="max-w-7xl mx-auto px-6 grid md:grid-cols-2 gap-12 items-center">
+            <div>
+                @if ($settings->about_image_path)
+                    <img src="{{ asset('storage/' . $settings->about_image_path) }}" alt="About" class="rounded-xl w-full h-80 object-cover shadow-lg">
+                @elseif ($settings->logo_path)
+                    <div class="bg-gray-100 rounded-xl h-80 flex items-center justify-center">
+                        <img src="{{ asset('storage/' . $settings->logo_path) }}" alt="Logo" class="max-h-48">
+                    </div>
                 @endif
             </div>
+            <div>
+                <div class="text-sm uppercase tracking-widest text-primary font-semibold">About us</div>
+                <h2 class="mt-2 text-3xl font-bold text-gray-900">{{ $settings->school_name ?? 'Our School' }}</h2>
+                <div class="mt-4 prose prose-sm text-gray-600 max-w-none">{!! $settings->about_text ?? '' !!}</div>
+                <a href="{{ $siteBase }}/about" class="mt-6 inline-block text-primary font-semibold hover:underline">Read more →</a>
+            </div>
         </div>
     </section>
+@endif
 
+{{-- ── PRINCIPAL'S MESSAGE ─────────────────────────────────── --}}
+@if (filled($settings->principal_message))
+    <section class="py-16 bg-gray-50">
+        <div class="max-w-5xl mx-auto px-6">
+            <div class="rounded-2xl bg-white p-8 md:p-12 shadow-md grid md:grid-cols-3 gap-8">
+                <div class="md:col-span-1 text-center">
+                    @if ($settings->principal_photo_path)
+                        <img src="{{ asset('storage/' . $settings->principal_photo_path) }}" alt="Principal"
+                             class="w-40 h-40 rounded-full object-cover mx-auto shadow-lg">
+                    @else
+                        <div class="w-40 h-40 rounded-full bg-primary/10 mx-auto"></div>
+                    @endif
+                    <div class="mt-3 font-semibold text-gray-900">{{ $settings->principal_name ?? 'Principal' }}</div>
+                    <div class="text-xs text-gray-500 uppercase tracking-wide">Principal's Message</div>
+                </div>
+                <div class="md:col-span-2 prose prose-sm text-gray-700 max-w-none">
+                    <span class="text-primary text-4xl leading-none">"</span>
+                    {!! $settings->principal_message !!}
+                </div>
+            </div>
+        </div>
+    </section>
+@endif
+
+{{-- ── FACILITIES ──────────────────────────────────────────── --}}
+@php $facilities = is_array($settings->facilities ?? null) ? $settings->facilities : []; @endphp
+@if (! empty($facilities))
+    <section class="py-16 bg-white">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="text-center mb-12">
+                <h2 class="text-3xl font-bold text-gray-900">Our facilities</h2>
+                <div class="mt-3 mx-auto h-1 w-16 bg-primary rounded"></div>
+            </div>
+            <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                @foreach ($facilities as $f)
+                    <div class="rounded-xl overflow-hidden border border-gray-100 bg-white shadow-sm hover:shadow-xl transition">
+                        @if (! empty($f['image_path']))
+                            <img src="{{ asset('storage/' . $f['image_path']) }}" alt="{{ $f['name'] ?? '' }}" class="w-full h-44 object-cover">
+                        @else
+                            <div class="h-44 bg-gradient-to-br from-primary/20 to-primary/5"></div>
+                        @endif
+                        <div class="p-5">
+                            <h3 class="font-semibold text-gray-900">{{ $f['name'] ?? '—' }}</h3>
+                            <p class="mt-1 text-sm text-gray-600">{{ $f['description'] ?? '' }}</p>
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+        </div>
+    </section>
+@endif
+
+{{-- ── EXAM HIGHLIGHTS ──────────────────────────────────────── --}}
+@php $exams = is_array($settings->exam_highlights ?? null) ? $settings->exam_highlights : []; @endphp
+@if (! empty($exams))
+    <section class="py-12 bg-primary text-white">
+        <div class="max-w-7xl mx-auto px-6">
+            <h2 class="text-2xl font-bold text-center">Recent results</h2>
+            <div class="mt-8 grid md:grid-cols-{{ min(3, count($exams)) }} gap-4">
+                @foreach ($exams as $e)
+                    <div class="rounded-xl bg-white/10 backdrop-blur p-6 text-center">
+                        <div class="text-sm uppercase tracking-widest text-white/70">{{ $e['exam'] ?? '' }}</div>
+                        <div class="mt-2 text-2xl font-bold">{{ $e['result'] ?? '' }}</div>
+                    </div>
+                @endforeach
+            </div>
+        </div>
+    </section>
+@endif
+
+{{-- ── TESTIMONIALS ─────────────────────────────────────────── --}}
+@php $testimonials = is_array($settings->testimonials ?? null) ? $settings->testimonials : []; @endphp
+@if (! empty($testimonials))
+    <section class="py-16 bg-gray-50">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="text-center mb-12">
+                <h2 class="text-3xl font-bold text-gray-900">What people say</h2>
+                <div class="mt-3 mx-auto h-1 w-16 bg-primary rounded"></div>
+            </div>
+            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                @foreach ($testimonials as $t)
+                    <div class="rounded-xl bg-white p-6 shadow-sm hover:shadow-xl transition">
+                        <div class="text-primary text-4xl leading-none">"</div>
+                        <p class="mt-1 text-gray-700 leading-relaxed">{{ $t['quote'] ?? '' }}</p>
+                        <div class="mt-4 flex items-center gap-3">
+                            @if (! empty($t['photo_path']))
+                                <img src="{{ asset('storage/' . $t['photo_path']) }}" class="w-10 h-10 rounded-full object-cover">
+                            @else
+                                <div class="w-10 h-10 rounded-full bg-primary/10"></div>
+                            @endif
+                            <div>
+                                <div class="font-semibold text-gray-900 text-sm">{{ $t['author'] ?? '' }}</div>
+                                <div class="text-xs text-gray-500">{{ $t['role'] ?? '' }}</div>
+                            </div>
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+        </div>
+    </section>
+@endif
+
+{{-- ── LATEST ANNOUNCEMENTS ────────────────────────────────── --}}
+@if ($announcements && $announcements->isNotEmpty())
+    <section class="py-16 bg-white">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="flex items-end justify-between mb-8">
+                <div>
+                    <h2 class="text-3xl font-bold text-gray-900">Latest news</h2>
+                    <div class="mt-3 h-1 w-16 bg-primary rounded"></div>
+                </div>
+                <a href="{{ $siteBase }}/news" class="text-primary font-semibold hover:underline">View all →</a>
+            </div>
+            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                @foreach ($announcements as $a)
+                    <article class="rounded-xl border border-gray-100 bg-white p-6 hover:shadow-lg transition">
+                        <div class="text-xs text-primary font-semibold">{{ optional($a->published_at)->format('d M Y') ?: optional($a->created_at)->format('d M Y') }}</div>
+                        <h3 class="mt-2 text-lg font-semibold text-gray-900 line-clamp-2">{{ $a->title }}</h3>
+                        <p class="mt-2 text-sm text-gray-600 line-clamp-3">{{ \Illuminate\Support\Str::limit(strip_tags($a->content), 120) }}</p>
+                        <a href="{{ $siteBase }}/news" class="mt-3 inline-block text-primary text-sm font-semibold">Read more →</a>
+                    </article>
+                @endforeach
+            </div>
+        </div>
+    </section>
+@endif
+
+{{-- ── CTA ─────────────────────────────────────────────────── --}}
+<section class="py-16 bg-gradient-to-r from-primary to-blue-700 text-white">
+    <div class="max-w-4xl mx-auto px-6 text-center">
+        <h2 class="text-3xl md:text-4xl font-bold">Ready to join us?</h2>
+        <p class="mt-3 text-white/90 text-lg">Get in touch to learn more about our programs, or apply online today.</p>
+        <div class="mt-8 flex flex-wrap justify-center gap-4">
+            @if ($settings->admission_open ?? false)
+                <a href="{{ $applyBase }}" class="bg-white text-primary font-semibold px-7 py-3 rounded-lg hover:bg-gray-100 transition">Apply Online</a>
+            @endif
+            <a href="{{ $siteBase }}/contact" class="border-2 border-white text-white font-semibold px-7 py-3 rounded-lg hover:bg-white hover:text-primary transition">Contact Us</a>
+        </div>
+    </div>
+</section>
 @endsection
-
-@push('styles')
-<style>
-    .announcement-ticker {
-        animation: ticker 20s linear infinite;
-    }
-    .announcement-ticker:hover {
-        animation-play-state: paused;
-    }
-    @keyframes ticker {
-        0% { transform: translateX(100%); }
-        100% { transform: translateX(-100%); }
-    }
-</style>
-@endpush
-
-@push('scripts')
-<script>
-    // Hero Slider
-    (function() {
-        const slides = document.querySelectorAll('.slide');
-        const dots = document.querySelectorAll('.slider-dot');
-        if (slides.length <= 1) return;
-
-        let current = 0;
-        let interval = setInterval(next, 5000);
-
-        function next() { changeSlide(1); }
-
-        window.changeSlide = function(dir) {
-            slides[current].classList.replace('opacity-100', 'opacity-0');
-            dots[current]?.classList.replace('bg-white', 'bg-white/50');
-            current = (current + dir + slides.length) % slides.length;
-            slides[current].classList.replace('opacity-0', 'opacity-100');
-            dots[current]?.classList.replace('bg-white/50', 'bg-white');
-            clearInterval(interval);
-            interval = setInterval(next, 5000);
-        };
-
-        window.goToSlide = function(index) {
-            slides[current].classList.replace('opacity-100', 'opacity-0');
-            dots[current]?.classList.replace('bg-white', 'bg-white/50');
-            current = index;
-            slides[current].classList.replace('opacity-0', 'opacity-100');
-            dots[current]?.classList.replace('bg-white/50', 'bg-white');
-            clearInterval(interval);
-            interval = setInterval(next, 5000);
-        };
-    })();
-</script>
-@endpush

@@ -1,5 +1,15 @@
 <!DOCTYPE html>
 <html lang="en" class="scroll-smooth">
+@php
+    // Derive the URL prefix for this CMS site so internal links work
+    // both on the central /site/{tenant}/... path and on tenant
+    // subdomains where the prefix is empty.
+    $tenantId = function_exists('tenant') ? optional(tenant())->id : null;
+    $siteBase = $tenantId && \Illuminate\Support\Str::startsWith(request()->getPathInfo(), '/site/')
+        ? '/site/' . $tenantId
+        : '';
+    $applyBase = $siteBase ? $siteBase . '/apply' : '/apply';
+@endphp
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -18,6 +28,11 @@
             }
         }
     </script>
+    <style>:root { --primary: {{ $settings->primary_color ?? '#1a56db' }}; }</style>
+    {{-- Alpine.js (used by hero slider, mobile menu, etc.) --}}
+    <script defer src="https://unpkg.com/alpinejs@3.13.5/dist/cdn.min.js"></script>
+    {{-- Tailwind Typography plugin (for prose classes) --}}
+    <script src="https://unpkg.com/@tailwindcss/typography@0.5.10/dist/typography.min.js"></script>
     <style>
         [x-cloak] { display: none !important; }
     </style>
@@ -64,7 +79,7 @@
     <nav class="bg-white shadow-md sticky top-0 z-50">
         <div class="max-w-7xl mx-auto px-4">
             <div class="flex justify-between items-center h-16">
-                <a href="/" class="flex items-center gap-3">
+                <a href="{{ $siteBase ?: '/' }}" class="flex items-center gap-3">
                     @if($settings->logo_path)
                         <img src="{{ asset('storage/' . $settings->logo_path) }}" alt="{{ $settings->school_name }}" class="h-10 w-auto">
                     @endif
@@ -73,13 +88,14 @@
 
                 {{-- Desktop Nav --}}
                 <div class="hidden md:flex items-center gap-6">
-                    <a href="/" class="text-gray-700 hover:text-primary font-medium transition {{ request()->is('/') ? 'text-primary' : '' }}">Home</a>
-                    <a href="/about" class="text-gray-700 hover:text-primary font-medium transition {{ request()->is('about') ? 'text-primary' : '' }}">About</a>
-                    <a href="/admissions" class="text-gray-700 hover:text-primary font-medium transition {{ request()->is('admissions') ? 'text-primary' : '' }}">Admissions</a>
-                    <a href="/gallery" class="text-gray-700 hover:text-primary font-medium transition {{ request()->is('gallery') ? 'text-primary' : '' }}">Gallery</a>
-                    <a href="/news" class="text-gray-700 hover:text-primary font-medium transition {{ request()->is('news') ? 'text-primary' : '' }}">News</a>
-                    <a href="/results" class="text-gray-700 hover:text-primary font-medium transition {{ request()->is('results') ? 'text-primary' : '' }}">Results</a>
-                    <a href="/contact" class="text-gray-700 hover:text-primary font-medium transition {{ request()->is('contact') ? 'text-primary' : '' }}">Contact</a>
+                    <a href="{{ $siteBase ?: '/' }}" class="text-gray-700 hover:text-primary font-medium transition">Home</a>
+                    <a href="{{ $siteBase }}/about" class="text-gray-700 hover:text-primary font-medium transition">About</a>
+                    <a href="{{ $siteBase }}/admissions" class="text-gray-700 hover:text-primary font-medium transition">Admissions</a>
+                    <a href="{{ $siteBase }}/gallery" class="text-gray-700 hover:text-primary font-medium transition">Gallery</a>
+                    <a href="{{ $siteBase }}/news" class="text-gray-700 hover:text-primary font-medium transition">News</a>
+                    <a href="{{ $siteBase }}/results" class="text-gray-700 hover:text-primary font-medium transition">Results</a>
+                    <a href="{{ $siteBase }}/contact" class="text-gray-700 hover:text-primary font-medium transition">Contact</a>
+                    <a href="{{ $applyBase }}" class="bg-primary text-white px-4 py-2 rounded font-medium hover:opacity-90">Apply for Admission</a>
                 </div>
 
                 {{-- Mobile Menu Button --}}
@@ -92,13 +108,14 @@
         {{-- Mobile Nav --}}
         <div id="mobile-menu" class="hidden md:hidden bg-white border-t">
             <div class="px-4 py-3 space-y-2">
-                <a href="/" class="block py-2 text-gray-700 hover:text-primary">Home</a>
-                <a href="/about" class="block py-2 text-gray-700 hover:text-primary">About</a>
-                <a href="/admissions" class="block py-2 text-gray-700 hover:text-primary">Admissions</a>
-                <a href="/gallery" class="block py-2 text-gray-700 hover:text-primary">Gallery</a>
-                <a href="/news" class="block py-2 text-gray-700 hover:text-primary">News</a>
-                <a href="/results" class="block py-2 text-gray-700 hover:text-primary">Results</a>
-                <a href="/contact" class="block py-2 text-gray-700 hover:text-primary">Contact</a>
+                <a href="{{ $siteBase ?: '/' }}" class="block py-2 text-gray-700 hover:text-primary">Home</a>
+                <a href="{{ $siteBase }}/about" class="block py-2 text-gray-700 hover:text-primary">About</a>
+                <a href="{{ $siteBase }}/admissions" class="block py-2 text-gray-700 hover:text-primary">Admissions</a>
+                <a href="{{ $siteBase }}/gallery" class="block py-2 text-gray-700 hover:text-primary">Gallery</a>
+                <a href="{{ $siteBase }}/news" class="block py-2 text-gray-700 hover:text-primary">News</a>
+                <a href="{{ $siteBase }}/results" class="block py-2 text-gray-700 hover:text-primary">Results</a>
+                <a href="{{ $siteBase }}/contact" class="block py-2 text-gray-700 hover:text-primary">Contact</a>
+                <a href="{{ $applyBase }}" class="block py-2 font-semibold text-primary">Apply for Admission →</a>
             </div>
         </div>
     </nav>
@@ -131,10 +148,11 @@
                 <div>
                     <h4 class="text-white font-semibold mb-3">Quick Links</h4>
                     <ul class="space-y-2 text-sm">
-                        <li><a href="/about" class="hover:text-white transition">About Us</a></li>
-                        <li><a href="/admissions" class="hover:text-white transition">Admissions</a></li>
-                        <li><a href="/results" class="hover:text-white transition">Results</a></li>
-                        <li><a href="/contact" class="hover:text-white transition">Contact</a></li>
+                        <li><a href="{{ $siteBase }}/about" class="hover:text-white transition">About Us</a></li>
+                        <li><a href="{{ $siteBase }}/admissions" class="hover:text-white transition">Admissions</a></li>
+                        <li><a href="{{ $applyBase }}" class="hover:text-white transition">Apply Online</a></li>
+                        <li><a href="{{ $siteBase }}/results" class="hover:text-white transition">Results</a></li>
+                        <li><a href="{{ $siteBase }}/contact" class="hover:text-white transition">Contact</a></li>
                         <li><a href="/admin" class="hover:text-white transition">Portal Login</a></li>
                     </ul>
                 </div>

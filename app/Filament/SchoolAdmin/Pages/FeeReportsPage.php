@@ -28,11 +28,41 @@ class FeeReportsPage extends Page implements HasTable
 
     protected static ?string $navigationLabel = 'Fee Reports';
 
-    protected static string | \UnitEnum | null $navigationGroup = 'Fees & Finance';
+    protected static string | \UnitEnum | null $navigationGroup = 'Fees';
 
     protected static ?int $navigationSort = 2;
 
     protected string $view = 'filament.school-admin.pages.fee-reports';
+
+    public function getSubheading(): ?string
+    {
+        return 'KPIs, monthly trend with 3-month projection, status mix, class-wise outstanding, and defaulter aging — all for the current academic year.';
+    }
+
+    /**
+     * Charts and KPI tiles rendered above the detailed transactions
+     * table. Scoped to the current academic year. All queries are
+     * cheap aggregates.
+     */
+    protected function getHeaderWidgets(): array
+    {
+        return [
+            \App\Filament\SchoolAdmin\Widgets\FeeReports\FeeKpiWidget::class,
+            \App\Filament\SchoolAdmin\Widgets\FeeReports\CollectionTrendWidget::class,
+            \App\Filament\SchoolAdmin\Widgets\FeeReports\StatusDistributionWidget::class,
+            \App\Filament\SchoolAdmin\Widgets\FeeReports\ClassWiseOutstandingWidget::class,
+            \App\Filament\SchoolAdmin\Widgets\FeeReports\DefaulterAgingWidget::class,
+        ];
+    }
+
+    public function getHeaderWidgetsColumns(): int|array
+    {
+        return [
+            'default' => 1,
+            'md' => 2,
+            'xl' => 3,
+        ];
+    }
 
     public function table(Table $table): Table
     {
@@ -74,13 +104,19 @@ class FeeReportsPage extends Page implements HasTable
 
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
-                        'paid'     => 'success',
-                        'partial'  => 'warning',
-                        'pending'  => 'danger',
-                        'waived'   => 'gray',
-                        'refunded' => 'info',
-                        default    => 'gray',
+                    ->formatStateUsing(fn ($state): string => ucfirst(
+                        $state instanceof \BackedEnum ? $state->value : (string) $state,
+                    ))
+                    ->color(function ($state): string {
+                        $value = $state instanceof \BackedEnum ? $state->value : (string) $state;
+                        return match ($value) {
+                            'paid'     => 'success',
+                            'partial'  => 'warning',
+                            'pending'  => 'danger',
+                            'waived'   => 'gray',
+                            'refunded' => 'info',
+                            default    => 'gray',
+                        };
                     })
                     ->sortable(),
 

@@ -19,8 +19,12 @@ class InstituteOwnerStatsWidget extends BaseWidget
 
     public static function canView(): bool
     {
-        $role = auth()->user()?->active_role;
-        return in_array($role, ['INSTITUTE_HEAD', 'MULTI_INSTITUTE_HEAD']);
+        // School panel runs on the `school_users` guard; the default web
+        // guard returns null here and silently hides the widget — that's
+        // why the institute-head dashboard appeared blank.
+        $user = auth('school_users')->user() ?? auth()->user();
+        $role = $user?->active_role ?? $user?->roles?->first()?->name;
+        return in_array($role, ['INSTITUTE_HEAD', 'MULTI_INSTITUTE_HEAD'], true);
     }
 
     protected function getStats(): array
@@ -31,6 +35,9 @@ class InstituteOwnerStatsWidget extends BaseWidget
             ->when(tenancy()->initialized, fn ($q) => $q->forTenant(tenant()->id))
             ->count();
 
+        // FeePayment uses `payment_date`, not `payment_date`. The old column
+        // name silently produced 0 because the SQL would have errored
+        // and the catch-all rolled it into "no widget".
         $monthlyRevenue = FeePayment::whereMonth('payment_date', now()->month)
             ->whereYear('payment_date', now()->year)
             ->sum('total_amount_paisas');

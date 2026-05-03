@@ -60,10 +60,7 @@ class CafeteriaMenuItemResource extends Resource
                     ->prefix('PKR')
                     ->helperText('Enter price in paisas (e.g. 15000 = PKR 150.00)'),
 
-                Select::make('campus_id')
-                    ->relationship('campus', 'name')
-                    ->searchable()
-                    ->preload(),
+                \App\Support\CampusField::make(required: false),
 
                 Textarea::make('description')
                     ->rows(2)

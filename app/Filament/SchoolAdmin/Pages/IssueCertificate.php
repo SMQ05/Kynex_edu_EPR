@@ -8,7 +8,6 @@ use App\Models\Tenant\SchoolClass;
 use App\Models\Tenant\Section;
 use App\Models\Tenant\Student;
 use App\Services\CertificateService;
-use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
@@ -20,9 +19,10 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Storage;
 use Filament\Actions\BulkAction;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class IssueCertificate extends Page implements HasForms, HasTable
 {
@@ -89,29 +89,54 @@ class IssueCertificate extends Page implements HasForms, HasTable
             ])
             ->bulkActions([
                 BulkAction::make('generate_certificates')
-                    ->label('Generate Certificates')
+                    ->label('Generate & Download')
                     ->icon('heroicon-o-document-check')
                     ->requiresConfirmation()
+                    ->modalHeading('Generate certificates and download')
+                    ->modalDescription('A PDF will be downloaded for each selected student. Multiple students will be bundled into a single ZIP archive.')
                     ->deselectRecordsAfterCompletion()
-                    ->action(function ($records) {
+                    ->action(function (Collection $records) {
                         if (! $this->template_id) {
                             Notification::make()
                                 ->title('Please select a template first')
                                 ->danger()
                                 ->send();
-                            return;
+                            return null;
                         }
 
-                        $template = CertificateTemplate::findOrFail($this->template_id);
-                        $service = app(CertificateService::class);
-                        $issuedBy = Auth::guard('school_users')->user();
+                        if ($records->isEmpty()) {
+                            Notification::make()
+                                ->title('No students selected')
+                                ->warning()
+                                ->send();
+                            return null;
+                        }
 
-                        $generated = $service->generateBulkCertificates($template, $records, $issuedBy);
+                        $template  = CertificateTemplate::findOrFail($this->template_id);
+                        $service   = app(CertificateService::class);
+                        $issuedBy  = Auth::guard('school_users')->user();
+
+                        // Single student → single PDF; many → ZIP of PDFs.
+                        if ($records->count() === 1) {
+                            $built = $service->buildCertificatePdf($template, $records->first(), $issuedBy);
+                            return $this->streamBytes($built['bytes'], $built['filename'], 'application/pdf');
+                        }
+
+                        $items = $records->map(fn (Student $s) => [
+                            'bytes'    => ($built = $service->buildCertificatePdf($template, $s, $issuedBy))['bytes'],
+                            'filename' => $built['filename'],
+                        ]);
+
+                        $zipName = 'certificates-' . $template->template_type . '-' . now()->format('Ymd-His');
+                        $bundle  = $service->bundleAsZip(collect($items), $zipName);
 
                         Notification::make()
-                            ->title("Generated {$generated->count()} certificates successfully")
+                            ->title("Generated {$records->count()} certificates")
+                            ->body('Download starting…')
                             ->success()
                             ->send();
+
+                        return $this->streamBytes($bundle['bytes'], $bundle['filename'], 'application/zip');
                     }),
             ]);
     }
@@ -127,12 +152,40 @@ class IssueCertificate extends Page implements HasForms, HasTable
     }
 
     /**
-     * Action to download a previously generated certificate.
+     * Action to download a previously generated certificate (legacy ones
+     * with a stored file_path; new generations stream straight from build).
      */
-    public function downloadCertificate(string $certificateId): \Symfony\Component\HttpFoundation\StreamedResponse
+    public function downloadCertificate(string $certificateId): StreamedResponse
     {
         $certificate = GeneratedCertificate::findOrFail($certificateId);
 
-        return Storage::disk('tenant')->download($certificate->file_path, "{$certificate->certificate_number}.pdf");
+        if (! $certificate->file_path) {
+            // Re-generate on demand for newer certs that aren't stored to disk.
+            $template = CertificateTemplate::findOrFail($certificate->template_id);
+            $student  = Student::findOrFail($certificate->student_id);
+            $issuedBy = Auth::guard('school_users')->user() ?? abort(403);
+
+            $built = app(CertificateService::class)
+                ->buildCertificatePdf($template, $student, $issuedBy);
+
+            return $this->streamBytes($built['bytes'], $built['filename'], 'application/pdf');
+        }
+
+        return \Illuminate\Support\Facades\Storage::disk('tenant')
+            ->download($certificate->file_path, "{$certificate->certificate_number}.pdf");
+    }
+
+    /**
+     * Stream raw bytes back to the browser as an attachment download.
+     */
+    private function streamBytes(string $bytes, string $filename, string $mime): StreamedResponse
+    {
+        return response()->streamDownload(
+            function () use ($bytes) {
+                echo $bytes;
+            },
+            $filename,
+            ['Content-Type' => $mime, 'Content-Length' => (string) strlen($bytes)],
+        );
     }
 }

@@ -71,7 +71,9 @@ class SectionResource extends Resource
                         ->numeric()
                         ->minValue(1)
                         ->maxValue(500)
-                        ->nullable(),
+                        ->default(40)
+                        ->required()
+                        ->helperText('Maximum students this section can hold.'),
 
                     Components\TextInput::make('room_number')
                         ->label('Room Number')

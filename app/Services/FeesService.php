@@ -81,6 +81,9 @@ class FeesService
         string $academicYearId,
         string $month,
     ): array {
+        // Pull both class-default rows (section_id IS NULL) and any
+        // section-specific overrides for this class. The override
+        // logic happens per-student below.
         $feeMasters = FeeMaster::where('class_id', $classId)
             ->where('academic_year_id', $academicYearId)
             ->where('is_active', true)
@@ -98,10 +101,20 @@ class FeesService
         $generated = 0;
         $skipped = 0;
 
+        // Group fee masters by fee_type_id so we can pick the
+        // best-matching row per student (section override beats class
+        // default).
+        $mastersByType = $feeMasters->groupBy('fee_type_id');
+
         foreach ($students as $student) {
-            foreach ($feeMasters as $feeMaster) {
+            foreach ($mastersByType as $feeTypeId => $candidates) {
+                $best = $this->resolveBestFeeMaster($candidates, $student->section_id);
+                if (! $best) {
+                    continue; // No applicable row for this student.
+                }
+
                 $exists = StudentFee::where('student_id', $student->id)
-                    ->where('fee_type_id', $feeMaster->fee_type_id)
+                    ->where('fee_type_id', $best->fee_type_id)
                     ->where('academic_year_id', $academicYearId)
                     ->where('month', $month)
                     ->exists();
@@ -113,15 +126,17 @@ class FeesService
 
                 StudentFee::create([
                     'student_id'       => $student->id,
-                    'fee_type_id'      => $feeMaster->fee_type_id,
+                    'fee_type_id'      => $best->fee_type_id,
                     'academic_year_id' => $academicYearId,
                     'month'            => $month,
-                    'amount_paisas'    => $feeMaster->amount_paisas,
+                    'amount_paisas'    => $best->amount_paisas,
                     'discount_paisas'  => 0,
                     'fine_paisas'      => 0,
                     'paid_paisas'      => 0,
-                    'status'           => 'unpaid',
-                    'due_date'         => Carbon::parse($month . '-01')->endOfMonth(),
+                    'status'           => 'pending',
+                    'due_date'         => Carbon::parse($month . '-01')
+                        ->setDay(min((int) $best->due_day, 28))
+                        ->toDateString(),
                 ]);
 
                 $generated++;
@@ -129,6 +144,27 @@ class FeesService
         }
 
         return ['generated' => $generated, 'skipped' => $skipped];
+    }
+
+    /**
+     * Pick the best-matching fee master for a student in a given
+     * section. Section-specific override wins over class default.
+     * Returns null when neither exists for this student's section.
+     */
+    private function resolveBestFeeMaster(\Illuminate\Support\Collection $candidates, ?string $studentSectionId): ?FeeMaster
+    {
+        // Section-specific override exists for this student's section.
+        if ($studentSectionId) {
+            $override = $candidates->first(
+                fn (FeeMaster $m) => $m->section_id === $studentSectionId,
+            );
+            if ($override) {
+                return $override;
+            }
+        }
+
+        // Fall back to the class-level default (section_id IS NULL).
+        return $candidates->first(fn (FeeMaster $m) => $m->section_id === null);
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -152,39 +188,53 @@ class FeesService
         return DB::transaction(function () use (
             $studentId, $feeAllocations, $paymentMethod, $collectedBy, $transactionRef, $remarks,
         ) {
-            $totalPaisas = array_sum($feeAllocations);
+            $totalPaisas = (int) array_sum($feeAllocations);
 
+            // NOTE: column names match the actual fee_payments schema —
+            // total_amount_paisas / payment_date / bank_reference / notes.
             $payment = FeePayment::create([
-                'student_id'      => $studentId,
-                'receipt_number'  => $this->generateReceiptNumber(),
-                'amount_paisas'   => $totalPaisas,
-                'payment_method'  => $paymentMethod,
-                'transaction_ref' => $transactionRef,
-                'collected_by'    => $collectedBy,
-                'remarks'         => $remarks,
-                'paid_at'         => now(),
+                'student_id'           => $studentId,
+                'receipt_number'       => $this->generateReceiptNumber(),
+                'total_amount_paisas'  => $totalPaisas,
+                'payment_method'       => $paymentMethod,
+                'bank_reference'       => $transactionRef,
+                'collected_by'         => $collectedBy,
+                'notes'                => $remarks,
+                'payment_date'         => now()->toDateString(),
             ]);
 
             foreach ($feeAllocations as $studentFeeId => $amountPaisas) {
+                $amountPaisas = (int) $amountPaisas;
+                if ($amountPaisas <= 0) {
+                    continue;
+                }
+
+                // FeePaymentItem.payment_id (not fee_payment_id).
                 FeePaymentItem::create([
-                    'fee_payment_id' => $payment->id,
+                    'payment_id'     => $payment->id,
                     'student_fee_id' => $studentFeeId,
                     'amount_paisas'  => $amountPaisas,
                 ]);
 
                 $studentFee = StudentFee::find($studentFeeId);
-                if ($studentFee) {
-                    $studentFee->increment('paid_paisas', $amountPaisas);
-
-                    if ($studentFee->balance_paisas <= 0) {
-                        $studentFee->update(['status' => 'paid']);
-                    } else {
-                        $studentFee->update(['status' => 'partial']);
-                    }
+                if (! $studentFee) {
+                    continue;
                 }
+
+                $studentFee->increment('paid_paisas', $amountPaisas);
+                $studentFee->refresh();
+
+                $netDue = (int) $studentFee->amount_paisas
+                    + (int) $studentFee->fine_paisas
+                    - (int) $studentFee->discount_paisas
+                    - (int) $studentFee->paid_paisas;
+
+                $studentFee->update([
+                    'status' => $netDue <= 0 ? 'paid' : 'partial',
+                ]);
             }
 
-            return $payment;
+            return $payment->fresh(['items', 'student', 'collector']);
         });
     }
 
@@ -263,7 +313,7 @@ class FeesService
     public function applyLateFees(int $finePerDayPaisas, ?int $maxFinePaisas = null): int
     {
         $overdueFees = StudentFee::overdue()
-            ->whereIn('status', ['unpaid', 'partial'])
+            ->whereIn('status', ['pending', 'partial'])
             ->get();
 
         $count = 0;

@@ -83,10 +83,10 @@ class PublicSiteController extends Controller
         return $this->cms->contactForm($request);
     }
 
-    public function results(string $tenant)
+    public function results(Request $request, string $tenant)
     {
         $this->bootTenant($tenant);
-        return $this->cms->results();
+        return $this->cms->results($request);
     }
 
     public function resultsSearch(Request $request, string $tenant)

@@ -26,6 +26,29 @@ class AppServiceProvider extends ServiceProvider
             \Stancl\Tenancy\Contracts\TenantWithDatabase::class,
             \App\Models\Tenant::class,
         );
+
+        // Force a robust session config. The original container image
+        // bakes SESSION_DRIVER=file / SESSION_LIFETIME=120 into the OS
+        // env, which causes Filament/Livewire to fail with "Error while
+        // loading page" once the CSRF token expires (~2h of idle) and
+        // wipes every session on container restart. Database-backed
+        // sessions survive restarts; an 8-hour lifetime matches a
+        // workday.
+        //
+        // We only override when the OS env is still pointing at the
+        // legacy defaults so explicitly-set values still win.
+        $this->app->booted(function () {
+            $cfg = config();
+            if ($cfg->get('session.driver') === 'file') {
+                $cfg->set('session.driver', 'database');
+            }
+            if ((int) $cfg->get('session.lifetime') < 480) {
+                $cfg->set('session.lifetime', 480);
+            }
+            if (! $cfg->get('session.secure')) {
+                $cfg->set('session.secure', true);
+            }
+        });
     }
 
     /**
@@ -59,6 +82,18 @@ class AppServiceProvider extends ServiceProvider
         // resolve users from the school_users table.
         Auth::provider('safe-eloquent', function ($app, array $config) {
             return new \App\Auth\SafeEloquentUserProvider($app['hash'], $config['model']);
+        });
+
+        // Share $siteBase + $applyBase with every CMS view so internal
+        // links work both on /site/{tenant}/... (central domain) and on
+        // tenant subdomains where the prefix is empty.
+        \Illuminate\Support\Facades\View::composer('cms.*', function ($view) {
+            $tenantId = function_exists('tenant') ? optional(tenant())->id : null;
+            $path = request()->getPathInfo();
+            $onCentralSitePath = $tenantId && \Illuminate\Support\Str::startsWith($path, '/site/');
+            $siteBase = $onCentralSitePath ? '/site/' . $tenantId : '';
+            $view->with('siteBase', $siteBase);
+            $view->with('applyBase', $siteBase ? $siteBase . '/apply' : '/apply');
         });
     }
 }

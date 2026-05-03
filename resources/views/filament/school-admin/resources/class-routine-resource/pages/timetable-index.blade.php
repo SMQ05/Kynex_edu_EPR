@@ -1,81 +1,109 @@
 @php
     $groups = $page->timetableGroups();
     $days = $page->days();
+    $schoolName = $page->schoolName();
+    $campusList = $groups->pluck('campus_name')->filter()->unique()->values();
+    $printedAt = now()->format('d M Y, H:i');
 @endphp
 
 <style>
     @media print {
-        @page {
-            size: landscape;
-            margin: 10mm;
-        }
+        /* A4 landscape with tight margins so the grid fits comfortably. */
+        @page { size: A4 landscape; margin: 8mm; }
 
         html, body {
             background: #ffffff !important;
             color: #111827 !important;
             margin: 0 !important;
             padding: 0 !important;
+            font-size: 10pt;
         }
 
-        body * {
-            visibility: hidden !important;
-        }
-
-        .routine-print-area,
-        .routine-print-area * {
-            visibility: visible !important;
-        }
-
-        .routine-print-area {
-            position: absolute !important;
-            left: 0 !important;
-            top: 0 !important;
-            width: 100% !important;
-            display: block !important;
-            padding: 0 !important;
-        }
-
-        .routine-screen-only,
-        .routine-screen-only * {
-            visibility: hidden !important;
+        /* Hide everything by default, then re-show only the print area. */
+        body > *:not(.fi-body),
+        .fi-topbar,
+        .fi-sidebar,
+        .fi-page-header,
+        .fi-breadcrumbs,
+        .fi-main-ctn > *:not(.routine-print-root) {
             display: none !important;
         }
 
+        /* Anything tagged screen-only is excluded from print. */
+        .routine-screen-only { display: none !important; }
+
+        .routine-print-root { display: block !important; padding: 0 !important; }
+
+        /* The school + campus header repeated per card. */
+        .routine-print-card-header {
+            display: block !important;
+            text-align: center;
+            border-bottom: 2px solid #111827 !important;
+            padding-bottom: 6px;
+            margin-bottom: 8px;
+        }
+        .routine-print-card-header .school { font-size: 16pt; font-weight: bold; color: #111; }
+        .routine-print-card-header .campus { font-size: 10pt; color: #333; margin-top: 2pt; }
+        .routine-print-card-header .meta { font-size: 8pt; color: #666; margin-top: 2pt; letter-spacing: 1pt; text-transform: uppercase; }
+
+        /* One section card per A4 page. */
         .routine-card {
-            break-inside: avoid;
+            page-break-after: always;
             page-break-inside: avoid;
-            border: 1px solid #111827 !important;
+            break-inside: avoid;
             background: #ffffff !important;
             box-shadow: none !important;
-            margin-bottom: 12px;
+            border: none !important;
+            margin: 0 !important;
+            padding: 0 !important;
         }
+        .routine-card:last-child { page-break-after: auto; }
 
-        .routine-card * {
-            color: #111827 !important;
-        }
+        .routine-card * { color: #111 !important; box-shadow: none !important; }
+
+        .routine-card .section-title { font-size: 14pt; font-weight: bold; margin: 4pt 0; }
+        .routine-card .section-subtitle { font-size: 10pt; color: #444; margin-bottom: 8pt; }
 
         .routine-card table {
             border-collapse: collapse !important;
             width: 100% !important;
+            font-size: 9pt;
         }
-
-        .routine-card th,
-        .routine-card td {
+        .routine-card th, .routine-card td {
             border: 1px solid #4b5563 !important;
             background: #ffffff !important;
+            padding: 4px 6px !important;
         }
+        .routine-card thead th { background: #f3f4f6 !important; font-weight: 600; }
 
-        .routine-cell-break {
-            background: #f3f4f6 !important;
-        }
+        .routine-cell-break { background: #fef3c7 !important; }
+        .routine-cell-assigned { background: #eff6ff !important; }
 
-        .routine-card a {
-            text-decoration: none !important;
-        }
+        .routine-card a { text-decoration: none !important; color: #111 !important; }
     }
 </style>
 
-<div class="space-y-5 routine-print-area">
+<div class="space-y-5 routine-print-root">
+    <div class="routine-screen-only rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10">
+        <div class="text-center">
+            <h1 class="text-xl font-bold tracking-tight text-gray-950 dark:text-white">
+                {{ $schoolName }}
+            </h1>
+            @if ($campusList->count() === 1)
+                <div class="mt-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Campus: {{ $campusList->first() }}
+                </div>
+            @elseif ($campusList->count() > 1)
+                <div class="mt-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Campuses: {{ $campusList->join(', ') }}
+                </div>
+            @endif
+            <div class="mt-1 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                Class Timetable · Printed {{ $printedAt }}
+            </div>
+        </div>
+    </div>
+
     <div class="routine-screen-only rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10">
         <div class="grid grid-cols-1 gap-4 md:grid-cols-4">
             <div>
@@ -140,13 +168,22 @@
 
     @forelse ($groups as $group)
         <section class="routine-card overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10">
+            {{-- Print-only header: each section gets its own school + campus banner so each A4 page is self-identified. --}}
+            <div class="routine-print-card-header" style="display:none;">
+                <div class="school">{{ $schoolName }}</div>
+                @if (! empty($group['campus_name']))
+                    <div class="campus">Campus: {{ $group['campus_name'] }}</div>
+                @endif
+                <div class="meta">{{ $group['class_name'] }} &middot; {{ $group['section_name'] }} &middot; {{ $group['academic_year_name'] }}</div>
+            </div>
+
             <div class="flex flex-col gap-3 border-b border-gray-200 px-5 py-4 dark:border-white/10 md:flex-row md:items-center md:justify-between">
                 <div>
-                    <h2 class="text-base font-semibold text-gray-950 dark:text-white">
+                    <h2 class="section-title text-base font-semibold text-gray-950 dark:text-white">
                         {{ $group['class_name'] }} Timetable
                     </h2>
-                    <p class="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
-                        {{ $group['academic_year_name'] }} · {{ $group['section_name'] }}
+                    <p class="section-subtitle mt-0.5 text-sm text-gray-500 dark:text-gray-400">
+                        {{ $group['academic_year_name'] }} · {{ $group['section_name'] }}@if (! empty($group['campus_name'])) · {{ $group['campus_name'] }}@endif
                     </p>
                 </div>
 

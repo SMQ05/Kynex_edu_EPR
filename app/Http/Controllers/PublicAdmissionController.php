@@ -35,6 +35,16 @@ class PublicAdmissionController extends Controller
             ]);
         }
 
+        // Honour the school's admission_open flag — when closed, render
+        // a clean "Admissions are not open" page instead of the form.
+        $settings = \App\Models\Tenant\CmsSetting::getSettings();
+        if (! ($settings->admission_open ?? false)) {
+            return view('public.apply-closed', [
+                'tenant'   => $tenant,
+                'settings' => $settings,
+            ]);
+        }
+
         return view('public.apply', [
             'tenant'   => $tenant,
             'classes'  => SchoolClass::orderBy('sort_order')->orderBy('name')->pluck('name', 'id'),
@@ -100,7 +110,38 @@ class PublicAdmissionController extends Controller
             'public_token' => Str::random(40),
         ]));
 
-        return redirect()->route('public.apply.status', ['token' => $application->public_token])
+        // Notify school admin + institute head — visible in the bell
+        // icon. Wrapped in try/catch because legacy tenants may not
+        // have the in_app_notifications table or have schema drift.
+        try {
+            $recipients = \App\Models\SchoolUser::query()
+                ->whereHas('roles', fn ($q) => $q->whereIn('name', ['SCHOOL_ADMIN', 'INSTITUTE_HEAD', 'MULTI_INSTITUTE_HEAD', 'REGISTRAR']))
+                ->where('is_active', true)
+                ->get();
+
+            foreach ($recipients as $r) {
+                \App\Models\Tenant\InAppNotification::create([
+                    'user_id' => $r->id,
+                    'title'   => 'New admission application',
+                    'body'    => "{$application->full_name} has applied online. Open Students → Admissions to review.",
+                    'type'    => 'info',
+                ]);
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Application notification failed', ['error' => $e->getMessage()]);
+        }
+
+        // Use the central-site status route when the form was posted on
+        // /site/{tenant}/..., otherwise the tenant-subdomain status route.
+        $onCentralSitePath = \Illuminate\Support\Str::startsWith(
+            $request->getPathInfo(),
+            '/site/'
+        );
+        $route = $onCentralSitePath
+            ? route('public.site.apply.status', ['tenant' => $tenant->id, 'token' => $application->public_token])
+            : route('public.apply.status', ['token' => $application->public_token]);
+
+        return redirect($route)
             ->with('success', 'Application submitted. Save the link on this page to track status.');
     }
 

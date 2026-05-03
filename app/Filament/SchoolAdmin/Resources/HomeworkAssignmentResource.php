@@ -54,6 +54,27 @@ class HomeworkAssignmentResource extends Resource
     protected static ?string $pluralModelLabel = 'Assignments & Homework';
 
     /**
+     * Homework / classwork is a teacher-facing workflow. Hide from school
+     * admins and institute heads — they review via reports, not by managing
+     * rows directly.
+     */
+    public static function shouldRegisterNavigation(): bool
+    {
+        $user = auth()->guard('school_users')->user();
+        if (! $user) {
+            return false;
+        }
+
+        $role = (string) ($user->active_role ?? $user->roles->first()?->name ?? '');
+        return in_array($role, ['TEACHER', 'EXAM_ADMIN'], true);
+    }
+
+    public static function canViewAny(): bool
+    {
+        return static::shouldRegisterNavigation();
+    }
+
+    /**
      * When the logged-in user is acting as a TEACHER, scope the homework list
      * to homework they own. Admin and higher-rank roles see everything.
      */

@@ -103,7 +103,7 @@ class ListClassRoutines extends ListRecords
     public function timetableGroups(): Collection
     {
         return ClassRoutine::query()
-            ->with(['academicYear', 'schoolClass', 'section', 'subject', 'teacher'])
+            ->with(['academicYear', 'schoolClass.campus', 'section', 'subject', 'teacher'])
             ->when(
                 $this->selectedAcademicYearId,
                 fn ($query) => $query->where('academic_year_id', $this->selectedAcademicYearId),
@@ -188,9 +188,16 @@ class ListClassRoutines extends ListRecords
             'academic_year_name' => $first?->academicYear?->name ?? 'Academic Year',
             'class_name' => $first?->schoolClass?->name ?? 'Class',
             'section_name' => $first?->section?->name ?? 'All Sections',
+            'campus_name' => $first?->schoolClass?->campus?->name,
             'slots' => $slots,
             'cells' => $cells,
             'records_count' => $routines->count(),
         ];
+    }
+
+    public function schoolName(): string
+    {
+        $tenant = function_exists('tenant') ? tenant() : null;
+        return (string) ($tenant?->school_name ?? config('app.name', 'School'));
     }
 }

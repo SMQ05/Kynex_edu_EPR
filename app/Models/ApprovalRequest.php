@@ -50,6 +50,7 @@ class ApprovalRequest extends Model
             'payload'     => 'array',
             'reviewed_at' => 'datetime',
             'expires_at'  => 'datetime',
+            'status'      => \App\Enums\ApprovalStatus::class,
         ];
     }
 

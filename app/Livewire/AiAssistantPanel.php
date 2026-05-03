@@ -8,6 +8,7 @@ use App\Models\Tenant\AiConversation;
 use App\Models\Tenant\AiMessage;
 use App\Services\Ai\AiAssistant;
 use App\Services\Ai\RolePrompts;
+use App\Services\Ai\RoleScopedFacts;
 use Livewire\Component;
 
 /**
@@ -134,6 +135,14 @@ class AiAssistantPanel extends Component
                 ->all();
 
             $systemPrompt = RolePrompts::systemPromptFor($this->activeRole, $this->schoolName);
+
+            // Prepend a role-scoped live-data snapshot so the model can
+            // answer questions like "how many students" with real numbers,
+            // bounded by the user's authority. Failures here are caught
+            // inside RoleScopedFacts so chat never breaks because of a
+            // single aggregate query.
+            $facts = (new RoleScopedFacts())->for($user, (string) $this->activeRole);
+            $systemPrompt .= (new RoleScopedFacts())->asSystemBlock($facts);
 
             $reply = AiAssistant::forCurrentTenant()->chat(
                 systemPrompt: $systemPrompt,

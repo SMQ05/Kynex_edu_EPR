@@ -18,7 +18,7 @@
     <div class="bg-gray-50 border-b">
         <div class="max-w-7xl mx-auto px-4 py-3">
             <nav class="text-sm text-gray-500">
-                <a href="/" class="hover:text-primary">Home</a>
+                <a href="{{ $siteBase ?: '/' }}" class="hover:text-primary">Home</a>
                 <span class="mx-2">/</span>
                 <span class="text-gray-800">{{ $page->title }}</span>
             </nav>

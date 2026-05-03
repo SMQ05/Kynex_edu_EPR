@@ -50,6 +50,27 @@ class MarksEntry extends Page implements HasForms
 
     protected string $view = 'filament.school-admin.pages.marks-entry';
 
+    /**
+     * Marks Entry is a teacher-facing workflow. Hide from school admins and
+     * institute heads — they review marks via Reports / Approval Queue, not
+     * by entering them. SaaS admins also don't see this page.
+     */
+    public static function shouldRegisterNavigation(): bool
+    {
+        $user = auth()->guard('school_users')->user();
+        if (! $user) {
+            return false;
+        }
+
+        $role = (string) ($user->active_role ?? $user->roles->first()?->name ?? '');
+        return in_array($role, ['TEACHER', 'EXAM_ADMIN'], true);
+    }
+
+    public static function canAccess(): bool
+    {
+        return static::shouldRegisterNavigation();
+    }
+
     /** exam | homework | class_assignment | class_test */
     public string $assessment_kind = 'exam';
 

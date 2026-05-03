@@ -59,6 +59,7 @@ class SaasAdminPanelProvider extends PanelProvider
                 for: 'App\\Filament\\SaasAdmin\\Clusters',
             )
             ->middleware([
+                \App\Http\Middleware\BlockCentralPortalOnTenantHost::class,
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,
                 StartSession::class,

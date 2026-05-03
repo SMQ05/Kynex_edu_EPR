@@ -25,7 +25,10 @@
             </div>
         @endif
 
-        <form method="POST" action="{{ route('public.apply.submit') }}" class="space-y-6">
+        {{-- Submit to the current URL so the form works whether the
+             applicant is on /apply (tenant subdomain) or
+             /site/{tenant}/apply (central domain). --}}
+        <form method="POST" action="" class="space-y-6">
             @csrf
             <fieldset>
                 <legend class="text-sm font-semibold uppercase tracking-wide text-slate-500 mb-3">Applicant</legend>

@@ -24,27 +24,32 @@ class HandleExpenseApproval
     {
         $expense = Expense::findOrFail($approval->payload['expense_id']);
 
-        // Guard: expenses <= PKR 500 (50,000 paisas) should not go through approval
-        if ($expense->amount_paisas <= 5000000) {
-            throw new \RuntimeException(
-                "Expense amount ({$expense->amount_paisas} paisas) does not exceed the PKR 50,000 approval threshold."
-            );
-        }
-
         // 1. Approve the expense
         $expense->update([
             'approval_status' => ExpenseApprovalStatus::Approved,
             'approved_by'     => $approval->reviewed_by_id,
         ]);
 
-        // 2. Notify requester
+        // 2. Update budget spent if linked
+        if ($expense->budget_id) {
+            $budget = \App\Models\Tenant\Budget::find($expense->budget_id);
+            if ($budget) {
+                $budget->increment('spent_amount_paisas', $expense->amount_paisas);
+            }
+        }
+
+        // 3. Notify requester
         $amountFormatted = 'PKR ' . number_format($expense->amount_paisas / 100, 2);
 
-        InAppNotification::create([
-            'user_id' => $approval->requested_by_id,
-            'title'   => 'Expense Approved',
-            'body'    => "Expense \"{$expense->title}\" ({$amountFormatted}) has been approved.",
-            'type'    => 'success',
-        ]);
+        try {
+            InAppNotification::create([
+                'user_id' => $approval->requested_by_id,
+                'title'   => 'Expense Approved',
+                'body'    => "Expense \"{$expense->title}\" ({$amountFormatted}) has been approved and is now reflected in your reports.",
+                'type'    => 'success',
+            ]);
+        } catch (\Throwable) {
+            // Notifications table may be missing on older tenants — non-fatal.
+        }
     }
 }

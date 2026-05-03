@@ -3,9 +3,17 @@
 namespace App\Filament\SchoolAdmin\Resources\CmsPageResource\Pages;
 
 use App\Filament\SchoolAdmin\Resources\CmsPageResource;
+use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
 
 class ListCmsPages extends ListRecords
 {
     protected static string $resource = CmsPageResource::class;
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            CreateAction::make()->label('New Page')->icon('heroicon-o-plus'),
+        ];
+    }
 }

@@ -23,29 +23,37 @@ class CreateExpense extends CreateRecord
             abort(403, 'You must be signed in as a school user to record expenses.');
         }
 
-        // Convert PKR to paisas
-        $amountPaisas = (int) (($data['amount_pkr'] ?? 0) * 100);
+        // Convert PKR rupees to paisas. The form's amount_pkr field
+        // is a virtual rupee value; we persist amount_paisas as int.
+        $amountPaisas = (int) round(((float) ($data['amount_pkr'] ?? 0)) * 100);
 
-        $data['amount_paisas'] = $amountPaisas;
-        $data['recorded_by'] = $user->id;
-
-        // Remove virtual field
-        unset($data['amount_pkr']);
-
-        // Determine approval status
-        $threshold = 50000 * 100; // PKR 50,000 in paisas
-
-        try {
-            $hasBypass = method_exists($user, 'hasPermissionTo')
-                && $user->hasPermissionTo('bypass_approvals', 'school_users');
-        } catch (\Spatie\Permission\Exceptions\PermissionDoesNotExist) {
-            $hasBypass = false;
+        if ($amountPaisas <= 0) {
+            // Block save — Filament will surface this in the notification
+            // because Eloquent will reject the row anyway. Better to fail
+            // loudly here than silently store zero.
+            throw new \Illuminate\Validation\ValidationException(
+                validator: \Illuminate\Support\Facades\Validator::make([], []),
+                response: null,
+            );
         }
 
-        if ($amountPaisas > $threshold && ! $hasBypass) {
-            $data['approval_status'] = ExpenseApprovalStatus::Pending->value;
-        } else {
-            $data['approval_status'] = ExpenseApprovalStatus::Approved->value;
+        $data['amount_paisas'] = $amountPaisas;
+        $data['recorded_by']   = $user->id;
+        unset($data['amount_pkr']);
+
+        // Approval policy: every expense starts as Pending. The only
+        // bypass is for users with `bypass_approvals` (institute head /
+        // multi-institute head). Everyone else — accountants, admins,
+        // bursars — must wait for institute-head approval.
+        $activeRole = (string) ($user->active_role ?? $user->roles?->first()?->name ?? '');
+        $isHead = in_array($activeRole, ['INSTITUTE_HEAD', 'MULTI_INSTITUTE_HEAD'], true);
+
+        $data['approval_status'] = $isHead
+            ? ExpenseApprovalStatus::Approved->value
+            : ExpenseApprovalStatus::Pending->value;
+
+        if ($isHead) {
+            $data['approved_by'] = $user->id;
         }
 
         return $data;
@@ -54,40 +62,44 @@ class CreateExpense extends CreateRecord
     protected function afterCreate(): void
     {
         $expense = $this->record;
-        $threshold = 50000 * 100;
 
-        if ($expense->amount_paisas > $threshold && $expense->approval_status === ExpenseApprovalStatus::Pending) {
-            // Submit for approval
+        if ($expense->approval_status === ExpenseApprovalStatus::Pending
+            || (string) $expense->approval_status === 'pending'
+        ) {
+            // Open an ApprovalRequest so the institute head sees it in
+            // the Approval Queue and can decide.
             app(ApprovalService::class)->submit(
-                requestedBy: auth()->user(),
-                actionType: 'large_expense',
+                requestedBy: auth('school_users')->user() ?? auth()->user(),
+                actionType: 'expense_approval',
                 subject: $expense,
                 payload: [
                     'expense_id' => $expense->id,
-                    'title' => $expense->title,
+                    'title'      => $expense->title,
+                    'category'   => $expense->category?->name,
                     'amount_pkr' => number_format($expense->amount_paisas / 100, 2),
+                    'date'       => optional($expense->expense_date)->toDateString(),
                 ],
             );
 
             Notification::make()
                 ->title('Expense submitted for approval')
-                ->body('This expense exceeds PKR 50,000 and requires approval before being applied to the budget.')
+                ->body('It will appear under the Approval Queue and reflect in reports once the Institute Head approves it.')
                 ->warning()
                 ->send();
-        } else {
-            // Auto-approved — update budget spent amount
-            if ($expense->budget_id) {
-                $budget = Budget::find($expense->budget_id);
-                if ($budget) {
-                    $budget->increment('spent_amount_paisas', $expense->amount_paisas);
-                }
-            }
-
-            Notification::make()
-                ->title('Expense recorded')
-                ->body('The expense has been approved and recorded successfully.')
-                ->success()
-                ->send();
+            return;
         }
+
+        // Institute-head-recorded expense: auto-approved, update budget.
+        if ($expense->budget_id) {
+            $budget = Budget::find($expense->budget_id);
+            if ($budget) {
+                $budget->increment('spent_amount_paisas', $expense->amount_paisas);
+            }
+        }
+
+        Notification::make()
+            ->title('Expense recorded and approved')
+            ->success()
+            ->send();
     }
 }
