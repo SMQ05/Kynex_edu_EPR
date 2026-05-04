@@ -79,11 +79,40 @@ class CustomDomainService
                     'verification_token' => null,
                 ]);
 
+                \App\Jobs\ProvisionCustomDomainCertificate::dispatch($domain->id);
+
                 return true;
             }
         }
 
         return false;
+    }
+
+    /**
+     * Dispatch a cert provisioning attempt for a verified custom domain.
+     *
+     * @throws \LogicException When the domain is not yet verified or is not custom.
+     */
+    public function provisionCert(Domain $domain, bool $force = false): void
+    {
+        if (! $domain->is_verified) {
+            throw new \LogicException('Cannot provision cert for an unverified domain.');
+        }
+
+        if ($domain->domain_type !== 'custom') {
+            throw new \LogicException('Cert provisioning is for custom domains only.');
+        }
+
+        \App\Jobs\ProvisionCustomDomainCertificate::dispatch($domain->id, $force);
+    }
+
+    /**
+     * Force a re-issuance of an existing cert (used for repair after a
+     * deleted cert, a botched deploy, or to switch chain types).
+     */
+    public function reissueCert(Domain $domain): void
+    {
+        $this->provisionCert($domain, force: true);
     }
 
     /**
@@ -99,7 +128,40 @@ class CustomDomainService
             throw new \LogicException('Cannot remove the primary subdomain.');
         }
 
+        // Best-effort cleanup of the in-container nginx conf + cert files
+        // via the listener. Failures here are logged but do not block the
+        // row delete — the SaaS admin still wants the row gone.
+        if ($domain->domain_type === 'custom' && $domain->is_verified) {
+            try {
+                $this->callListenerRemove($domain->domain);
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('[cert] Remove cleanup failed', [
+                    'domain' => $domain->domain,
+                    'error'  => $e->getMessage(),
+                ]);
+            }
+        }
+
         $domain->delete();
+    }
+
+    private function callListenerRemove(string $domain): void
+    {
+        if (config('cert.stub_mode')) {
+            \Illuminate\Support\Facades\Log::warning('[cert] STUB MODE: would have called listener /remove', [
+                'domain' => $domain,
+                'url'    => rtrim((string) config('cert.listener_url'), '/') . '/remove',
+            ]);
+            return;
+        }
+
+        \Illuminate\Support\Facades\Http::withHeaders([
+            'X-Cert-Listener-Secret' => (string) config('cert.listener_secret'),
+            'Accept'                 => 'application/json',
+        ])
+            ->timeout((int) config('cert.listener_timeout', 60))
+            ->connectTimeout(5)
+            ->post(rtrim((string) config('cert.listener_url'), '/') . '/remove', ['domain' => $domain]);
     }
 
     /**

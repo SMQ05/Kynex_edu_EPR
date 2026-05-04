@@ -77,6 +77,31 @@ class VerifyPendingCustomDomains extends Command
         $this->newLine();
         $this->info("Results: {$verified} verified, {$failed} pending/failed.");
 
+        // ── Phase 1.5: cert renewal-sweep ───────────────────────────
+        // Re-dispatch provisioning for any verified custom domain whose
+        // cert is failed/rate_limited/dns_mismatch/lock_timeout, OR whose
+        // issued cert expires within 14 days. Belt-and-suspenders alongside
+        // the in-container certbot-renew cron.
+        $nearExpiry = Domain::where('is_verified', true)
+            ->where('domain_type', 'custom')
+            ->where(function ($q) {
+                $q->whereIn('cert_status', ['failed', 'rate_limited', 'dns_mismatch', 'lock_timeout'])
+                  ->orWhere(function ($q2) {
+                      $q2->where('cert_status', 'issued')
+                         ->where('cert_expires_at', '<', now()->addDays(14));
+                  });
+            })
+            ->get();
+
+        foreach ($nearExpiry as $domain) {
+            $this->line("  Re-dispatching provisioning for {$domain->domain} (status={$domain->cert_status})");
+            \App\Jobs\ProvisionCustomDomainCertificate::dispatch($domain->id);
+        }
+
+        if ($nearExpiry->isNotEmpty()) {
+            $this->info("Re-dispatched {$nearExpiry->count()} domain(s) for cert renewal/repair.");
+        }
+
         return self::SUCCESS;
     }
 

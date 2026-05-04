@@ -70,6 +70,26 @@ class DomainsRelationManager extends RelationManager
                     ->placeholder('Not verified')
                     ->toggleable(),
 
+                Tables\Columns\TextColumn::make('cert_status')
+                    ->label('Cert')
+                    ->badge()
+                    ->color(fn (?string $state): string => match ($state) {
+                        'issued'        => 'success',
+                        'issuing'       => 'warning',
+                        'rate_limited'  => 'warning',
+                        'lock_timeout'  => 'warning',
+                        'dns_mismatch'  => 'danger',
+                        'failed'        => 'danger',
+                        default         => 'gray',
+                    })
+                    ->placeholder('—'),
+
+                Tables\Columns\TextColumn::make('cert_expires_at')
+                    ->label('Cert Expires')
+                    ->dateTime('M d, Y')
+                    ->placeholder('—')
+                    ->toggleable(),
+
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Added')
                     ->dateTime('M d, Y')
@@ -171,6 +191,70 @@ class DomainsRelationManager extends RelationManager
                     })
                     ->modalSubmitAction(false)
                     ->modalCancelActionLabel('Close'),
+
+                Action::make('provisionCertNow')
+                    ->label('Provision Cert Now')
+                    ->icon('heroicon-o-lock-closed')
+                    ->color('info')
+                    ->visible(fn (Domain $record): bool =>
+                        $record->is_verified
+                        && $record->domain_type === 'custom'
+                        && ! in_array($record->cert_status, ['issuing', 'issued'], true)
+                    )
+                    ->requiresConfirmation()
+                    ->modalHeading('Provision SSL certificate')
+                    ->modalDescription(fn (Domain $record): string =>
+                        "Queue a Let's Encrypt cert issuance for {$record->domain}. " .
+                        "DNS must already point to this server."
+                    )
+                    ->action(function (Domain $record) {
+                        try {
+                            app(CustomDomainService::class)->provisionCert($record);
+                            Notification::make()
+                                ->title('Provisioning queued')
+                                ->body("Cert provisioning for {$record->domain} has been queued.")
+                                ->success()
+                                ->send();
+                        } catch (\LogicException $e) {
+                            Notification::make()
+                                ->title('Cannot provision')
+                                ->body($e->getMessage())
+                                ->danger()
+                                ->send();
+                        }
+                    }),
+
+                Action::make('reissueCertificate')
+                    ->label('Reissue Cert')
+                    ->icon('heroicon-o-arrow-path')
+                    ->color('warning')
+                    ->visible(fn (Domain $record): bool =>
+                        $record->is_verified
+                        && $record->domain_type === 'custom'
+                    )
+                    ->requiresConfirmation()
+                    ->modalHeading('Reissue SSL certificate')
+                    ->modalDescription(fn (Domain $record): string =>
+                        "Force a new Let's Encrypt cert for {$record->domain}, even if " .
+                        "the existing one is still valid. Use this for repair after a " .
+                        "failed deploy or a manual cert deletion."
+                    )
+                    ->action(function (Domain $record) {
+                        try {
+                            app(CustomDomainService::class)->reissueCert($record);
+                            Notification::make()
+                                ->title('Reissuance queued')
+                                ->body("Cert reissuance for {$record->domain} has been queued.")
+                                ->success()
+                                ->send();
+                        } catch (\LogicException $e) {
+                            Notification::make()
+                                ->title('Cannot reissue')
+                                ->body($e->getMessage())
+                                ->danger()
+                                ->send();
+                        }
+                    }),
 
                 Action::make('removeDomain')
                     ->label('Remove')
