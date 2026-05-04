@@ -14,12 +14,12 @@ class AccountantStatsWidget extends BaseWidget
 
     protected function getStats(): array
     {
-        $todayCollected = FeePayment::whereDate('paid_at', today())
-            ->sum('amount_paid_paisas');
+        $todayCollected = FeePayment::whereDate('payment_date', today())
+            ->sum('total_amount_paisas');
 
-        $monthCollected = FeePayment::whereMonth('paid_at', now()->month)
-            ->whereYear('paid_at', now()->year)
-            ->sum('amount_paid_paisas');
+        $monthCollected = FeePayment::whereMonth('payment_date', now()->month)
+            ->whereYear('payment_date', now()->year)
+            ->sum('total_amount_paisas');
 
         $totalDue = StudentFee::where('status', 'unpaid')
             ->sum('amount_paisas');

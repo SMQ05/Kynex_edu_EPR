@@ -20,7 +20,7 @@ class RecentFeeCollectionsWidget extends BaseWidget
         return $table
             ->query(
                 FeePayment::query()
-                    ->latest('paid_at')
+                    ->latest('payment_date')
                     ->limit(10)
             )
             ->columns([
@@ -28,7 +28,7 @@ class RecentFeeCollectionsWidget extends BaseWidget
                     ->label('Student')
                     ->formatStateUsing(fn ($record) => $record->studentFee?->student?->first_name . ' ' . $record->studentFee?->student?->last_name),
 
-                TextColumn::make('amount_paid_paisas')
+                TextColumn::make('total_amount_paisas')
                     ->label('Amount')
                     ->formatStateUsing(fn ($state) => 'PKR ' . number_format($state / 100, 2)),
 
@@ -36,7 +36,7 @@ class RecentFeeCollectionsWidget extends BaseWidget
                     ->label('Method')
                     ->badge(),
 
-                TextColumn::make('paid_at')
+                TextColumn::make('payment_date')
                     ->label('Date')
                     ->dateTime('d M Y H:i'),
             ])

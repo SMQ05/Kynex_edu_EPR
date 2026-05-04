@@ -494,7 +494,7 @@ class DemoSchoolSeeder extends Seeder
                         'first_name'       => $firstName,
                         'last_name'        => $lastName,
                         'gender'           => $gender === 'male' ? StudentGender::Male : StudentGender::Female,
-                        'date_of_birth'    => Carbon::now()->subYears(10 + $class->numeric_name)->subDays(random_int(0, 365)),
+                        'date_of_birth'    => Carbon::now()->subYears(10 + $class->numeric_level)->subDays(random_int(0, 365)),
                         'roll_number'      => $i + 1,
                         'admission_date'   => Carbon::parse('2024-04-01'),
                         'status'           => StudentStatus::Enrolled,

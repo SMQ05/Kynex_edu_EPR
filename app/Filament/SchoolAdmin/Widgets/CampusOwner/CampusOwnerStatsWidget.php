@@ -29,9 +29,9 @@ class CampusOwnerStatsWidget extends BaseWidget
 
             Stat::make('Fees Collected (Month)', 'PKR ' . number_format(
                 FeePayment::whereHas('studentFee.student', fn ($q) => $q->where('campus_id', $campusId))
-                    ->whereMonth('paid_at', now()->month)
-                    ->whereYear('paid_at', now()->year)
-                    ->sum('amount_paid_paisas') / 100, 2
+                    ->whereMonth('payment_date', now()->month)
+                    ->whereYear('payment_date', now()->year)
+                    ->sum('total_amount_paisas') / 100, 2
             ))
                 ->description('This month')
                 ->descriptionIcon('heroicon-m-banknotes')

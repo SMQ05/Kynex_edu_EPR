@@ -41,7 +41,7 @@ class FeeKpiWidget extends StatsOverviewWidget
         $rate = $billed > 0 ? round($collected * 100 / $billed, 1) : 0.0;
 
         // Average days to pay: across all paid fees in this year, the
-        // mean of (paid_at - due_date). Negative = paid before due.
+        // mean of (payment_date - due_date). Negative = paid before due.
         // Postgres date subtraction returns INTEGER days directly,
         // not an interval — extract(epoch from int) is invalid here.
         $avgDays = (int) round((float) FeePayment::query()
