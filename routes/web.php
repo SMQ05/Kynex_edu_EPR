@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\FinancialReportPrintController;
 use App\Http\Controllers\PayslipController;
 use App\Http\Controllers\PublicAdmissionController;
 use App\Http\Controllers\ResultCardController;
@@ -20,6 +21,9 @@ Route::middleware([InitializeTenancyBySubdomainOrDomain::class, 'auth:school_use
 
     Route::get('/result-card/{result}', [ResultCardController::class, 'download'])
         ->name('result-card.pdf');
+
+    Route::get('/financial-report/print', [FinancialReportPrintController::class, 'show'])
+        ->name('financial-report.print');
 });
 
 // ─────────────────────────────────────────────────────────────────
