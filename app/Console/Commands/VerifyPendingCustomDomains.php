@@ -27,10 +27,11 @@ class VerifyPendingCustomDomains extends Command
 
     public function handle(CustomDomainService $service): int
     {
+        $tokenTtlDays = (int) config('cert.verification_token_ttl_days', 7);
         $pendingDomains = Domain::where('is_verified', false)
             ->where('domain_type', 'custom')
             ->whereNotNull('verification_token')
-            ->where('created_at', '>', now()->subDays(7))
+            ->where('created_at', '>', now()->subDays($tokenTtlDays))
             ->get();
 
         if ($pendingDomains->isEmpty()) {
@@ -82,13 +83,14 @@ class VerifyPendingCustomDomains extends Command
         // cert is failed/rate_limited/dns_mismatch/lock_timeout, OR whose
         // issued cert expires within 14 days. Belt-and-suspenders alongside
         // the in-container certbot-renew cron.
+        $sweepDays = (int) config('cert.renewal_sweep_days', 14);
         $nearExpiry = Domain::where('is_verified', true)
             ->where('domain_type', 'custom')
-            ->where(function ($q) {
+            ->where(function ($q) use ($sweepDays) {
                 $q->whereIn('cert_status', ['failed', 'rate_limited', 'dns_mismatch', 'lock_timeout'])
-                  ->orWhere(function ($q2) {
+                  ->orWhere(function ($q2) use ($sweepDays) {
                       $q2->where('cert_status', 'issued')
-                         ->where('cert_expires_at', '<', now()->addDays(14));
+                         ->where('cert_expires_at', '<', now()->addDays($sweepDays));
                   });
             })
             ->get();

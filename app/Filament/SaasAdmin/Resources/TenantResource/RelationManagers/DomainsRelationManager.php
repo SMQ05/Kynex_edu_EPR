@@ -119,6 +119,7 @@ class DomainsRelationManager extends RelationManager
                         try {
                             $domain = $service->initiateVerification($tenant, $data['custom_domain']);
                             $instructions = $service->getVerificationInstructions($domain);
+                            $cnameTarget = $instructions['cname_record'];
 
                             Notification::make()
                                 ->title('Custom domain added')
@@ -126,7 +127,7 @@ class DomainsRelationManager extends RelationManager
                                     "Add this DNS TXT record to verify:\n\n" .
                                     "**Name:** {$instructions['txt_record_name']}\n" .
                                     "**Value:** {$instructions['txt_record_value']}\n\n" .
-                                    "Also add a **CNAME** pointing to **kynexedu.com**.\n\n" .
+                                    "Also add a **CNAME** pointing to **{$cnameTarget}**.\n\n" .
                                     "Then click *Verify Now* on the domain row."
                                 )
                                 ->success()

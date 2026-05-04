@@ -38,12 +38,15 @@ class ProvisionCustomDomainCertificate implements ShouldQueue
     use Queueable;
     use SerializesModels;
 
-    public int $tries = 3;
-    public int $backoff = 60;
-    public int $timeout = 180;
+    public int $tries;
+    public int $backoff;
+    public int $timeout;
 
     public function __construct(public int $domainId, public bool $force = false)
     {
+        $this->tries   = (int) config('cert.job_tries', 3);
+        $this->backoff = (int) config('cert.job_backoff_seconds', 60);
+        $this->timeout = (int) config('cert.job_timeout_seconds', 180);
     }
 
     public function handle(): void
@@ -64,10 +67,11 @@ class ProvisionCustomDomainCertificate implements ShouldQueue
             return;
         }
 
+        $sweepDays = (int) config('cert.renewal_sweep_days', 14);
         if (! $this->force
             && $domain->cert_status === 'issued'
             && $domain->cert_expires_at
-            && Carbon::parse($domain->cert_expires_at)->isAfter(now()->addDays(14))) {
+            && Carbon::parse($domain->cert_expires_at)->isAfter(now()->addDays($sweepDays))) {
             Log::info('[cert] Provision skipped: already issued, fresh', [
                 'domain'     => $domain->domain,
                 'expires_at' => $domain->cert_expires_at,
@@ -82,7 +86,7 @@ class ProvisionCustomDomainCertificate implements ShouldQueue
 
         $url     = rtrim((string) config('cert.listener_url'), '/');
         $secret  = (string) config('cert.listener_secret');
-        $timeout = (int) config('cert.listener_timeout', 120);
+        $timeout = (int) config('cert.listener_timeout_seconds', 120);
 
         $endpoint = $this->force ? '/reissue' : '/provision';
         $headers  = [
@@ -114,7 +118,7 @@ class ProvisionCustomDomainCertificate implements ShouldQueue
         try {
             $response = Http::withHeaders($headers)
                 ->timeout($timeout)
-                ->connectTimeout(5)
+                ->connectTimeout((int) config('cert.http_connect_timeout_seconds', 5))
                 ->post($url . $endpoint, ['domain' => $domain->domain]);
         } catch (Throwable $e) {
             $this->markFailure($domain, 'failed', 'listener unreachable: ' . $e->getMessage());

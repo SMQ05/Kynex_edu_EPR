@@ -159,8 +159,8 @@ class CustomDomainService
             'X-Cert-Listener-Secret' => (string) config('cert.listener_secret'),
             'Accept'                 => 'application/json',
         ])
-            ->timeout((int) config('cert.listener_timeout', 60))
-            ->connectTimeout(5)
+            ->timeout((int) config('cert.remove_timeout_seconds', 120))
+            ->connectTimeout((int) config('cert.http_connect_timeout_seconds', 5))
             ->post(rtrim((string) config('cert.listener_url'), '/') . '/remove', ['domain' => $domain]);
     }
 
@@ -171,14 +171,16 @@ class CustomDomainService
      */
     public function getVerificationInstructions(Domain $domain): array
     {
+        $cnameTarget = (string) config('cert.cname_target', 'kynexedu.com');
+
         return [
             'domain'           => $domain->domain,
             'txt_record_name'  => '_kynexedu-verify.' . $domain->domain,
             'txt_record_value' => $domain->verification_token,
-            'cname_record'     => 'kynexedu.com',
+            'cname_record'     => $cnameTarget,
             'instructions'     => [
                 'Go to your DNS provider (GoDaddy, Cloudflare, Namecheap, etc.)',
-                'Add a CNAME record pointing your domain to kynexedu.com',
+                'Add a CNAME record pointing your domain to ' . $cnameTarget,
                 'Add a TXT record:',
                 '  Name: _kynexedu-verify.' . $domain->domain,
                 '  Value: ' . $domain->verification_token,
