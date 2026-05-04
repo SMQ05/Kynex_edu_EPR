@@ -33,7 +33,6 @@ class SchoolAdminPanelProvider extends PanelProvider
             ->id('school-admin')
             ->path('admin')
             ->authGuard('school_users')
-            ->login()
             ->profile(isSimple: true)
             ->userMenuItems([
                 'switch-role' => MenuItem::make()
@@ -141,11 +140,11 @@ class SchoolAdminPanelProvider extends PanelProvider
     {
         parent::register();
 
-        // The school-admin Filament panel deliberately does not register the
-        // `filament.school-admin.auth.login` route — /admin/login is shadowed
-        // by routes/web.php (redirects to the school portal /login). Override
-        // Filament's default LogoutResponse, which would otherwise call
-        // route('filament.school-admin.auth.login') and 500.
+        // This panel does not use Filament's built-in Login page. The
+        // `filament.school-admin.auth.login` name is bound in routes/web.php
+        // to a redirect into the school portal /login (so internal callers
+        // like Panel::getLoginUrl() resolve cleanly). The LogoutResponse is
+        // also overridden to redirect to the portal login on logout.
         $this->app->singleton(LogoutResponseContract::class, SchoolAdminLogoutResponse::class);
     }
 

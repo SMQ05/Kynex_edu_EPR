@@ -60,8 +60,15 @@ Route::middleware([InitializeTenancyBySubdomainOrDomain::class])->group(function
 // Redirect Filament's built-in /admin/login to our custom portal.
 // The Filament login page queries school_users without tenancy context,
 // which fails on the central domain. All login must go through /login.
+//
+// The name `filament.school-admin.auth.login` is the route name Filament
+// expects when AuthenticateSession invalidates a session and calls
+// Panel::getLoginUrl(). Binding the name here (instead of letting Filament
+// register a real Login page via the panel's ->login()) keeps that helper
+// resolvable while still funnelling users through the school portal login.
 // ─────────────────────────────────────────────────────────────────
-Route::get('/admin/login', fn () => redirect()->route('school.login'))->name('admin.login.redirect');
+Route::get('/admin/login', fn () => redirect()->route('school.login'))
+    ->name('filament.school-admin.auth.login');
 
 // ─────────────────────────────────────────────────────────────────
 // Root `/` — host-aware landing.
