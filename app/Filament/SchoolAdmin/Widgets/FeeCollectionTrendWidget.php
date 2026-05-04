@@ -36,9 +36,9 @@ class FeeCollectionTrendWidget extends ChartWidget
 
             // Fee payments collected this month
             $monthlyCollected = FeePayment::query()
-                ->whereYear('paid_at', $date->year)
-                ->whereMonth('paid_at', $date->month)
-                ->sum('amount_paisas');
+                ->whereYear('payment_date', $date->year)
+                ->whereMonth('payment_date', $date->month)
+                ->sum('total_amount_paisas');
 
             $collected->push(round($monthlyCollected / 100));
 

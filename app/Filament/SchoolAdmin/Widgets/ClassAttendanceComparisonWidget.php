@@ -27,7 +27,7 @@ class ClassAttendanceComparisonWidget extends ChartWidget
 
     protected function getData(): array
     {
-        $classes = SchoolClass::orderBy('numeric_name')->get();
+        $classes = SchoolClass::orderBy('numeric_level')->get();
 
         $labels = [];
         $rates = [];

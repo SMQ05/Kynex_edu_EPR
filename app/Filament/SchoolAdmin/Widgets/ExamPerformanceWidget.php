@@ -29,7 +29,7 @@ class ExamPerformanceWidget extends ChartWidget
         // Get last 6 exams
         $exams = Exam::query()
             ->where('status', 'published')
-            ->orderByDesc('date_from')
+            ->orderByDesc('start_date')
             ->limit(6)
             ->get()
             ->reverse()
