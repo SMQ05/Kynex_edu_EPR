@@ -1,7 +1,7 @@
 # Cert Provisioning — Sub-phase 2 Design Document
 
 **Date:** 2026-05-04
-**Revision:** rev2 (2026-05-04)
+**Revision:** rev4 (2026-05-04)
 **Workstream:** Phase 1.5 — Automated TLS for custom school domains
 **Predecessor:** [`cert-provisioning-investigation-2026-05-04.md`](cert-provisioning-investigation-2026-05-04.md)
 **Status:** Awaiting user spot-check (rev2). No code, infra, or compose changes have been made.
@@ -21,6 +21,26 @@ User spot-check on rev1 found three gaps. Rev2 fixes each plus three additions:
 | 2 — per-domain lock filename | §3.6, §7 case 1 | Renamed `/var/lock/cert-<domain>.lock` → `/var/lock/cert-provision-<domain>.lock` for clearer grep target. Per-domain semantics unchanged. |
 | 4 — sed migration safety | §5.2 | Added backup-before-edit (`cp .bak.$TS`), grep-verify-after-edit, and a documented rollback command path. Bails and restores from backup if sed silently produced no change. |
 | 5 — provision vs reissue distinction | §2.1.B Job, §3.6 provision-cert.sh, §3.8 cert-listener.php, §1 architecture, §9 test plan | Listener now exposes two paths: `/provision` (idempotent, certbot `--keep-until-expiring`) and `/reissue` (force, certbot `--force-renewal`). `/reissue` requires an additional `X-Cert-Reissue-Confirm: true` header — defence-in-depth so a buggy client can't accidentally burn an LE rate-limit slot. The Job branches on the `force` flag to pick endpoint and header. |
+
+### Rev3 changelog (clarifications, no logic change)
+
+Sub-phase 5 testing surfaced one real bug and one test-expectation mismatch. Listener behavior as designed is correct; only the spec wording and listener logger code change.
+
+| Fix | Section(s) updated | Summary |
+|-----|--------------------|---------|
+| 1 — listener logger uses `error_log()` not `fwrite(STDERR, …)` | §3.8 cert-listener.php | `php -S` (cli-server SAPI) does not auto-define the `STDERR` constant, unlike plain CLI. The original `fwrite(STDERR, …)` faulted on first call from the dispatch path. Replaced with `error_log()`, which writes to the PHP error log → captured by supervisor's stderr → `/var/log/cert-listener.log`. Same destination, no SAPI assumption. |
+| 2 — test plan: unauthenticated requests return 401 regardless of method/path | §4.3 canary tests | Clarification: the listener checks the secret BEFORE the method, by design — auth-first prevents an unauthenticated caller from enumerating valid methods or endpoints via 405-vs-401 differentiation. So `GET /provision` (or any other method/path) without the secret header returns 401, not 405. The 405 path only fires after auth succeeds and the method is not POST. |
+| 3 — test plan: Sub-phase 5 "auth happy-path" probe input | Sub-phase 5 Step 7 | Clarification: the canonical auth-happy-path test in Sub-phase 5 uses domain `not-a-real-domain.invalid`. This input passes the listener's structural domain regex (which validates syntax, not TLD) and reaches `provision-cert.sh`, where the DNS pre-check refuses to proceed — exercising the DNS-mismatch backstop, not the regex layer. The regex layer is independently exercised by malformed inputs like `not_a_domain` (underscore disallowed) or empty string. Net effect: Step 7 proves auth + routing + DNS-mismatch handling end-to-end without burning an LE rate-limit slot. |
+
+### Rev4 changelog (Step 10 findings + listener HTTP-code mapping)
+
+Sub-phase 5 Step 9.10 (idempotence) and Step 10 (failure-path tests) surfaced two refinements. Listener now maps script status to HTTP code; Test 5 deliberately skipped per code review of the rollback path.
+
+| Fix | Section(s) updated | Summary |
+|-----|--------------------|---------|
+| 1 — provision-cert.sh: preserve `ISSUED_AT` on certbot no-op | §3.6 provision-cert.sh | The `cmp -s` idempotence check at provision-cert.sh:206 was defeated by a fresh `$(date -Iseconds)` substituted into the `__ISSUED_AT__` template comment on every run, forcing `NGINX_CONF_CHANGED=1` and an unnecessary reload. Fix: `grep -F` certbot output for `"Certificate not yet due for renewal"` → `cp $TARGET $TMP` to preserve existing comment; `"Successfully received certificate"` → fresh render with new `ISSUED_AT`; unrecognized output fail-safes to fresh render with a WARN log. Verified by re-running the 9.10 idempotence test: response ~1s, `NGINX_CONF_CHANGED` stays 0, no `nginx reloaded` log line. |
+| 2 — listener: map script status to HTTP code | §3.8 cert-listener.php | Listener previously returned HTTP 200 for all script outcomes, regardless of success/failure. Sub-phase 5 Step 10 Test 4 surfaced `lock_timeout` → HTTP 200 as misleading for monitoring/curl/log aggregators. New mapping (Option 3 — infra-vs-world-state split): `issued`, `removed`, `dns_mismatch`, `rate_limited` → 200 (correct refusals based on world state); `lock_timeout` → 503 (retry-after, internal contention); `failed` and unknown statuses → 500. Synth-on-JSON-parse-failure paths retain their existing 500. Test-plan implications: Step 10 Test 1 (dns_mismatch) expects HTTP 200; Test 4 (lock_timeout) expects HTTP 503; Step 9.3 (issued) expects HTTP 200. |
+| 3 — Test 5 (deliberate nginx -t failure simulation) skipped | §9 test plan note | Rationale: the rollback path at provision-cert.sh:219-237 was reviewed in code — per-domain `rm -f "$TARGET"` (never globs), explicit re-test after rollback, fail-loud on pre-existing breakage, lock-release on every exit path. Risk surface judged acceptable to NOT live-test. Capability remains in the design doc and can be exercised on demand if a rollback regression is later suspected. |
 
 ---
 
@@ -1217,7 +1237,7 @@ header('Content-Type: application/json');
 header('X-Listener-Version: phase-1.5');
 
 $logLine = function (string $msg): void {
-    fwrite(STDERR, '[' . date('c') . '] ' . $msg . "\n");
+    error_log('[' . date('c') . '] ' . $msg);
 };
 
 if ($secret === '' || ! hash_equals($secret, $header)) {
@@ -1417,6 +1437,11 @@ Estimated downtime for `ai.kynexsolutions.com`: ~30s (authorised).
 5. `docker exec kynexedu-app php artisan tinker` →
    `\Illuminate\Support\Facades\Http::get('http://kynex-app:9090/provision')`
    — expect HTTP 401 (auth missing), proves listener is reachable.
+   Note: any unauthenticated request returns 401 regardless of method or
+   path — the listener checks the secret before the method (auth-first,
+   so unauthenticated callers cannot enumerate valid endpoints/methods
+   via response-code differentiation). The 405 "method not allowed"
+   path only fires after auth succeeds.
 6. Same call WITH the secret header but no body — expect HTTP 400.
 
 ### 4.4 aqmdigital.com regeneration test

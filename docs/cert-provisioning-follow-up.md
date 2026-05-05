@@ -91,6 +91,24 @@ Changing the webroot path now would:
 
 ---
 
+## Item 11 — PHP display_errors leakage in cert-listener.php
+
+cli-server SAPI defaults to display_errors=on. PHP fatal errors from
+the listener get written into the HTTP response body, potentially
+leaking file paths and line numbers to callers. Mitigations:
+- Set display_errors=off explicitly at top of cert-listener.php
+- Add a custom error handler that logs and returns a generic 500
+
+Surfaced during Sub-phase 5 testing when an undefined-constant fatal
+exposed the file path /usr/local/bin/cert-listener.php:93 in a JSON
+response body. The file path itself is not sensitive (anyone with
+docker exec can see it), but the pattern would be in production for
+any future bug.
+
+Effort: 30 min. Defer until next listener iteration.
+
+---
+
 ## How items move out of this list
 
 When work begins on any item:
@@ -109,3 +127,4 @@ When work begins on any item:
 | 8 | HTTP listener port 9090 | DEFERRED | 2026-05-04 |
 | 9 | Backend proxy_pass kynexedu-app:80 | DEFERRED | 2026-05-04 |
 | 10 | Webroot path /var/www/certbot/www | DEFERRED | 2026-05-04 |
+| 11 | PHP display_errors leakage in cert-listener.php | DEFERRED | 2026-05-04 |
