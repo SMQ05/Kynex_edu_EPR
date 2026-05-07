@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models\Tenant;
 
+use App\Casts\AsEnum;
 use App\Enums\AttendanceStatus;
 use App\Models\SchoolUser;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
@@ -31,7 +32,7 @@ class AttendanceRecord extends Model
     {
         return [
             'date'         => 'date',
-            'status'       => AttendanceStatus::class,
+            'status'       => AsEnum::of(AttendanceStatus::class),
             'late_minutes' => 'integer',
             'notified_at'  => 'datetime',
         ];

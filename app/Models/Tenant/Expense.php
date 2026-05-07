@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models\Tenant;
 
+use App\Casts\AsEnum;
 use App\Enums\ExpenseApprovalStatus;
 use App\Enums\PaymentMethod;
 use App\Models\Concerns\HasPaisaAttributes;
@@ -42,7 +43,7 @@ class Expense extends Model
         return [
             'amount_paisas' => 'integer',
             'expense_date' => 'date',
-            'payment_method' => PaymentMethod::class,
+            'payment_method' => AsEnum::of(PaymentMethod::class),
             'approval_status' => ExpenseApprovalStatus::class,
         ];
     }

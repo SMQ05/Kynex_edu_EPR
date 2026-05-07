@@ -27,7 +27,30 @@
             We encountered an unexpected error. Our team has been notified and is working on a fix.
             Please try again in a few moments.
         </p>
-        <a href="{{ url('/') }}" class="btn">← Go Back Home</a>
+        @php
+            $panelPrefixes = ['admin', 'saas', 'parent', 'student'];
+            $panelLabel    = null;
+            $panelUrl      = null;
+            foreach ($panelPrefixes as $prefix) {
+                if (request()->is($prefix . '/*')) {
+                    $panelLabel = match ($prefix) {
+                        'admin'   => 'Admin Panel',
+                        'saas'    => 'Saas Panel',
+                        'parent'  => 'Parent Portal',
+                        'student' => 'Student Portal',
+                        default   => 'Dashboard',
+                    };
+                    $panelUrl = url('/' . $prefix);
+                    break;
+                }
+            }
+        @endphp
+
+        @if ($panelUrl)
+            <a href="{{ $panelUrl }}" class="btn">← Back to {{ $panelLabel }}</a>
+        @else
+            <a href="{{ url('/') }}" class="btn">← Go Back Home</a>
+        @endif
         <p class="support">
             If the problem persists, contact support at
             <a href="mailto:support@kynexedu.com">support@kynexedu.com</a>

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models\Tenant;
 
+use App\Casts\AsEnum;
 use App\Enums\ExamStatus;
 use App\Enums\ExamType;
 use App\Models\SchoolUser;
@@ -37,7 +38,7 @@ class Exam extends Model
             'start_date'               => 'date',
             'end_date'                 => 'date',
             'status'                   => ExamStatus::class,
-            'exam_type'                => ExamType::class,
+            'exam_type'                => AsEnum::of(ExamType::class),
             'publish_results'          => 'boolean',
             'include_in_annual_result' => 'boolean',
             'weightage_percent'        => 'integer',

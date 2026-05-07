@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\FeeReceiptController;
 use App\Http\Controllers\FinancialReportPrintController;
 use App\Http\Controllers\PayslipController;
 use App\Http\Controllers\PublicAdmissionController;
@@ -24,6 +25,9 @@ Route::middleware([InitializeTenancyBySubdomainOrDomain::class, 'auth:school_use
 
     Route::get('/financial-report/print', [FinancialReportPrintController::class, 'show'])
         ->name('financial-report.print');
+
+    Route::get('/fee-receipt/{payment}', [FeeReceiptController::class, 'show'])
+        ->name('fee.receipt');
 });
 
 // ─────────────────────────────────────────────────────────────────

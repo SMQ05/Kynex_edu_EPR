@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models\Tenant;
 
+use App\Casts\AsEnum;
 use App\Enums\FeePaymentMethod;
 use App\Models\Concerns\HasPaisaAttributes;
 use App\Models\SchoolUser;
@@ -37,7 +38,7 @@ class FeePayment extends Model
         return [
             'total_amount_paisas' => 'integer',
             'payment_date' => 'date',
-            'payment_method' => FeePaymentMethod::class,
+            'payment_method' => AsEnum::of(FeePaymentMethod::class),
         ];
     }
 

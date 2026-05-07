@@ -61,6 +61,31 @@ return Application::configure(basePath: dirname(__DIR__))
         );
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        // Redirect authenticated panel users who hit a 403 to their panel's
+        // AccessDenied page so they see the full sidebar/header chrome instead
+        // of a stripped error view. Public-route 403s fall through to 403.blade.php.
+        $exceptions->render(function (
+            \Symfony\Component\HttpKernel\Exception\HttpException $e,
+            \Illuminate\Http\Request $request,
+        ) {
+            if ($e->getStatusCode() !== 403) {
+                return null;
+            }
+
+            $panels = [
+                'admin'  => ['school_users', 'filament.school-admin.pages.access-denied'],
+                'saas'   => ['saas_admin',   'filament.saas-admin.pages.access-denied'],
+                'parent' => ['school_users', 'filament.parent.pages.access-denied'],
+            ];
+
+            foreach ($panels as $prefix => [$guard, $route]) {
+                if ($request->is($prefix . '/*') && auth()->guard($guard)->check()) {
+                    return redirect()->route($route)
+                        ->with('denied_url', $request->url());
+                }
+            }
+
+            return null;
+        });
     })
     ->create();

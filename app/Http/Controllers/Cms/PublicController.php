@@ -69,7 +69,7 @@ class PublicController extends Controller
         ]);
     }
 
-    public function contactSubmit(Request $request)
+    public function contactForm(Request $request)
     {
         $validated = $request->validate([
             'name'    => 'required|string|max:255',

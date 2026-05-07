@@ -44,8 +44,48 @@ class GradingWeights extends Page
 
     public ?string $academic_year_id = null;
 
+    // Always show in nav and allow authenticated users to land on the page;
+    // users without view_marks see an in-layout "Access Restricted" message
+    // (see getView() below) instead of a stripped 403.
+    public static function shouldRegisterNavigation(): bool
+    {
+        return auth()->guard('school_users')->check();
+    }
+
+    public static function canAccess(): bool
+    {
+        return auth()->guard('school_users')->check();
+    }
+
+    public function getView(): string
+    {
+        if (! $this->userCanViewMarks()) {
+            return 'filament.school-admin.pages.forbidden';
+        }
+        return $this->view;
+    }
+
+    private function userCanViewMarks(): bool
+    {
+        $user = auth()->guard('school_users')->user();
+        if (! $user) {
+            return false;
+        }
+        if ($user->hasRole(['INSTITUTE_HEAD', 'MULTI_INSTITUTE_HEAD', 'SCHOOL_ADMIN'])) {
+            return true;
+        }
+        try {
+            return $user->hasPermissionTo('view_marks');
+        } catch (\Spatie\Permission\Exceptions\PermissionDoesNotExist) {
+            return false;
+        }
+    }
+
     public function mount(): void
     {
+        if (! $this->userCanViewMarks()) {
+            return;
+        }
         $this->academic_year_id = AcademicYear::query()
             ->where('is_current', true)
             ->value('id')

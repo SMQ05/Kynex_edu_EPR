@@ -29,6 +29,19 @@ class ExamResource extends Resource
     protected static string $rbacPermission = 'view_marks';
     protected static string $rbacWritePermission = 'manage_exam_schedules';
 
+    // Keep the Examinations group and its links visible to every authenticated
+    // school user. Users without view_marks land on an in-layout "Access
+    // Restricted" page instead of a stripped 403 — see ListExams::getView().
+    public static function shouldRegisterNavigation(): bool
+    {
+        return auth()->guard('school_users')->check();
+    }
+
+    public static function canViewAny(): bool
+    {
+        return auth()->guard('school_users')->check();
+    }
+
     protected static ?string $model = Exam::class;
 
     protected static string | \BackedEnum | null $navigationIcon = 'heroicon-o-clipboard-document-list';

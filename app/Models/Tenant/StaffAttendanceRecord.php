@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models\Tenant;
 
+use App\Casts\AsEnum;
 use App\Enums\StaffAttendanceStatus;
 use App\Models\SchoolUser;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
@@ -29,7 +30,7 @@ class StaffAttendanceRecord extends Model
     {
         return [
             'date'             => 'date',
-            'status'           => StaffAttendanceStatus::class,
+            'status'           => AsEnum::of(StaffAttendanceStatus::class),
             'overtime_minutes' => 'integer',
         ];
     }
