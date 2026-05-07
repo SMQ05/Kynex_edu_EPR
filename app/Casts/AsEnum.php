@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\Log;
  * Usage in model casts():
  *   'exam_type' => AsEnum::of(ExamType::class),
  */
-class AsEnum implements CastsAttributes
+class AsEnum implements CastsAttributes, \Stringable
 {
     /** Per-process dedup — prevents log flooding for repeated stale values */
     private static array $warned = [];
@@ -26,6 +26,11 @@ class AsEnum implements CastsAttributes
     public static function of(string $enumClass): self
     {
         return new self($enumClass);
+    }
+
+    public function __toString(): string
+    {
+        return self::class . ':' . $this->enumClass;
     }
 
     public function get(Model $model, string $key, mixed $value, array $attributes): mixed
