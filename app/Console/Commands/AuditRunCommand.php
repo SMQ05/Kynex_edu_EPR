@@ -219,11 +219,10 @@ MSG,
             return false;
         }
 
-        $script = storage_path('audit-scripts/crawl.js');
+        $script = base_path('resources/audit-scripts/crawl.js');
         if (! file_exists($script)) {
-            // crawl.js MUST be baked into the image via Dockerfile COPY — never
-            // docker cp'd. Otherwise the audit infrastructure breaks at the
-            // next container recreate.
+            // crawl.js is source code baked into the image (resources/audit-scripts/)
+            // and is not affected by the kynexedu_storage volume mount.
             $this->error("Crawl script not found: {$script}\nDeploy the latest code first.");
             return false;
         }
@@ -744,7 +743,7 @@ MSG,
 
         $args = [
             'node',
-            storage_path('audit-scripts/crawl.js'),
+            base_path('resources/audit-scripts/crawl.js'),
             '--creds-file='      . $credsPath,
             '--run-id='          . $run->id,
             '--tenant='          . $job['tenant_slug'],

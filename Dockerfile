@@ -69,6 +69,12 @@ COPY docker/start-container.sh /usr/local/bin/start-container
 COPY docker/start-queue.sh /usr/local/bin/start-queue
 COPY docker/start-scheduler.sh /usr/local/bin/start-scheduler
 
+# Install Playwright npm package + Chromium browser for audit:run crawler.
+# Stored in /var/www/html/node_modules so require('playwright') resolves from
+# any subdirectory (crawl.js, checkPlaywright() inline eval, etc.).
+RUN npm install --no-save playwright \
+    && npx playwright install --with-deps chromium
+
 RUN chmod +x /usr/local/bin/docker-bootstrap /usr/local/bin/start-container /usr/local/bin/start-queue /usr/local/bin/start-scheduler \
     && mkdir -p storage/framework/{cache,sessions,views} bootstrap/cache \
     && chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
