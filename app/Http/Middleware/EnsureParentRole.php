@@ -15,7 +15,7 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class EnsureParentRole
 {
-    public function handle(Request $request, Closure $next): Response
+    public function handle(Request $request, Closure $next): mixed
     {
         $user = auth()->guard('school_users')->user();
 

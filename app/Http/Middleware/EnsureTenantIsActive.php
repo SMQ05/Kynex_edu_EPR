@@ -21,7 +21,7 @@ class EnsureTenantIsActive
         private readonly Tenancy $tenancy,
     ) {}
 
-    public function handle(Request $request, Closure $next): Response
+    public function handle(Request $request, Closure $next): mixed
     {
         $tenant = $this->tenancy->initialized ? $this->tenancy->tenant : null;
 

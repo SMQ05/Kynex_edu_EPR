@@ -18,7 +18,7 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class EnsureCentralHost
 {
-    public function handle(Request $request, Closure $next): Response
+    public function handle(Request $request, Closure $next): mixed
     {
         $central = config('tenancy.central_domains', []);
 

@@ -14,7 +14,7 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class EnsureApiAccess
 {
-    public function handle(Request $request, Closure $next): Response
+    public function handle(Request $request, Closure $next): mixed
     {
         if (! tenancy()->initialized) {
             return response()->json([

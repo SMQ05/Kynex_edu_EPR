@@ -22,7 +22,7 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class ClearStaleTenantSession
 {
-    public function handle(Request $request, Closure $next): Response
+    public function handle(Request $request, Closure $next): mixed
     {
         if (! $request->hasSession()) {
             return $next($request);

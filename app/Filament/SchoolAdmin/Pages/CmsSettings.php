@@ -62,7 +62,12 @@ class CmsSettings extends Page implements HasForms
             if (blank($v)) {
                 return null;
             }
-            return [(string) \Illuminate\Support\Str::uuid() => (string) $v];
+            $str = (string) $v;
+            // External URLs cannot be previewed as uploaded files — skip them.
+            if (str_starts_with($str, 'http://') || str_starts_with($str, 'https://')) {
+                return null;
+            }
+            return [(string) \Illuminate\Support\Str::uuid() => $str];
         };
 
         $this->data = [

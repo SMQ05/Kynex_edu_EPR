@@ -28,8 +28,15 @@ class InitializeTenancyBySubdomainOrDomain
         private readonly Tenancy $tenancy,
     ) {}
 
-    public function handle(Request $request, Closure $next): Response
+    public function handle(Request $request, Closure $next): mixed
     {
+        // Idempotency: the middleware is added both to the global web stack
+        // (so Livewire AJAX routes get tenancy) and to specific route groups.
+        // Skip if tenancy is already initialized to avoid double-init.
+        if ($this->tenancy->initialized) {
+            return $next($request);
+        }
+
         $host = $request->getHost();
         $centralDomains = config('tenancy.central_domains', []);
 

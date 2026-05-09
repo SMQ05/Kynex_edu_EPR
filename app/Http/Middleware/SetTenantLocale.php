@@ -26,7 +26,7 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class SetTenantLocale
 {
-    public function handle(Request $request, Closure $next): Response
+    public function handle(Request $request, Closure $next): mixed
     {
         // Only applies when tenancy is active
         if (! function_exists('tenant') || ! tenant()) {

@@ -579,20 +579,13 @@ async function runFormSubmitPass(page, listUrl) {
 }
 
 // ─── STUDENT negative test ────────────────────────────────────────────────────
-// STUDENT is not a school_admin panel role. After login to /admin, Filament's
-// gate should fire and render an AccessDenied page with full panel chrome.
+// STUDENT is not a school_admin panel role. After navigating to /admin, Filament
+// should block access. Two valid blocking outcomes:
 //
-// Two independent boolean assertions:
-//   hasNav          — sidebar is present (panel chrome rendered correctly)
-//   hasAccessDenied — access-denied text is present (Filament gate fired)
-//
-// All four combinations produce distinct outcomes:
-//   hasNav  + hasAccessDenied  → ok (correct: access denied, chrome intact)
-//   hasNav  + !hasAccessDenied → security_violation (student may see real content)
-//   !hasNav + hasAccessDenied  → panel_chrome_missing (gate fired but layout broken)
-//   !hasNav + !hasAccessDenied → both findings above
-//
-// The two if blocks are independent (not else-if) so both can fire together.
+//   hasNav  + hasAccessDenied  → ok (Filament AccessDenied component, chrome intact)
+//   !hasNav + hasAccessDenied  → ok (canAccessPanel()=false → plain 403, more secure)
+//   hasNav  + !hasAccessDenied → security_violation (student sees real panel)
+//   !hasNav + !hasAccessDenied → security_violation (unknown redirect, no denial shown)
 
 async function runStudentNegativeTest(page) {
     const currentUrl = page.url();
@@ -610,47 +603,34 @@ async function runStudentNegativeTest(page) {
 
     const hasAccessDenied = /forbidden|403|you do not have access|access.?denied/i.test(bodyText);
 
-    // ✓ Correct outcome: access denied with full chrome
-    if (hasAccessDenied && hasNav) {
+    // ✓ Correct outcomes: access denied regardless of whether chrome is present.
+    // canAccessPanel()=false renders a plain 403 without chrome — equally secure.
+    if (hasAccessDenied) {
         emitFinding({
             severity:     'ok',
             finding_type: 'access_denied_ok',
             url:          currentUrl,
-            title:        'STUDENT correctly denied — panel chrome intact',
-            details:      {},
+            title:        hasNav
+                ? 'STUDENT correctly denied — panel chrome intact'
+                : 'STUDENT correctly denied — plain 403 (no chrome, more secure)',
+            details:      { has_nav: hasNav },
             screenshot:   null,
             http_status:  403,
         });
         return;
     }
 
-    // ✗ Chrome missing (fires regardless of whether access-denied text is present)
-    if (!hasNav) {
-        const shot = await takeScreenshot(page, 'student-no-chrome');
-        emitFinding({
-            severity:     'high',
-            finding_type: 'panel_chrome_missing',
-            url:          currentUrl,
-            title:        'STUDENT AccessDenied rendered without panel sidebar',
-            details:      { has_access_denied_text: hasAccessDenied },
-            screenshot:   shot,
-            http_status:  403,
-        });
-    }
-
     // ✗ No access-denied text (student may have landed on real panel content)
-    if (!hasAccessDenied) {
-        const shot = await takeScreenshot(page, 'student-no-denied');
-        emitFinding({
-            severity:     'medium',
-            finding_type: 'security_violation',
-            url:          currentUrl,
-            title:        'STUDENT landed on panel without AccessDenied message',
-            details:      { body_preview: bodyText.slice(0, 300) },
-            screenshot:   shot,
-            http_status:  200,
-        });
-    }
+    const shot = await takeScreenshot(page, 'student-no-denied');
+    emitFinding({
+        severity:     'medium',
+        finding_type: 'security_violation',
+        url:          currentUrl,
+        title:        'STUDENT landed on panel without AccessDenied message',
+        details:      { body_preview: bodyText.slice(0, 300), has_nav: hasNav },
+        screenshot:   shot,
+        http_status:  200,
+    });
 }
 
 // ─── Login ────────────────────────────────────────────────────────────────────

@@ -26,7 +26,7 @@ class InitializeTenancyBySubdomain
         private readonly Tenancy $tenancy,
     ) {}
 
-    public function handle(Request $request, Closure $next): Response
+    public function handle(Request $request, Closure $next): mixed
     {
         $host = strtolower($request->getHost());
         $centralDomains = array_map('strtolower', (array) config('tenancy.central_domains', []));
