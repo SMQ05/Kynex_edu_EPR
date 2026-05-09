@@ -35,40 +35,10 @@ class CmsSettings extends Page implements HasForms
 
     protected string $view = 'filament.school-admin.pages.cms-settings';
 
-    // ── Form State ──────────────────────────────────────────────
-    public string $school_name = '';
-    public string $tagline = '';
-    public ?string $logo_path = '';
-    public ?string $favicon_path = '';
-    public string $address = '';
-    public string $phone = '';
-    public string $email = '';
-    public string $whatsapp = '';
-    public string $facebook_url = '';
-    public string $twitter_url = '';
-    public string $instagram_url = '';
-    public string $youtube_url = '';
-    public string $primary_color = '#1a56db';
-    public string $about_text = '';
-    public string $principal_message = '';
-    public string $principal_name = '';
-    public ?string $principal_photo_path = '';
-    public bool $admission_open = false;
-    public string $admission_form_url = '';
-
-    // Extended fields
-    public string $vision_text = '';
-    public string $mission_text = '';
-    public ?string $hero_image_path = '';
-    public string $hero_video_url = '';
-    public ?string $about_image_path = '';
-    public string $address_map_iframe = '';
-    /** @var array<int,array<string,mixed>> */ public array $why_choose_us = [];
-    /** @var array<int,array<string,mixed>> */ public array $facilities    = [];
-    /** @var array<int,array<string,mixed>> */ public array $testimonials  = [];
-    /** @var array<int,array<string,mixed>> */ public array $stats         = [];
-    /** @var array<int,array<string,mixed>> */ public array $exam_highlights = [];
-    /** @var array<int,array<string,mixed>> */ public array $admission_steps = [];
+    // Single array property so Livewire's ArraySynth handles FileUpload
+    // temporary file transitions (scalar ?string properties cannot hold
+    // TemporaryUploadedFile and cause "Property type not supported" errors).
+    public array $data = [];
 
     // ── Lifecycle ───────────────────────────────────────────────
 
@@ -81,39 +51,70 @@ class CmsSettings extends Page implements HasForms
     {
         $settings = CmsSetting::getSettings();
 
-        $this->school_name          = $settings->school_name ?? '';
-        $this->tagline              = $settings->tagline ?? '';
-        $this->logo_path            = $settings->logo_path ?? '';
-        $this->favicon_path         = $settings->favicon_path ?? '';
-        $this->address              = $settings->address ?? '';
-        $this->phone                = $settings->phone ?? '';
-        $this->email                = $settings->email ?? '';
-        $this->whatsapp             = $settings->whatsapp ?? '';
-        $this->facebook_url         = $settings->facebook_url ?? '';
-        $this->twitter_url          = $settings->twitter_url ?? '';
-        $this->instagram_url        = $settings->instagram_url ?? '';
-        $this->youtube_url          = $settings->youtube_url ?? '';
-        $this->primary_color        = $settings->primary_color ?? '#1a56db';
-        $this->about_text           = $settings->about_text ?? '';
-        $this->principal_message    = $settings->principal_message ?? '';
-        $this->principal_name       = $settings->principal_name ?? '';
-        $this->principal_photo_path = $settings->principal_photo_path ?? '';
-        $this->admission_open       = (bool) $settings->admission_open;
-        $this->admission_form_url   = $settings->admission_form_url ?? '';
+        $asList = static fn (mixed $v): array => is_array($v) && array_is_list($v) ? $v : [];
 
-        // Extended
-        $this->vision_text          = $settings->vision_text ?? '';
-        $this->mission_text         = $settings->mission_text ?? '';
-        $this->hero_image_path      = $settings->hero_image_path ?? '';
-        $this->hero_video_url       = $settings->hero_video_url ?? '';
-        $this->about_image_path     = $settings->about_image_path ?? '';
-        $this->address_map_iframe   = $settings->address_map_iframe ?? '';
-        $this->why_choose_us        = is_array($settings->why_choose_us) ? $settings->why_choose_us : [];
-        $this->facilities           = is_array($settings->facilities) ? $settings->facilities : [];
-        $this->testimonials         = is_array($settings->testimonials) ? $settings->testimonials : [];
-        $this->stats                = is_array($settings->stats) ? $settings->stats : [];
-        $this->exam_highlights      = is_array($settings->exam_highlights) ? $settings->exam_highlights : [];
-        $this->admission_steps      = is_array($settings->admission_steps) ? $settings->admission_steps : [];
+        // FileUpload components expect a keyed array in $data (not a plain string).
+        // $this->data is set directly, bypassing Filament's form fill() and thus
+        // FileUploadStateCast::set(). Without the keyed-array format, Livewire
+        // serialises the string path to the snapshot, and getUploadedFiles() later
+        // does `foreach(string ...)` which throws a TypeError.
+        $wrapFile = static function (mixed $v): ?array {
+            if (blank($v)) {
+                return null;
+            }
+            return [(string) \Illuminate\Support\Str::uuid() => (string) $v];
+        };
+
+        $this->data = [
+            'school_name'          => $settings->school_name ?? '',
+            'tagline'              => $settings->tagline ?? '',
+            'logo_path'            => $wrapFile($settings->logo_path),
+            'favicon_path'         => $wrapFile($settings->favicon_path),
+            'primary_color'        => $settings->primary_color ?? '#1a56db',
+            'address'              => $settings->address ?? '',
+            'phone'                => $settings->phone ?? '',
+            'email'                => $settings->email ?? '',
+            'whatsapp'             => $settings->whatsapp ?? '',
+            'facebook_url'         => $settings->facebook_url ?? '',
+            'twitter_url'          => $settings->twitter_url ?? '',
+            'instagram_url'        => $settings->instagram_url ?? '',
+            'youtube_url'          => $settings->youtube_url ?? '',
+            'about_text'           => $settings->about_text ?? '',
+            'principal_name'       => $settings->principal_name ?? '',
+            'principal_photo_path' => $wrapFile($settings->principal_photo_path),
+            'principal_message'    => $settings->principal_message ?? '',
+            'admission_open'       => (bool) $settings->admission_open,
+            'admission_form_url'   => $settings->admission_form_url ?? '',
+            'vision_text'          => $settings->vision_text ?? '',
+            'mission_text'         => $settings->mission_text ?? '',
+            'hero_image_path'      => $wrapFile($settings->hero_image_path),
+            'hero_video_url'       => $settings->hero_video_url ?? '',
+            'about_image_path'     => $wrapFile($settings->about_image_path),
+            'address_map_iframe'   => $settings->address_map_iframe ?? '',
+            'why_choose_us'        => $asList($settings->why_choose_us),
+            // Normalise repeater items to exactly the schema keys so Livewire
+            // entangle bindings always find the expected property paths.
+            'facilities'           => array_map(
+                static fn (array $f) => [
+                    'name'        => $f['name'] ?? '',
+                    'description' => $f['description'] ?? '',
+                    'image_path'  => $wrapFile($f['image_path'] ?? null),
+                ],
+                $asList($settings->facilities)
+            ),
+            'testimonials'         => array_map(
+                static fn (array $t) => [
+                    'quote'      => $t['quote'] ?? '',
+                    'author'     => $t['author'] ?? '',
+                    'role'       => $t['role'] ?? null,
+                    'photo_path' => $wrapFile($t['photo_path'] ?? null),
+                ],
+                $asList($settings->testimonials)
+            ),
+            'stats'                => $asList($settings->stats),
+            'exam_highlights'      => $asList($settings->exam_highlights),
+            'admission_steps'      => $asList($settings->admission_steps),
+        ];
     }
 
     // ── Form Schemas ────────────────────────────────────────────
@@ -153,7 +154,7 @@ class CmsSettings extends Page implements HasForms
                             ->helperText('The primary brand color for the website theme.'),
                     ]),
             ])
-            ->statePath('');
+            ->statePath('data');
     }
 
     public function contactForm(Schema $form): Schema
@@ -185,7 +186,7 @@ class CmsSettings extends Page implements HasForms
                             ->helperText('Include country code (e.g., 923001234567). Used for WhatsApp chat button.'),
                     ]),
             ])
-            ->statePath('');
+            ->statePath('data');
     }
 
     public function socialForm(Schema $form): Schema
@@ -218,7 +219,7 @@ class CmsSettings extends Page implements HasForms
                             ->maxLength(500),
                     ]),
             ])
-            ->statePath('');
+            ->statePath('data');
     }
 
     public function aboutForm(Schema $form): Schema
@@ -249,7 +250,7 @@ class CmsSettings extends Page implements HasForms
                             ->columnSpanFull(),
                     ]),
             ])
-            ->statePath('');
+            ->statePath('data');
     }
 
     public function admissionForm(Schema $form): Schema
@@ -270,10 +271,10 @@ class CmsSettings extends Page implements HasForms
                             ->url()
                             ->maxLength(500)
                             ->helperText('Link to online admission form (Google Form, external URL, etc.)')
-                            ->visible(fn () => $this->admission_open),
+                            ->visible(fn () => $this->data['admission_open'] ?? false),
                     ]),
             ])
-            ->statePath('');
+            ->statePath('data');
     }
 
     public function heroForm(Schema $form): Schema
@@ -297,7 +298,7 @@ class CmsSettings extends Page implements HasForms
                         ->maxLength(500)
                         ->helperText('Optional. If set, displayed in the About section.'),
                 ]),
-        ])->statePath('');
+        ])->statePath('data');
     }
 
     public function visionForm(Schema $form): Schema
@@ -313,7 +314,7 @@ class CmsSettings extends Page implements HasForms
                         ->label('About-page Image')
                         ->image()->directory('cms/about')->maxSize(4096),
                 ]),
-        ])->statePath('');
+        ])->statePath('data');
     }
 
     public function whyUsForm(Schema $form): Schema
@@ -339,7 +340,7 @@ class CmsSettings extends Page implements HasForms
                         ->itemLabel(fn (array $state): ?string => $state['title'] ?? null)
                         ->addActionLabel('Add reason'),
                 ]),
-        ])->statePath('');
+        ])->statePath('data');
     }
 
     public function statsForm(Schema $form): Schema
@@ -355,10 +356,10 @@ class CmsSettings extends Page implements HasForms
                             Components\TextInput::make('label')->required()->placeholder('Students'),
                         ])
                         ->columns(2)->reorderable()->collapsible()
-                        ->itemLabel(fn (array $s): ?string => trim(($s['value'] ?? '') . ' ' . ($s['label'] ?? '')))
+                        ->itemLabel(fn (array $state): ?string => trim(($state['value'] ?? '') . ' ' . ($state['label'] ?? '')))
                         ->addActionLabel('Add stat'),
                 ]),
-        ])->statePath('');
+        ])->statePath('data');
     }
 
     public function facilitiesForm(Schema $form): Schema
@@ -375,10 +376,10 @@ class CmsSettings extends Page implements HasForms
                                 ->image()->directory('cms/facilities')->maxSize(2048),
                         ])
                         ->columns(2)->reorderable()->collapsible()
-                        ->itemLabel(fn (array $s): ?string => $s['name'] ?? null)
+                        ->itemLabel(fn (array $state): ?string => $state['name'] ?? null)
                         ->addActionLabel('Add facility'),
                 ]),
-        ])->statePath('');
+        ])->statePath('data');
     }
 
     public function testimonialsForm(Schema $form): Schema
@@ -396,10 +397,10 @@ class CmsSettings extends Page implements HasForms
                                 ->image()->directory('cms/testimonials')->maxSize(1024),
                         ])
                         ->columns(2)->reorderable()->collapsible()
-                        ->itemLabel(fn (array $s): ?string => $s['author'] ?? null)
+                        ->itemLabel(fn (array $state): ?string => $state['author'] ?? null)
                         ->addActionLabel('Add testimonial'),
                 ]),
-        ])->statePath('');
+        ])->statePath('data');
     }
 
     public function admissionStepsForm(Schema $form): Schema
@@ -415,10 +416,10 @@ class CmsSettings extends Page implements HasForms
                             Components\Textarea::make('description')->required()->rows(2)->maxLength(300),
                         ])
                         ->columns(1)->reorderable()->collapsible()
-                        ->itemLabel(fn (array $s): ?string => $s['title'] ?? null)
+                        ->itemLabel(fn (array $state): ?string => $state['title'] ?? null)
                         ->addActionLabel('Add step'),
                 ]),
-        ])->statePath('');
+        ])->statePath('data');
     }
 
     public function examHighlightsForm(Schema $form): Schema
@@ -433,10 +434,10 @@ class CmsSettings extends Page implements HasForms
                             Components\TextInput::make('result')->required()->placeholder('98% pass · 12 A+'),
                         ])
                         ->columns(2)->reorderable()->collapsible()
-                        ->itemLabel(fn (array $s): ?string => $s['exam'] ?? null)
+                        ->itemLabel(fn (array $state): ?string => $state['exam'] ?? null)
                         ->addActionLabel('Add highlight'),
                 ]),
-        ])->statePath('');
+        ])->statePath('data');
     }
 
     public function mapForm(Schema $form): Schema
@@ -451,12 +452,9 @@ class CmsSettings extends Page implements HasForms
                         ->maxLength(1500)
                         ->placeholder('<iframe src="https://www.google.com/maps/embed?…" …></iframe>'),
                 ]),
-        ])->statePath('');
+        ])->statePath('data');
     }
 
-    /**
-     * Register all named forms for Filament v5.
-     */
     protected function getForms(): array
     {
         return [
@@ -477,56 +475,50 @@ class CmsSettings extends Page implements HasForms
         ];
     }
 
-    // ── Actions ─────────────────────────────────────────────────
+    // ── Save actions ─────────────────────────────────────────────
 
     public function saveGeneral(): void
     {
-        $this->saveFields([
-            'school_name', 'tagline', 'logo_path', 'favicon_path', 'primary_color',
-        ]);
+        CmsSetting::getSettings()->update($this->generalForm->getState());
+        $this->notifySaved();
     }
 
     public function saveContact(): void
     {
-        $this->saveFields(['address', 'phone', 'email', 'whatsapp']);
+        CmsSetting::getSettings()->update($this->contactForm->getState());
+        $this->notifySaved();
     }
 
     public function saveSocial(): void
     {
-        $this->saveFields(['facebook_url', 'twitter_url', 'instagram_url', 'youtube_url']);
+        CmsSetting::getSettings()->update($this->socialForm->getState());
+        $this->notifySaved();
     }
 
     public function saveAbout(): void
     {
-        $this->saveFields(['about_text', 'principal_message', 'principal_name', 'principal_photo_path']);
+        CmsSetting::getSettings()->update($this->aboutForm->getState());
+        $this->notifySaved();
     }
 
     public function saveAdmission(): void
     {
-        $this->saveFields(['admission_open', 'admission_form_url']);
+        CmsSetting::getSettings()->update($this->admissionForm->getState());
+        $this->notifySaved();
     }
 
-    public function saveHero(): void           { $this->saveFields(['hero_image_path', 'hero_video_url']); }
-    public function saveVision(): void         { $this->saveFields(['vision_text', 'mission_text', 'about_image_path']); }
-    public function saveWhyUs(): void          { $this->saveFields(['why_choose_us']); }
-    public function saveStats(): void          { $this->saveFields(['stats']); }
-    public function saveFacilities(): void     { $this->saveFields(['facilities']); }
-    public function saveTestimonials(): void   { $this->saveFields(['testimonials']); }
-    public function saveAdmissionSteps(): void { $this->saveFields(['admission_steps']); }
-    public function saveExamHighlights(): void { $this->saveFields(['exam_highlights']); }
-    public function saveMap(): void            { $this->saveFields(['address_map_iframe']); }
+    public function saveHero(): void           { CmsSetting::getSettings()->update($this->heroForm->getState());           $this->notifySaved(); }
+    public function saveVision(): void         { CmsSetting::getSettings()->update($this->visionForm->getState());         $this->notifySaved(); }
+    public function saveWhyUs(): void          { CmsSetting::getSettings()->update($this->whyUsForm->getState());          $this->notifySaved(); }
+    public function saveStats(): void          { CmsSetting::getSettings()->update($this->statsForm->getState());          $this->notifySaved(); }
+    public function saveFacilities(): void     { CmsSetting::getSettings()->update($this->facilitiesForm->getState());     $this->notifySaved(); }
+    public function saveTestimonials(): void   { CmsSetting::getSettings()->update($this->testimonialsForm->getState());   $this->notifySaved(); }
+    public function saveAdmissionSteps(): void { CmsSetting::getSettings()->update($this->admissionStepsForm->getState()); $this->notifySaved(); }
+    public function saveExamHighlights(): void { CmsSetting::getSettings()->update($this->examHighlightsForm->getState()); $this->notifySaved(); }
+    public function saveMap(): void            { CmsSetting::getSettings()->update($this->mapForm->getState());            $this->notifySaved(); }
 
-    protected function saveFields(array $fields): void
+    private function notifySaved(): void
     {
-        $settings = CmsSetting::getSettings();
-
-        $data = [];
-        foreach ($fields as $field) {
-            $data[$field] = $this->{$field};
-        }
-
-        $settings->update($data);
-
         Notification::make()
             ->title('Settings saved successfully')
             ->success()
@@ -544,18 +536,6 @@ class CmsSettings extends Page implements HasForms
         ];
     }
 
-    /**
-     * Resolve the public-facing URL for this school's website.
-     *
-     * Priority:
-     *   1. A verified custom domain (e.g. "school.example.edu") if the
-     *      school has one on the central `domains` table.
-     *   2. The tenant's subdomain on the central host (currently
-     *      "{slug}.kynexedu.com" / equivalent).
-     *   3. Fallback: /site/{tenantId} on the active host (the route
-     *      group in routes/web.php that initialises tenancy from a
-     *      ?tenant=… query string or the path parameter).
-     */
     private function resolveSchoolWebsiteUrl(): string
     {
         if (! function_exists('tenant') || ! tenant()) {
@@ -564,7 +544,6 @@ class CmsSettings extends Page implements HasForms
 
         $tenantId = tenant()->id;
 
-        // 1. Custom domain or verified subdomain on the central domains table.
         try {
             $domain = \Stancl\Tenancy\Database\Models\Domain::query()
                 ->where('tenant_id', $tenantId)
@@ -578,7 +557,6 @@ class CmsSettings extends Page implements HasForms
             // Fall through to the path-based site URL.
         }
 
-        // 2. Path-based fallback: works on the same host you're on now.
         return url('/site/' . $tenantId);
     }
 }

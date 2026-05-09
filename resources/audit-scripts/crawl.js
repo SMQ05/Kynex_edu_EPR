@@ -499,9 +499,11 @@ async function runFormSubmitPass(page, listUrl) {
 
     try {
         const submitted = await page.evaluate(() => {
-            const btn = document.querySelector(
-                'button[type="submit"], .fi-btn-primary[type="submit"]'
-            );
+            // Filament v5 renders the sidebar Logout as a form[POST] > button[type=submit]
+            // which appears before the page's own form buttons in DOM order.
+            // Filter it out by text so we only click the page's primary action button.
+            const btns = [...document.querySelectorAll('button[type="submit"]')];
+            const btn  = btns.find(b => !/log.?out|sign.?out/i.test((b.textContent ?? '').trim()));
             if (btn) { btn.click(); return true; }
             return false;
         }).catch(() => false);
