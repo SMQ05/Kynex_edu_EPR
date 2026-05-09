@@ -207,6 +207,10 @@ class SchoolUser extends Authenticatable implements FilamentUser
      */
     public function canAccessPanel(Panel $panel): bool
     {
+        if ($this->active_role === 'STUDENT') {
+            return false;
+        }
+
         return $this->is_active === true;
     }
 

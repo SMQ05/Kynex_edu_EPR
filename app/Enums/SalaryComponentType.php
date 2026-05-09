@@ -6,6 +6,7 @@ namespace App\Enums;
 
 enum SalaryComponentType: string
 {
+    case Earning   = 'earning';
     case Allowance = 'allowance';
     case Deduction = 'deduction';
 }

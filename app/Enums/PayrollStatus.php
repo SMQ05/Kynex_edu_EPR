@@ -10,13 +10,15 @@ use Filament\Support\Contracts\HasLabel;
 
 enum PayrollStatus: string implements HasLabel, HasColor, HasIcon
 {
-    case Draft = 'draft';
+    case Pending   = 'pending';
+    case Draft     = 'draft';
     case Processed = 'processed';
-    case Paid = 'paid';
+    case Paid      = 'paid';
 
     public function getLabel(): string
     {
         return match ($this) {
+            self::Pending   => 'Pending',
             self::Draft     => 'Draft',
             self::Processed => 'Processed',
             self::Paid      => 'Paid',
@@ -26,6 +28,7 @@ enum PayrollStatus: string implements HasLabel, HasColor, HasIcon
     public function getColor(): string
     {
         return match ($this) {
+            self::Pending   => 'gray',
             self::Draft     => 'warning',
             self::Processed => 'info',
             self::Paid      => 'success',
@@ -35,6 +38,7 @@ enum PayrollStatus: string implements HasLabel, HasColor, HasIcon
     public function getIcon(): string
     {
         return match ($this) {
+            self::Pending   => 'heroicon-o-clock',
             self::Draft     => 'heroicon-o-pencil',
             self::Processed => 'heroicon-o-check-circle',
             self::Paid      => 'heroicon-o-banknotes',
