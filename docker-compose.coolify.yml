@@ -8,14 +8,14 @@ x-app-env: &app-env
   LOG_LEVEL: ${LOG_LEVEL:-warning}
 
   DB_CONNECTION: pgsql
-  DB_HOST: db
+  DB_HOST: sdyrimee6dszgvupw6hii471
   DB_PORT: "5432"
   DB_DATABASE: ${POSTGRES_DB:-kynexedu_central}
   DB_USERNAME: ${POSTGRES_USER:-kynexedu}
   DB_PASSWORD: ${POSTGRES_PASSWORD}
 
   TENANCY_DB_PREFIX: ${TENANCY_DB_PREFIX:-kynexedu_tenant_}
-  TENANCY_DB_HOST: db
+  TENANCY_DB_HOST: sdyrimee6dszgvupw6hii471
   TENANCY_DB_PORT: "5432"
   TENANCY_DB_USERNAME: ${POSTGRES_USER:-kynexedu}
   TENANCY_DB_PASSWORD: ${POSTGRES_PASSWORD}
@@ -48,9 +48,6 @@ x-app-base: &app-base
     dockerfile: Dockerfile
   image: kynexedu-erp:coolify
   restart: unless-stopped
-  depends_on:
-    db:
-      condition: service_healthy
   volumes:
     - kynexedu_storage:/var/www/html/storage
   networks:
@@ -78,8 +75,6 @@ services:
       <<: *app-env
       RUN_MIGRATIONS_AND_SEED: "false"
     depends_on:
-      db:
-        condition: service_healthy
       app:
         condition: service_started
 
@@ -90,31 +85,11 @@ services:
       <<: *app-env
       RUN_MIGRATIONS_AND_SEED: "false"
     depends_on:
-      db:
-        condition: service_healthy
       app:
         condition: service_started
 
-  db:
-    image: postgres:16-alpine
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-kynexedu_central}
-      POSTGRES_USER: ${POSTGRES_USER:-kynexedu}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-kynexedu} -d ${POSTGRES_DB:-kynexedu_central}"]
-      interval: 5s
-      timeout: 5s
-      retries: 20
-    volumes:
-      - kynexedu_db_data:/var/lib/postgresql/data
-    networks:
-      - kynexedu_internal
-
 volumes:
   kynexedu_storage:
-  kynexedu_db_data:
 
 networks:
   kynexedu_internal:
