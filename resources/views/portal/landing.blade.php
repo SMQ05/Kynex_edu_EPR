@@ -160,7 +160,7 @@
 {{-- ─── SEO: structured data (Schema.org JSON-LD) ─── --}}
 <script type="application/ld+json">
 {
-  "@context": "https://schema.org",
+  "@@context": "https://schema.org",
   "@graph": [
     {
       "@type": "Organization",
@@ -543,7 +543,7 @@
 
 <script type="application/ld+json">
 {
-  "@context": "https://schema.org",
+  "@@context": "https://schema.org",
   "@type": "FAQPage",
   "mainEntity": [
     {
