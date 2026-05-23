@@ -19,9 +19,6 @@ return [
     'central_domains' => [
         '127.0.0.1',
         'localhost',
-        'kynexedu.com',
-        'kynexsolutions.com',
-        'sms.kynexsolutions.com',
         'edu.kynexsolutions.com',
     ],
 
