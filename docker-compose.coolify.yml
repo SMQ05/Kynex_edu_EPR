@@ -22,6 +22,11 @@ x-app-env: &app-env
 
   BROADCAST_CONNECTION: ${BROADCAST_CONNECTION:-log}
   CACHE_STORE: ${CACHE_STORE:-database}
+
+  # Compile Blade views to a per-container path OUTSIDE the shared storage
+  # volume, so concurrent workers/containers can't race-write a half-finished
+  # compiled view. Pre-compiled on boot by docker/bootstrap.sh.
+  VIEW_COMPILED_PATH: /var/www/html/bootstrap/cache/views
   FILESYSTEM_DISK: ${FILESYSTEM_DISK:-local}
   QUEUE_CONNECTION: ${QUEUE_CONNECTION:-database}
   SESSION_DRIVER: ${SESSION_DRIVER:-database}
