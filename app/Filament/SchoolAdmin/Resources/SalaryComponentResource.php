@@ -123,6 +123,7 @@ class SalaryComponentResource extends Resource
                 TextColumn::make('component_type')
                     ->badge()
                     ->color(fn (SalaryComponentType $state) => match ($state) {
+                        SalaryComponentType::Earning   => 'info',
                         SalaryComponentType::Allowance => 'success',
                         SalaryComponentType::Deduction => 'danger',
                     }),

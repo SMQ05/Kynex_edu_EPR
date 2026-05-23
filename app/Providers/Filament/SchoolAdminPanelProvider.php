@@ -69,6 +69,7 @@ class SchoolAdminPanelProvider extends PanelProvider
             )
             ->navigationGroups([
                 'Dashboard',
+                'Admissions',
                 'Students',
                 'Academic Setup',
                 'Examinations',

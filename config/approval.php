@@ -28,6 +28,8 @@ return [
         'bulk_fee_waiver'        => \App\Actions\Approvals\HandleBulkFeeWaiver::class,
         'student_admission'      => \App\Actions\Approvals\HandleStudentAdmission::class,
         'staff_hire'             => \App\Actions\Approvals\HandleStaffHire::class,
+        'admission_decision_override' => \App\Actions\Approvals\HandleAdmissionDecisionOverride::class,
+        'admission_marks_override'    => \App\Actions\Approvals\HandleAdmissionMarksOverride::class,
     ],
 
 ];

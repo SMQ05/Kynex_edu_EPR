@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Enums\ApplicationStatus;
+use App\Jobs\SendExamCredentialsBatch;
 use App\Models\SchoolUser;
 use App\Models\Tenant\AcademicYear;
+use App\Models\Tenant\AdmissionSession;
 use App\Models\Tenant\Campus;
 use App\Models\Tenant\SchoolClass;
 use App\Models\Tenant\Student;
@@ -15,8 +17,11 @@ use App\Models\Tenant\StudentGuardian;
 use App\Services\StudentAccountActivator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Resend\Client as ResendClient;
 
 /**
  * Public-facing student admission lifecycle. Mounted under tenant
@@ -45,11 +50,16 @@ class PublicAdmissionController extends Controller
             ]);
         }
 
+        $classRows = SchoolClass::orderBy('sort_order')->orderBy('name')->get(['id', 'name', 'sort_order']);
+
         return view('public.apply', [
-            'tenant'   => $tenant,
-            'classes'  => SchoolClass::orderBy('sort_order')->orderBy('name')->pluck('name', 'id'),
-            'campuses' => Campus::orderBy('name')->pluck('name', 'id'),
-            'years'    => AcademicYear::orderByDesc('start_date')->pluck('name', 'id'),
+            'tenant'        => $tenant,
+            'classes'       => $classRows->pluck('name', 'id'),
+            // id → sort_order map so the form can decide when to require
+            // previous-school marks (anything above Class 1 / sort_order > 1).
+            'classSortOrder'=> $classRows->mapWithKeys(fn ($c) => [$c->id => (int) ($c->sort_order ?? 0)])->all(),
+            'campuses'      => Campus::orderBy('name')->pluck('name', 'id'),
+            'years'         => AcademicYear::orderByDesc('start_date')->pluck('name', 'id'),
         ]);
     }
 
@@ -85,29 +95,62 @@ class PublicAdmissionController extends Controller
             return redirect()->route('public.apply');
         }
 
+        // Conditional: previous-school marks are required when applying for
+        // a class above Class 1 (sort_order > 1). Class 1 and below (KG etc.)
+        // can skip them.
+        $classId = $request->input('class_id');
+        $selectedClass = $classId ? SchoolClass::find($classId) : null;
+        $requirePrevMarks = $selectedClass && (int) ($selectedClass->sort_order ?? 0) > 1;
+        $prevMarksRule = $requirePrevMarks ? 'required' : 'nullable';
+
         $validated = $request->validate([
-            'first_name'      => 'required|string|max:100',
-            'last_name'       => 'required|string|max:100',
-            'date_of_birth'   => 'nullable|date|before:today',
-            'gender'          => ['nullable', Rule::in(['male', 'female', 'other'])],
-            'phone'           => 'nullable|string|max:20',
-            'email'           => 'nullable|email|max:255',
-            'address'         => 'nullable|string|max:500',
-            'city'            => 'nullable|string|max:100',
-            'father_name'     => 'nullable|string|max:255',
-            'mother_name'     => 'nullable|string|max:255',
-            'guardian_phone'  => 'required|string|max:20',
-            'guardian_email'  => 'nullable|email|max:255',
-            'previous_school' => 'nullable|string|max:255',
-            'class_id'        => 'nullable|string|exists:classes,id',
-            'campus_id'       => 'nullable|string|exists:campuses,id',
-            'academic_year_id' => 'nullable|string|exists:academic_years,id',
-            'notes'           => 'nullable|string|max:2000',
+            'first_name'           => 'required|string|max:100',
+            'last_name'            => 'required|string|max:100',
+            'date_of_birth'        => 'required|date|before:today',
+            'gender'               => ['required', Rule::in(['male', 'female', 'other'])],
+            'phone'                => 'required|string|max:20',
+            'email'                => 'required|email|max:255',
+            // Pakistani CNIC / B-Form: 13 numeric digits, no dashes.
+            // Hard-block dedup: each student can only apply once.
+            'student_cnic'         => [
+                'required',
+                'string',
+                'regex:/^\d{13}$/',
+                Rule::unique('student_applications', 'student_cnic')->whereNull('deleted_at'),
+            ],
+            'parent_cnic'          => 'nullable|string|regex:/^\d{13}$/',
+            'address'              => 'required|string|max:500',
+            'city'                 => 'required|string|max:100',
+            'father_name'          => 'required|string|max:255',
+            'mother_name'          => 'nullable|string|max:255',
+            'guardian_phone'       => 'required|string|max:20',
+            'guardian_email'       => 'required|email|max:255',
+            'previous_school'      => 'required|string|max:255',
+            'previous_school_score'=> $prevMarksRule . '|numeric|min:0',
+            'previous_score_max'   => $prevMarksRule . '|numeric|min:1',
+            'class_id'             => 'required|string|exists:classes,id',
+            'campus_id'            => 'nullable|string|exists:campuses,id',
+            'academic_year_id'     => 'nullable|string|exists:academic_years,id',
+            'notes'                => 'nullable|string|max:2000',
+            'applicant_photo'      => 'required|image|mimes:jpeg,png,jpg|max:2048',
+        ], [
+            'student_cnic.unique'  => 'A student with this B-Form / CNIC has already applied. Each student can apply only once. If you believe this is an error, contact the school office.',
+            'student_cnic.regex'   => 'B-Form / CNIC must be exactly 13 digits with no dashes or spaces.',
+            'parent_cnic.regex'    => 'Parent CNIC must be exactly 13 digits with no dashes or spaces.',
+            'previous_school_score.required' => 'Marks obtained at previous school is required for classes above Class 1.',
+            'previous_score_max.required'    => 'Total marks at previous school is required for classes above Class 1.',
         ]);
 
+        // Store photo if provided.
+        $photoPath = null;
+        if ($request->hasFile('applicant_photo') && $request->file('applicant_photo')->isValid()) {
+            $photoPath = $request->file('applicant_photo')->store('applicant-photos', 'public');
+        }
+
         $application = StudentApplication::create(array_merge($validated, [
-            'status'       => ApplicationStatus::Submitted,
-            'public_token' => Str::random(40),
+            'status'          => ApplicationStatus::Submitted,
+            'public_token'    => Str::random(40),
+            'applicant_photo' => $photoPath,
         ]));
 
         // Notify school admin + institute head — visible in the bell
@@ -131,26 +174,131 @@ class PublicAdmissionController extends Controller
             \Illuminate\Support\Facades\Log::warning('Application notification failed', ['error' => $e->getMessage()]);
         }
 
-        // Use the central-site status route when the form was posted on
-        // /site/{tenant}/..., otherwise the tenant-subdomain status route.
-        $onCentralSitePath = \Illuminate\Support\Str::startsWith(
-            $request->getPathInfo(),
-            '/site/'
-        );
-        $route = $onCentralSitePath
-            ? route('public.site.apply.status', ['tenant' => $tenant->id, 'token' => $application->public_token])
-            : route('public.apply.status', ['token' => $application->public_token]);
+        // ── Confirmation email ──────────────────────────────────────
+        // The status route lives behind tenant middleware. When the URL is
+        // generated on the central host (no tenant context), the click would
+        // 404 because tenancy never initializes. Always append ?tenant=ID so
+        // the status() handler can resolve the tenant on either host.
+        $statusUrl = route('public.apply.status', ['token' => $application->public_token])
+            . '?tenant=' . urlencode($tenant->id);
 
-        return redirect($route)
+        $this->sendApplicationConfirmation($application, $tenant, $statusUrl);
+
+        // ── Auto-assign to existing scheduled session ───────────────
+        // If there's an upcoming test session for this class (or all classes),
+        // slot the applicant in now and send their exam credentials immediately.
+        try {
+            $session = AdmissionSession::where('type', 'test')
+                ->where('academic_year_id', $application->academic_year_id)
+                ->where(fn ($q) => $q->whereNull('class_id')
+                    ->orWhere('class_id', $application->class_id))
+                ->whereNull('exam_started_at')
+                ->where('scheduled_at', '>', now())
+                ->orderBy('scheduled_at')
+                ->first();
+
+            if ($session && $session->assignedCount() < $session->max_capacity) {
+                $application->update(['test_session_id' => $session->id]);
+                SendExamCredentialsBatch::dispatch(tenant()->id, $session->id, 0, 10);
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Auto-session assignment failed for new application', [
+                'application_id' => $application->id,
+                'error'          => $e->getMessage(),
+            ]);
+        }
+
+        return redirect($statusUrl)
             ->with('success', 'Application submitted. Save the link on this page to track status.');
     }
 
-    public function status(string $token)
+    private function sendApplicationConfirmation(
+        StudentApplication $application,
+        \App\Models\Tenant $tenant,
+        string $statusUrl,
+    ): void {
+        $applicantEmail = filled($application->email) ? strtolower(trim($application->email)) : null;
+        $guardianEmail  = filled($application->guardian_email) ? strtolower(trim($application->guardian_email)) : null;
+
+        if (! $applicantEmail && ! $guardianEmail) {
+            return;
+        }
+
+        $resend     = app(ResendClient::class);
+        $schoolName = $tenant->school_name ?? 'School';
+        $from       = config('mail.from.name', 'KynexEdu') . ' <' . config('mail.from.address', 'noreply@kynexsolutions.com') . '>';
+
+        $className  = $application->class_id ? SchoolClass::find($application->class_id)?->name  : null;
+        $campusName = $application->campus_id ? Campus::find($application->campus_id)?->name : null;
+
+        $shared = [
+            'schoolName'     => $schoolName,
+            'applicantName'  => $application->full_name,
+            'referenceToken' => $application->public_token,
+            'statusUrl'      => $statusUrl,
+            'className'      => $className,
+            'campusName'     => $campusName,
+            'appliedDate'    => $application->created_at->format('d M Y'),
+        ];
+
+        // 1) Email the applicant (student) — "Dear NAME, thank you for applying"
+        if ($applicantEmail) {
+            try {
+                $html = view('emails.application-received', $shared)->render();
+                $resend->emails->send([
+                    'from'    => $from,
+                    'to'      => $applicantEmail,
+                    'subject' => 'Application Received — ' . $schoolName,
+                    'html'    => $html,
+                ]);
+            } catch (\Throwable $e) {
+                Log::warning('Application confirmation email (applicant) failed', [
+                    'application_id' => $application->id,
+                    'to'             => $applicantEmail,
+                    'error'          => $e->getMessage(),
+                ]);
+            }
+        }
+
+        // 2) Email the guardian — "Dear Parent, your son/daughter NAME has applied"
+        // Skip if the guardian email is identical to the applicant email
+        // (otherwise the same address would receive two different copies).
+        if ($guardianEmail && $guardianEmail !== $applicantEmail) {
+            try {
+                $html = view('emails.application-received-guardian', $shared)->render();
+                $resend->emails->send([
+                    'from'    => $from,
+                    'to'      => $guardianEmail,
+                    'subject' => 'Application Received for ' . $application->full_name . ' — ' . $schoolName,
+                    'html'    => $html,
+                ]);
+            } catch (\Throwable $e) {
+                Log::warning('Application confirmation email (guardian) failed', [
+                    'application_id' => $application->id,
+                    'to'             => $guardianEmail,
+                    'error'          => $e->getMessage(),
+                ]);
+            }
+        }
+    }
+
+    public function status(Request $request, string $token)
     {
-        $application = StudentApplication::where('public_token', $token)->firstOrFail();
+        // Resolve tenancy if not already initialized (e.g. when the URL is
+        // opened on the central host, the middleware passes through without
+        // initializing — we must do it here from the ?tenant= query).
+        $tenant = $this->ensureTenant($request);
+        if (! $tenant) {
+            abort(404, 'School not found. Please open the link from your application email.');
+        }
+
+        $application = StudentApplication::where('public_token', $token)->first();
+        if (! $application) {
+            abort(404, 'Application not found. Check the link from your email or contact the school.');
+        }
 
         return view('public.apply-status', [
-            'tenant'      => tenant(),
+            'tenant'      => $tenant,
             'application' => $application,
         ]);
     }

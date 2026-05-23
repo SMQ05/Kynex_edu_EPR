@@ -100,6 +100,17 @@ class ApprovalRequestResource extends Resource
                     ->searchable()
                     ->sortable(),
 
+                Tables\Columns\TextColumn::make('approver_level')
+                    ->label('Approver Level')
+                    ->badge()
+                    ->color(fn (?string $state): string => match ($state) {
+                        'institute_head_or_saas' => 'warning',
+                        'multi_head_or_saas'     => 'danger',
+                        'saas_admin'             => 'danger',
+                        default                  => 'gray',
+                    })
+                    ->sortable(),
+
                 Tables\Columns\TextColumn::make('requested_by_type')
                     ->label('Requester Type')
                     ->toggleable(isToggledHiddenByDefault: true),
@@ -133,6 +144,15 @@ class ApprovalRequestResource extends Resource
             ->filters([
                 Tables\Filters\SelectFilter::make('status')
                     ->options(ApprovalStatus::class),
+                Tables\Filters\SelectFilter::make('approver_level')
+                    ->label('Approver Level')
+                    ->options([
+                        'institute_head'         => 'Institute Head',
+                        'institute_head_or_saas' => 'Institute Head OR SaaS (elevated)',
+                        'multi_head_or_saas'     => 'Multi-Campus Head OR SaaS (elevated)',
+                        'saas_admin'             => 'SaaS Admin only',
+                        'exam_admin'             => 'Exam Admin',
+                    ]),
             ])
             ->actions([
                 Action::make('approve')

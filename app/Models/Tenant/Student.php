@@ -50,6 +50,7 @@ class Student extends Model
         'transport_route_id',
         'hostel_room_id',
         'biometric_device_id',
+        'profile_completed_at',
     ];
 
     protected function casts(): array
@@ -60,7 +61,8 @@ class Student extends Model
             'gender'           => StudentGender::class,
             'blood_group'      => BloodGroup::class,
             'status'           => StudentStatus::class,
-            'status_changed_at' => 'datetime',
+            'status_changed_at'    => 'datetime',
+            'profile_completed_at' => 'datetime',
         ];
     }
 

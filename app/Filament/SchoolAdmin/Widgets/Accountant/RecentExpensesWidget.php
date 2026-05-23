@@ -38,7 +38,7 @@ class RecentExpensesWidget extends BaseWidget
                 TextColumn::make('approval_status')
                     ->label('Status')
                     ->badge()
-                    ->color(fn (string $state) => match ($state) {
+                    ->color(fn ($state) => match ($state instanceof \BackedEnum ? $state->value : $state) {
                         'approved' => 'success',
                         'pending' => 'warning',
                         'rejected' => 'danger',

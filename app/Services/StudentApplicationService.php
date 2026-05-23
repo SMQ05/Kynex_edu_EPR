@@ -12,7 +12,9 @@ use App\Models\Tenant\SchoolClass;
 use App\Models\Tenant\Section;
 use App\Models\Tenant\Student;
 use App\Models\Tenant\StudentApplication;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Resend\Client as ResendClient;
 use RuntimeException;
 
 class StudentApplicationService
@@ -109,7 +111,180 @@ class StudentApplicationService
             'reviewed_at' => now(),
         ]);
 
+        $this->sendAdmissionOffer($app, $student);
+        $this->sendProfileReminder($app, $student);
+
         return $student;
+    }
+
+    /**
+     * Admit a waitlisted applicant after a seat opens up (runner-up promotion).
+     * Identical to admit() but sends the runner-up email instead of the standard offer.
+     */
+    public function admitRunnerUp(StudentApplication $app): Student
+    {
+        $student = $this->admit($app);
+
+        try {
+            $this->sendRunnerUpEmail($app, $student);
+        } catch (\Throwable $e) {
+            Log::warning('Runner-up email failed', [
+                'application_id' => $app->id,
+                'error'          => $e->getMessage(),
+            ]);
+        }
+
+        return $student;
+    }
+
+    private function sendAdmissionOffer(StudentApplication $app, Student $student): void
+    {
+        $recipients = array_filter(array_unique([
+            $app->email,
+            $app->guardian_email,
+        ]));
+
+        if (empty($recipients)) {
+            return;
+        }
+
+        try {
+            $resend     = app(ResendClient::class);
+            $tenant     = tenancy()->initialized ? tenant() : null;
+            $schoolName = $tenant?->school_name ?? 'School';
+            $from       = config('mail.from.name', 'KynexEdu') . ' <' . config('mail.from.address', 'noreply@kynexsolutions.com') . '>';
+
+            $class       = $student->class_id ? SchoolClass::find($student->class_id) : null;
+            $section     = $student->section_id ? Section::find($student->section_id) : null;
+            $year        = $student->academic_year_id ? AcademicYear::find($student->academic_year_id) : null;
+            $campus      = $student->campus_id ? \App\Models\Tenant\Campus::find($student->campus_id) : null;
+
+            $portalUrl = $tenant
+                ? url('/') . '?tenant=' . urlencode($tenant->id)
+                : null;
+
+            $html = view('emails.admission-offer', [
+                'schoolName'     => $schoolName,
+                'studentName'    => $student->first_name . ' ' . $student->last_name,
+                'admissionNumber'=> $student->admission_number,
+                'className'      => $class?->name ?? 'N/A',
+                'sectionName'    => $section?->name,
+                'campusName'     => $campus?->name,
+                'academicYear'   => $year?->name ?? now()->format('Y'),
+                'portalUrl'      => $portalUrl,
+            ])->render();
+
+            foreach ($recipients as $email) {
+                $resend->emails->send([
+                    'from'    => $from,
+                    'to'      => $email,
+                    'subject' => 'Congratulations! You have been admitted to ' . $schoolName,
+                    'html'    => $html,
+                ]);
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Admission offer email failed', [
+                'application_id' => $app->id,
+                'student_id'     => $student->id,
+                'error'          => $e->getMessage(),
+            ]);
+        }
+    }
+
+    private function sendProfileReminder(StudentApplication $app, Student $student): void
+    {
+        $recipients = array_filter(array_unique([
+            $app->email,
+            $app->guardian_email,
+        ]));
+
+        if (empty($recipients)) {
+            return;
+        }
+
+        try {
+            $resend     = app(ResendClient::class);
+            $tenant     = tenancy()->initialized ? tenant() : null;
+            $schoolName = $tenant?->school_name ?? 'School';
+            $from       = config('mail.from.name', 'KynexEdu') . ' <' . config('mail.from.address', 'noreply@kynexsolutions.com') . '>';
+
+            $class   = $student->class_id ? SchoolClass::find($student->class_id) : null;
+            $section = $student->section_id ? Section::find($student->section_id) : null;
+            $year    = $student->academic_year_id ? AcademicYear::find($student->academic_year_id) : null;
+            $campus  = $student->campus_id ? \App\Models\Tenant\Campus::find($student->campus_id) : null;
+
+            $completeUrl = route('public.admission.complete', ['token' => $app->public_token]);
+
+            $html = view('emails.admission-profile-reminder', [
+                'schoolName'     => $schoolName,
+                'studentName'    => $student->first_name . ' ' . $student->last_name,
+                'admissionNumber'=> $student->admission_number,
+                'className'      => $class?->name ?? 'N/A',
+                'sectionName'    => $section?->name,
+                'campusName'     => $campus?->name,
+                'academicYear'   => $year?->name ?? now()->format('Y'),
+                'completeUrl'    => $completeUrl,
+            ])->render();
+
+            foreach ($recipients as $email) {
+                $resend->emails->send([
+                    'from'    => $from,
+                    'to'      => $email,
+                    'subject' => 'Action Required: Complete Your Student Profile — ' . $schoolName,
+                    'html'    => $html,
+                ]);
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Profile reminder email failed', [
+                'application_id' => $app->id,
+                'student_id'     => $student->id,
+                'error'          => $e->getMessage(),
+            ]);
+        }
+    }
+
+    private function sendRunnerUpEmail(StudentApplication $app, Student $student): void
+    {
+        $recipients = array_filter(array_unique([
+            $app->email,
+            $app->guardian_email,
+        ]));
+
+        if (empty($recipients)) {
+            return;
+        }
+
+        $resend     = app(ResendClient::class);
+        $tenant     = tenancy()->initialized ? tenant() : null;
+        $schoolName = $tenant?->school_name ?? 'School';
+        $from       = config('mail.from.name', 'KynexEdu') . ' <' . config('mail.from.address', 'noreply@kynexsolutions.com') . '>';
+
+        $class   = $student->class_id ? SchoolClass::find($student->class_id) : null;
+        $section = $student->section_id ? Section::find($student->section_id) : null;
+        $year    = $student->academic_year_id ? AcademicYear::find($student->academic_year_id) : null;
+        $campus  = $student->campus_id ? \App\Models\Tenant\Campus::find($student->campus_id) : null;
+
+        $completeUrl = route('public.admission.complete', ['token' => $app->public_token]);
+
+        $html = view('emails.runner-up-admitted', [
+            'schoolName'     => $schoolName,
+            'studentName'    => $student->first_name . ' ' . $student->last_name,
+            'admissionNumber'=> $student->admission_number,
+            'className'      => $class?->name ?? 'N/A',
+            'sectionName'    => $section?->name,
+            'campusName'     => $campus?->name,
+            'academicYear'   => $year?->name ?? now()->format('Y'),
+            'completeUrl'    => $completeUrl,
+        ])->render();
+
+        foreach ($recipients as $email) {
+            $resend->emails->send([
+                'from'    => $from,
+                'to'      => $email,
+                'subject' => '🎊 Great News — A Seat is Available for You at ' . $schoolName,
+                'html'    => $html,
+            ]);
+        }
     }
 
     public function generateAdmissionNumber(): string

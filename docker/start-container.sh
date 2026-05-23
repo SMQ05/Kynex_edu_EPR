@@ -3,4 +3,9 @@ set -euo pipefail
 
 /usr/local/bin/docker-bootstrap
 
-exec apache2-foreground
+if [ $# -gt 0 ]; then
+    exec "$@"
+else
+    exec apache2-foreground
+fi
+

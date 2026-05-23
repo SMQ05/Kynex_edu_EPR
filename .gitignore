@@ -56,3 +56,7 @@ Thumbs.db
 /phase-3.txt
 /phase-15.txt
 /New Empty Filephase-2
+
+# Playwright / debug screenshots captured at repo root (not source assets)
+/*.png
+/.playwright-mcp/

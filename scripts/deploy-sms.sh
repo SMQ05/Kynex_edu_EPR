@@ -24,6 +24,8 @@ cp -r . "$APP_DIR"
 cd "$APP_DIR"
 
 echo "=== Step 2: Write sms-specific .env ==="
+GENERATED_KEY="base64:$(openssl rand -base64 32)"
+
 cat > .env.docker <<'ENVEOF'
 APP_NAME="KynexEdu SMS"
 APP_ENV=local
@@ -59,13 +61,16 @@ MAIL_FROM_ADDRESS="noreply@kynexedu.com"
 MAIL_FROM_NAME="${APP_NAME}"
 
 SAAS_ADMIN_EMAIL=admin@kynexedu.com
-SAAS_ADMIN_PASSWORD=password
+SAAS_ADMIN_PASSWORD=CHANGE_ME_BEFORE_RUNNING
 
 FILAMENT_FILESYSTEM_DISK=public
 VITE_APP_NAME="${APP_NAME}"
 
 DEMO_TENANT_ID=demo
 ENVEOF
+
+sed -i "s|^APP_KEY=.*|APP_KEY=$GENERATED_KEY|" .env.docker
+
 
 echo "=== Step 3: Write separate docker-compose ==="
 cat > docker-compose.sms.yml <<'COMPOSEEOF'

@@ -1,0 +1,121 @@
+x-app-env: &app-env
+  APP_NAME: ${APP_NAME:-KynexEdu ERP}
+  APP_ENV: ${APP_ENV:-production}
+  APP_DEBUG: ${APP_DEBUG:-false}
+  APP_URL: ${APP_URL}
+  APP_KEY: ${APP_KEY}
+  LOG_CHANNEL: ${LOG_CHANNEL:-stack}
+  LOG_LEVEL: ${LOG_LEVEL:-warning}
+
+  DB_CONNECTION: pgsql
+  DB_HOST: db
+  DB_PORT: "5432"
+  DB_DATABASE: ${POSTGRES_DB:-kynexedu_central}
+  DB_USERNAME: ${POSTGRES_USER:-kynexedu}
+  DB_PASSWORD: ${POSTGRES_PASSWORD}
+
+  TENANCY_DB_PREFIX: ${TENANCY_DB_PREFIX:-kynexedu_tenant_}
+  TENANCY_DB_HOST: db
+  TENANCY_DB_PORT: "5432"
+  TENANCY_DB_USERNAME: ${POSTGRES_USER:-kynexedu}
+  TENANCY_DB_PASSWORD: ${POSTGRES_PASSWORD}
+
+  BROADCAST_CONNECTION: ${BROADCAST_CONNECTION:-log}
+  CACHE_STORE: ${CACHE_STORE:-database}
+  FILESYSTEM_DISK: ${FILESYSTEM_DISK:-local}
+  QUEUE_CONNECTION: ${QUEUE_CONNECTION:-database}
+  SESSION_DRIVER: ${SESSION_DRIVER:-database}
+  SESSION_LIFETIME: ${SESSION_LIFETIME:-480}
+  SESSION_SECURE_COOKIE: ${SESSION_SECURE_COOKIE:-true}
+  SESSION_EXPIRE_ON_CLOSE: ${SESSION_EXPIRE_ON_CLOSE:-false}
+
+  MAIL_MAILER: ${MAIL_MAILER:-resend}
+  RESEND_API_KEY: ${RESEND_API_KEY}
+  MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-noreply@kynexsolutions.com}
+  MAIL_FROM_NAME: ${MAIL_FROM_NAME:-KynexEdu}
+
+  SAAS_ADMIN_EMAIL: ${SAAS_ADMIN_EMAIL}
+  SAAS_ADMIN_PASSWORD: ${SAAS_ADMIN_PASSWORD}
+
+  FILAMENT_FILESYSTEM_DISK: ${FILAMENT_FILESYSTEM_DISK:-public}
+  VITE_APP_NAME: ${APP_NAME:-KynexEdu ERP}
+
+  DEMO_TENANT_ID: ${DEMO_TENANT_ID:-demo}
+
+x-app-base: &app-base
+  build:
+    context: .
+    dockerfile: Dockerfile
+  image: kynexedu-erp:coolify
+  restart: unless-stopped
+  depends_on:
+    db:
+      condition: service_healthy
+  volumes:
+    - kynexedu_storage:/var/www/html/storage
+  networks:
+    - kynexedu_internal
+
+services:
+  app:
+    <<: *app-base
+    environment:
+      <<: *app-env
+      RUN_MIGRATIONS_AND_SEED: ${RUN_MIGRATIONS_AND_SEED:-true}
+    ports:
+      - "80"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost/up || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+  queue:
+    <<: *app-base
+    command: ["/usr/local/bin/start-queue"]
+    environment:
+      <<: *app-env
+      RUN_MIGRATIONS_AND_SEED: "false"
+    depends_on:
+      db:
+        condition: service_healthy
+      app:
+        condition: service_started
+
+  scheduler:
+    <<: *app-base
+    command: ["/usr/local/bin/start-scheduler"]
+    environment:
+      <<: *app-env
+      RUN_MIGRATIONS_AND_SEED: "false"
+    depends_on:
+      db:
+        condition: service_healthy
+      app:
+        condition: service_started
+
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-kynexedu_central}
+      POSTGRES_USER: ${POSTGRES_USER:-kynexedu}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-kynexedu} -d ${POSTGRES_DB:-kynexedu_central}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - kynexedu_db_data:/var/lib/postgresql/data
+    networks:
+      - kynexedu_internal
+
+volumes:
+  kynexedu_storage:
+  kynexedu_db_data:
+
+networks:
+  kynexedu_internal:
+    driver: bridge

@@ -47,6 +47,10 @@ class RbacPermissionSeeder extends Seeder
             'upload_student_documents'       => 'Upload Student Documents',
             'change_student_status'          => 'Change Student Status (Approval for Critical)',
             'manage_student_admissions'      => 'Manage Student Admissions',
+            'enter_admission_marks'          => 'Enter Admission Test / Interview Marks',
+            'conduct_admission_interview'    => 'Conduct & Schedule Admission Interviews',
+            'create_admission_tests'         => 'Create Admission Tests & Question Banks',
+            'manage_exam_attendance'         => 'Mark Exam Attendance & Start Admission Exams',
             'manage_student_transfers'       => 'Manage Student Transfers (Approval Required)',
             'manage_student_promotions'      => 'Manage Student Promotions (Approval Required)',
             'archive_student_records'        => 'Archive Student Records',
@@ -380,6 +384,10 @@ class RbacPermissionSeeder extends Seeder
                 'change_student_status', // approval for critical statuses
                 'view_student_documents', 'upload_student_documents',
                 'manage_student_admissions',
+                'enter_admission_marks',
+                'conduct_admission_interview',
+                'create_admission_tests',
+                'manage_exam_attendance',
                 'manage_student_transfers', // approval required
                 'manage_student_promotions', // approval required
                 'view_student_basic_info', 'view_all_student_profiles',
@@ -746,6 +754,10 @@ class RbacPermissionSeeder extends Seeder
             'view_students', 'create_student', 'edit_student', 'delete_student',
             'change_student_status', 'view_student_documents', 'upload_student_documents',
             'manage_student_admissions',
+            'enter_admission_marks',
+            'conduct_admission_interview',
+            'create_admission_tests',
+            'manage_exam_attendance',
             'manage_student_transfers', 'manage_student_promotions',
             'view_all_student_profiles', 'archive_student_records', 'issue_certificates',
             'view_student_basic_info',

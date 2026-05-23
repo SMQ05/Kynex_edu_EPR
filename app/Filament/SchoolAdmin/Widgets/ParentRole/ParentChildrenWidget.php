@@ -38,7 +38,7 @@ class ParentChildrenWidget extends BaseWidget
 
                 TextColumn::make('status')
                     ->badge()
-                    ->color(fn (string $state) => match ($state) {
+                    ->color(fn ($state) => match ($state instanceof \BackedEnum ? $state->value : $state) {
                         'enrolled' => 'success',
                         default => 'gray',
                     }),

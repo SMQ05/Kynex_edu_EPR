@@ -62,11 +62,11 @@ services:
     container_name: kynexedu-db
     restart: unless-stopped
     environment:
-      POSTGRES_DB: kynexedu_central
-      POSTGRES_USER: kynexedu
-      POSTGRES_PASSWORD: kynexedu_prod_2026!
+      POSTGRES_DB: ${POSTGRES_DB:-kynexedu_central}
+      POSTGRES_USER: ${POSTGRES_USER:-kynexedu}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U kynexedu -d kynexedu_central"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-kynexedu} -d ${POSTGRES_DB:-kynexedu_central}"]
       interval: 5s
       timeout: 5s
       retries: 20

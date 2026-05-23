@@ -3,7 +3,14 @@ set -euo pipefail
 
 cd /var/www/html
 
-cp -f .env.docker .env
+if [ -f .env.docker ]; then
+    cp -f .env.docker .env
+elif [ ! -f .env ]; then
+    # Coolify / runtime-env mode: seed an empty .env so artisan key:generate
+    # has something to write to. Laravel still reads injected env vars via
+    # getenv()/$_ENV at request time.
+    : > .env
+fi
 
 mkdir -p storage/framework/cache storage/framework/sessions storage/framework/views bootstrap/cache
 chown -R www-data:www-data storage bootstrap/cache
@@ -29,7 +36,7 @@ done
 
 php artisan config:clear --ansi || true
 
-if ! grep -q '^APP_KEY=base64:' .env 2>/dev/null; then
+if [ -z "${APP_KEY:-}" ] && ! grep -q '^APP_KEY=base64:' .env 2>/dev/null; then
     php artisan key:generate --force
 fi
 

@@ -73,7 +73,7 @@ class ApprovalService
     }
 
     /**
-     * Reject a pending request.
+     * Reject a pending request and call the handler's handleRejection hook if present.
      */
     public function reject(
         ApprovalRequest $request,
@@ -88,7 +88,31 @@ class ApprovalService
             'reviewed_at'       => now(),
         ]);
 
-        return $request->fresh();
+        $fresh = $request->fresh();
+
+        // Call optional per-action rejection hook (e.g. send rejection emails)
+        $handlerClass = config("approval.handlers.{$fresh->action_type}");
+        if ($handlerClass && class_exists($handlerClass) && method_exists($handlerClass, 'handleRejection')) {
+            $weInitialized = false;
+            if ($fresh->tenant_id) {
+                $tenant = \App\Models\Tenant::find($fresh->tenant_id);
+                if ($tenant && (! tenancy()->initialized || tenant()?->id !== $tenant->id)) {
+                    tenancy()->initialize($tenant);
+                    $weInitialized = true;
+                }
+            }
+            try {
+                app($handlerClass)->handleRejection($fresh);
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning("ApprovalService reject hook failed for {$fresh->id}: {$e->getMessage()}");
+            } finally {
+                if ($weInitialized && tenancy()->initialized) {
+                    tenancy()->end();
+                }
+            }
+        }
+
+        return $fresh;
     }
 
     /**

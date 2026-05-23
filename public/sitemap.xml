@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  KynexEdu marketing sitemap (edu.kynexsolutions.com).
+  As you publish dedicated pages (/features, /pricing, /school-management-system-pakistan,
+  /blog/..., comparison & alternative pages), add a <url> entry for each here and resubmit
+  in Google Search Console + Bing Webmaster Tools.
+-->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://edu.kynexsolutions.com/</loc>
+    <lastmod>2026-05-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+</urlset>

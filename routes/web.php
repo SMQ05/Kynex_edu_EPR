@@ -1,9 +1,13 @@
 <?php
 
+use App\Http\Controllers\ExamLoginController;
+use App\Http\Controllers\StudentBulkImportController;
 use App\Http\Controllers\FeeReceiptController;
 use App\Http\Controllers\FinancialReportPrintController;
 use App\Http\Controllers\PayslipController;
+use App\Http\Controllers\PublicAdmissionCompleteController;
 use App\Http\Controllers\PublicAdmissionController;
+use App\Http\Controllers\PublicAdmissionTestController;
 use App\Http\Controllers\ResultCardController;
 use App\Http\Controllers\SchoolPortalController;
 use App\Http\Middleware\EnsureCentralHost;
@@ -17,6 +21,9 @@ use Stancl\Tenancy\Database\Models\Domain;
 // from session if running on a central host.
 // ─────────────────────────────────────────────────────────────────
 Route::middleware([InitializeTenancyBySubdomainOrDomain::class, 'auth:school_users'])->group(function () {
+    Route::post('/admin/bulk-import-run', [StudentBulkImportController::class, 'run'])
+        ->name('admin.bulk-import.run');
+
     Route::get('/payslip/{payroll}/download', [PayslipController::class, 'download'])
         ->name('payslip.download');
 
@@ -43,6 +50,24 @@ Route::middleware([InitializeTenancyBySubdomainOrDomain::class])
 
         Route::get('/parent/register', [PublicAdmissionController::class, 'showParentRegister'])->name('parent.register');
         Route::post('/parent/register', [PublicAdmissionController::class, 'submitParentRegister'])->name('parent.register.submit');
+
+        // Exam-day temporary login for applicants.
+        Route::get('/exam-login', [ExamLoginController::class, 'show'])->name('exam-login');
+        Route::post('/exam-login', [ExamLoginController::class, 'login'])->name('exam-login.submit');
+
+        // Admission profile completion (post-admit detailed form).
+        Route::get('/admission/complete/{token}', [PublicAdmissionCompleteController::class, 'show'])->name('admission.complete');
+        Route::post('/admission/complete/{token}', [PublicAdmissionCompleteController::class, 'submit'])->name('admission.complete.submit');
+
+        // Exam waiting room — shown after login, polls until admin starts the exam.
+        Route::get('/exam-waiting/{token}', [PublicAdmissionTestController::class, 'waiting'])->name('admission-test.waiting');
+        Route::get('/exam-waiting/{token}/status', [PublicAdmissionTestController::class, 'waitingStatus'])->name('admission-test.waiting.status');
+
+        // Online entry test (admission test) — token-based, no login.
+        Route::get('/admission-test/{token}', [PublicAdmissionTestController::class, 'start'])->name('admission-test.start');
+        Route::post('/admission-test/{token}/begin', [PublicAdmissionTestController::class, 'begin'])->name('admission-test.begin');
+        Route::post('/admission-test/{token}/submit', [PublicAdmissionTestController::class, 'submit'])->name('admission-test.submit');
+        Route::post('/admission-test/{token}/violation', [PublicAdmissionTestController::class, 'violation'])->name('admission-test.violation');
     });
 
 // ─────────────────────────────────────────────────────────────────
@@ -102,6 +127,69 @@ Route::middleware([InitializeTenancyBySubdomainOrDomain::class])->group(function
         return response()->view('errors.domain-not-configured', [], 404);
     })->name('school.landing');
 });
+
+// ─────────────────────────────────────────────────────────────────
+// Resend click-tracking passthrough
+//
+// Resend wraps every link with https://sms.kynexsolutions.com/CL0/
+// {url-encoded-destination}/1/{tracking-id}/{signature}.  Apache
+// returns 404 for paths containing %2F unless AllowEncodedSlashes
+// NoDecode is set (see docker/apache-vhost.conf).  Once the request
+// reaches PHP, Laravel has decoded the path, so $destination is the
+// plain URL we originally put in the email.
+// ─────────────────────────────────────────────────────────────────
+Route::get('/CL0/{path}', function (string $path) {
+    // Resend's format: {destination}/1/{tracking-id}/{signature}
+    // Apache may pass either decoded ("https://...") or still-encoded
+    // ("https:%2F%2F...") form depending on AllowEncodedSlashes.
+    $destination = \Illuminate\Support\Str::before($path, '/1/');
+
+    // Decode if still URL-encoded (e.g. "https:%2F%2Faqmdigital.com%2F...").
+    if (str_contains($destination, '%2F') || str_contains($destination, '%3A')) {
+        $destination = urldecode($destination);
+    }
+
+    if (! filter_var($destination, FILTER_VALIDATE_URL)) {
+        abort(404);
+    }
+
+    $destHost = parse_url($destination, PHP_URL_HOST);
+    if (! $destHost) {
+        abort(404);
+    }
+
+    // Whitelist: central host + verified custom domains + tenant subdomains.
+    $allowed = false;
+
+    // 1. Central host
+    if ($destHost === parse_url(config('app.url'), PHP_URL_HOST)) {
+        $allowed = true;
+    }
+
+    // 2. Verified custom domain
+    if (! $allowed) {
+        $allowed = \Stancl\Tenancy\Database\Models\Domain::query()
+            ->where('domain', $destHost)
+            ->where('is_verified', true)
+            ->exists();
+    }
+
+    // 3. Tenant subdomain pattern (e.g. tenant-slug.kynexedu.com)
+    if (! $allowed) {
+        foreach (config('tenancy.central_domains', []) as $central) {
+            if (str_ends_with($destHost, '.' . $central)) {
+                $allowed = true;
+                break;
+            }
+        }
+    }
+
+    if (! $allowed) {
+        abort(404);
+    }
+
+    return redirect($destination, 302);
+})->where('path', '.*');
 
 // ─────────────────────────────────────────────────────────────────
 // School Portal — Public pages at the central host.

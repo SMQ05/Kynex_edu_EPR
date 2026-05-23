@@ -1,2 +1,36 @@
+# KynexEdu — https://edu.kynexsolutions.com
+# Search engines and AI assistants are welcome. Dashboards and
+# per-applicant/private endpoints are excluded from indexing.
+
 User-agent: *
-Disallow:
+Allow: /
+
+# Private app surfaces (no SEO value, keep out of the index)
+Disallow: /admin
+Disallow: /saas
+Disallow: /livewire
+Disallow: /exam-login
+Disallow: /exam-waiting/
+Disallow: /admission-test/
+Disallow: /admission/complete/
+Disallow: /apply/status/
+Disallow: /payslip/
+Disallow: /result-card/
+Disallow: /fee-receipt/
+Disallow: /financial-report/
+
+# AI search crawlers — explicitly allowed (Generative Engine Optimization)
+User-agent: GPTBot
+Allow: /
+User-agent: OAI-SearchBot
+Allow: /
+User-agent: ChatGPT-User
+Allow: /
+User-agent: PerplexityBot
+Allow: /
+User-agent: ClaudeBot
+Allow: /
+User-agent: Google-Extended
+Allow: /
+
+Sitemap: https://edu.kynexsolutions.com/sitemap.xml

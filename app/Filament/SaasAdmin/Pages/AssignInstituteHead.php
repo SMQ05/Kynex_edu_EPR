@@ -10,22 +10,21 @@ use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Livewire\Attributes\Computed;
+use Resend\Client as ResendClient;
 
 /**
  * Cross-tenant tool for SaaS admins to seat the top two roles in any
  * tenant: INSTITUTE_HEAD (one campus) and MULTI_INSTITUTE_HEAD (a chain
- * of campuses across the tenant). Both are SaaS-only roles per
- * RoleHierarchy::saasOnlyRoles, so they can never be assigned from
- * inside the tenant by a school admin.
+ * of campuses across the tenant).
  *
- * The flow:
- *   1. Pick a tenant.
- *   2. Either select an existing SchoolUser or enter a new email + name.
- *   3. Pick INSTITUTE_HEAD or MULTI_INSTITUTE_HEAD.
- *   4. Submit. New users receive a set-password email; existing users
- *      keep their password and just gain the role.
+ * Emails sent at every step:
+ *   - New holder: "You have been assigned [role]" (always)
+ *   - Existing holder(s) of same role: "A new [role] has been added"
+ *   - SaaS admin (audit copy): "Assignment completed"
+ *   - For brand-new accounts: also a set-password activation link
  */
 class AssignInstituteHead extends Page
 {
@@ -40,11 +39,11 @@ class AssignInstituteHead extends Page
     protected string $view = 'filament.saas-admin.pages.assign-institute-head';
 
     public ?string $tenant_id = null;
-    public string $mode = 'new';     // 'new' | 'existing'
+    public string $mode = 'new';
     public ?string $existing_user_id = null;
     public string $name = '';
     public string $email = '';
-    public string $role = 'INSTITUTE_HEAD'; // INSTITUTE_HEAD | MULTI_INSTITUTE_HEAD
+    public string $role = 'INSTITUTE_HEAD';
 
     #[Computed]
     public function tenantOptions(): array
@@ -104,9 +103,24 @@ class AssignInstituteHead extends Page
             return;
         }
 
-        $invite = null;
+        $result = [
+            'user'                  => null,
+            'wasNewAccount'         => false,
+            'wasAlreadyAssigned'    => false,
+            'previousHolderEmails'  => [],
+            'activationEmailSent'   => false,
+        ];
 
-        $tenant->run(function () use (&$invite, $tenant) {
+        $tenant->run(function () use (&$result, $tenant) {
+            // Snapshot current holders BEFORE assignment so we can email them.
+            $previousHolders = SchoolUser::role($this->role)
+                ->get(['id', 'name', 'email'])
+                ->filter(fn ($u) => filled($u->email))
+                ->all();
+            $result['previousHolderEmails'] = collect($previousHolders)
+                ->map(fn ($u) => ['name' => $u->name, 'email' => $u->email])
+                ->all();
+
             if ($this->mode === 'existing') {
                 if (! $this->existing_user_id) {
                     Notification::make()->title('Pick an existing user')->danger()->send();
@@ -117,17 +131,16 @@ class AssignInstituteHead extends Page
                     Notification::make()->title('User not found in this tenant')->danger()->send();
                     return;
                 }
-                if (! $user->hasRole($this->role)) {
+
+                if ($user->hasRole($this->role)) {
+                    $result['wasAlreadyAssigned'] = true;
+                } else {
                     $user->assignRole($this->role);
                 }
                 if (! $user->is_active) {
                     $user->update(['is_active' => true]);
                 }
-                Notification::make()
-                    ->title('Role assigned')
-                    ->body("{$user->name} now holds {$this->role} in {$tenant->school_name}.")
-                    ->success()
-                    ->send();
+                $result['user'] = $user;
                 return;
             }
 
@@ -139,14 +152,12 @@ class AssignInstituteHead extends Page
 
             $existing = SchoolUser::where('email', $this->email)->first();
             if ($existing) {
-                if (! $existing->hasRole($this->role)) {
+                if ($existing->hasRole($this->role)) {
+                    $result['wasAlreadyAssigned'] = true;
+                } else {
                     $existing->assignRole($this->role);
                 }
-                Notification::make()
-                    ->title('User already existed — role added')
-                    ->body("{$existing->name} now holds {$this->role}.")
-                    ->success()
-                    ->send();
+                $result['user'] = $existing;
                 return;
             }
 
@@ -158,22 +169,179 @@ class AssignInstituteHead extends Page
             ]);
             $user->assignRole($this->role);
 
-            $invite = app(\App\Services\StudentAccountActivator::class)->activateGuardian(
-                $user->name,
-                $user->email,
-                $tenant->id,
-                ['role' => $this->role, 'school_user_id' => $user->id, 'subject' => 'institute_head'],
-            );
+            try {
+                app(\App\Services\StudentAccountActivator::class)->activateGuardian(
+                    $user->name,
+                    $user->email,
+                    $tenant->id,
+                    ['role' => $this->role, 'school_user_id' => $user->id, 'subject' => 'institute_head'],
+                );
+                $result['activationEmailSent'] = true;
+            } catch (\Throwable $e) {
+                Log::warning('AssignInstituteHead activation email failed', ['error' => $e->getMessage()]);
+            }
+
+            $result['user']          = $user;
+            $result['wasNewAccount'] = true;
         });
 
-        if ($invite) {
-            Notification::make()
-                ->title('Account created and activation email sent')
-                ->body("{$this->name} <{$this->email}> will receive a set-password link.")
-                ->success()
-                ->send();
+        if (! $result['user']) {
+            return; // a Notification was already sent inside the closure
         }
 
+        // Even if "already assigned" → still send a confirmation email so the user
+        // can verify the system works. The user explicitly asked for emails at every step.
+        $emailReport = $this->sendAllAssignmentEmails($tenant, $result);
+
+        // ── UI summary ──
+        $body = $result['wasAlreadyAssigned']
+            ? "{$result['user']->name} already had {$this->role}. Confirmation emails re-sent."
+            : "{$result['user']->name} now holds {$this->role} in {$tenant->school_name}.";
+
+        if (! empty($emailReport['sent'])) {
+            $body .= ' Emails sent to: ' . implode(', ', $emailReport['sent']) . '.';
+        }
+        if (! empty($emailReport['failed'])) {
+            $body .= ' Failed: ' . implode(', ', $emailReport['failed']) . ' — check logs.';
+        }
+        if ($result['activationEmailSent']) {
+            $body .= ' Set-password activation link sent.';
+        }
+
+        Notification::make()
+            ->title($result['wasAlreadyAssigned'] ? 'Already assigned — emails re-sent' : 'Role assigned — emails sent')
+            ->body($body)
+            ->success()
+            ->duration(15000)
+            ->send();
+
         $this->reset(['name', 'email', 'existing_user_id']);
+    }
+
+    /**
+     * Send all assignment notification emails. Each send is wrapped in its own
+     * try/catch so one failing recipient never blocks the others.
+     *
+     * @return array{sent: array<int,string>, failed: array<int,string>}
+     */
+    private function sendAllAssignmentEmails(Tenant $tenant, array $result): array
+    {
+        $user        = $result['user'];
+        $schoolName  = $tenant->school_name ?? 'Your School';
+        $roleName    = $this->role;
+        $assignedBy  = auth()->user()?->name
+                        ?? auth()->user()?->email
+                        ?? 'KynexEdu Platform Team';
+        $from        = config('mail.from.name', 'KynexEdu') . ' <' . config('mail.from.address', 'noreply@kynexsolutions.com') . '>';
+        $resend      = app(ResendClient::class);
+        $sent        = [];
+        $failed      = [];
+
+        // ── 1. Email to the new holder ──
+        if ($user->email) {
+            try {
+                $html = view('emails.role-assigned-direct', [
+                    'schoolName'     => $schoolName,
+                    'roleName'       => $roleName,
+                    'newHolderName'  => $user->name,
+                    'newHolderEmail' => $user->email,
+                    'assignedByName' => $assignedBy,
+                    'recipientName'  => $user->name,
+                    'audience'       => 'new_holder',
+                    'activationNote' => 'A separate email with a set-password link was just sent to this address — use it to log in for the first time as ' . $roleName . '.',
+                ])->render();
+                $resend->emails->send([
+                    'from'    => $from,
+                    'to'      => $user->email,
+                    'subject' => "You Have Been Assigned as {$roleName} — {$schoolName}",
+                    'html'    => $html,
+                ]);
+                $sent[] = $user->email;
+            } catch (\Throwable $e) {
+                Log::warning('AssignInstituteHead new-holder email failed', [
+                    'to'    => $user->email,
+                    'error' => $e->getMessage(),
+                ]);
+                $failed[] = $user->email;
+            }
+
+            // ── 1b. Set-password invite (mandatory for high-authority roles) ──
+            // Skip when wasNewAccount is true — StudentAccountActivator already
+            // sent its own activation email in that branch.
+            if (! $result['wasNewAccount']) {
+                $sent_pw = \App\Actions\Approvals\HandleSensitiveRoleAssignment::sendSetPasswordInvite($user, $tenant);
+                if ($sent_pw) {
+                    $sent[] = $user->email . ' (set-password)';
+                } else {
+                    $failed[] = $user->email . ' (set-password)';
+                }
+            }
+        } else {
+            $failed[] = '(new holder has no email)';
+        }
+
+        // ── 2. Emails to existing holders (notify them) ──
+        foreach ($result['previousHolderEmails'] as $holder) {
+            if ($holder['email'] === $user->email) {
+                continue; // skip self
+            }
+            try {
+                $html = view('emails.role-assigned-direct', [
+                    'schoolName'     => $schoolName,
+                    'roleName'       => $roleName,
+                    'newHolderName'  => $user->name,
+                    'newHolderEmail' => $user->email,
+                    'assignedByName' => $assignedBy,
+                    'recipientName'  => $holder['name'],
+                    'audience'       => 'existing_holder',
+                    'activationNote' => null,
+                ])->render();
+                $resend->emails->send([
+                    'from'    => $from,
+                    'to'      => $holder['email'],
+                    'subject' => "New {$roleName} Assigned at {$schoolName}",
+                    'html'    => $html,
+                ]);
+                $sent[] = $holder['email'];
+            } catch (\Throwable $e) {
+                Log::warning('AssignInstituteHead existing-holder email failed', [
+                    'to'    => $holder['email'],
+                    'error' => $e->getMessage(),
+                ]);
+                $failed[] = $holder['email'];
+            }
+        }
+
+        // ── 3. Audit copy to SaaS admin ──
+        $saasEmail = env('SAAS_ADMIN_EMAIL', 'admin@kynexedu.com');
+        if ($saasEmail) {
+            try {
+                $html = view('emails.role-assigned-direct', [
+                    'schoolName'     => $schoolName,
+                    'roleName'       => $roleName,
+                    'newHolderName'  => $user->name,
+                    'newHolderEmail' => $user->email,
+                    'assignedByName' => $assignedBy,
+                    'recipientName'  => 'SaaS Admin',
+                    'audience'       => 'audit',
+                    'activationNote' => null,
+                ])->render();
+                $resend->emails->send([
+                    'from'    => $from,
+                    'to'      => $saasEmail,
+                    'subject' => "[Audit] {$roleName} assigned to {$user->name} at {$schoolName}",
+                    'html'    => $html,
+                ]);
+                $sent[] = $saasEmail;
+            } catch (\Throwable $e) {
+                Log::warning('AssignInstituteHead audit email failed', [
+                    'to'    => $saasEmail,
+                    'error' => $e->getMessage(),
+                ]);
+                $failed[] = $saasEmail;
+            }
+        }
+
+        return ['sent' => $sent, 'failed' => $failed];
     }
 }

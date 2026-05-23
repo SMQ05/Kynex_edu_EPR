@@ -2,81 +2,103 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#1e1b4b">
     <title>Certificate Verification | {{ $schoolName }}</title>
+    <link rel="preconnect" href="https://fonts.bunny.net">
+    <link href="https://fonts.bunny.net/css?family=inter:400,500,600,700,800,900" rel="stylesheet">
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            -webkit-font-smoothing: antialiased;
+            background: linear-gradient(135deg,#1e1b4b,#1e3a8a,#2563eb,#0ea5e9);
             color: #1f2937;
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 20px;
+            padding: 24px 20px;
+            position: relative;
+            overflow: hidden;
+        }
+        body::before {
+            content: ''; position: absolute; inset: 0; z-index: 0; opacity: .6;
+            background:
+              radial-gradient(34rem 34rem at 80% -10%, rgba(6,182,212,.45), transparent 60%),
+              radial-gradient(28rem 28rem at 0% 110%, rgba(124,58,237,.4), transparent 55%);
         }
         .card {
+            position: relative; z-index: 1;
             background: #fff;
-            border-radius: 16px;
-            box-shadow: 0 20px 50px rgba(0,0,0,0.08);
-            padding: 36px 32px;
+            border-radius: 28px;
+            box-shadow: 0 30px 60px -12px rgba(15,23,42,.4);
+            padding: 40px 32px;
             max-width: 540px;
             width: 100%;
         }
         .school {
             font-size: 12px;
             text-transform: uppercase;
-            letter-spacing: 2px;
-            color: #6b7280;
+            letter-spacing: 1.5px;
+            font-weight: 600;
+            color: #64748b;
             text-align: center;
         }
-        .school strong { color: #1e3a8a; font-weight: 700; }
+        .school strong { color: #1e3a8a; font-weight: 800; }
         .badge {
             display: inline-block;
             margin: 12px 0;
-            padding: 4px 12px;
+            padding: 5px 14px;
             border-radius: 999px;
             font-size: 11px;
-            font-weight: 600;
+            font-weight: 700;
             letter-spacing: 1px;
             text-transform: uppercase;
         }
-        .badge.ok    { background: #dcfce7; color: #166534; }
-        .badge.fail  { background: #fee2e2; color: #991b1b; }
+        .badge.ok    { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+        .badge.fail  { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
         h1 {
-            font-size: 22px;
+            font-size: 24px;
+            font-weight: 800;
+            letter-spacing: -.02em;
             margin: 6px 0 18px;
             text-align: center;
-            color: #111827;
+            color: #0f172a;
         }
         .statement {
             font-size: 16px;
             line-height: 1.7;
-            color: #1f2937;
+            color: #334155;
             text-align: center;
             margin-bottom: 24px;
         }
-        .statement strong { color: #111827; }
+        .statement strong { color: #0f172a; }
         .meta {
-            background: #f9fafb;
-            border: 1px solid #e5e7eb;
-            border-radius: 12px;
-            padding: 16px 20px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 16px;
+            padding: 18px 20px;
             font-size: 13px;
-            color: #4b5563;
+            color: #475569;
         }
-        .meta dt { font-weight: 600; color: #6b7280; margin-top: 8px; }
+        .meta dt { font-weight: 600; color: #64748b; margin-top: 10px; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; }
         .meta dt:first-child { margin-top: 0; }
-        .meta dd { color: #111827; margin-bottom: 4px; }
+        .meta dd { color: #0f172a; margin-bottom: 4px; font-weight: 500; }
         .footer {
-            margin-top: 24px;
+            margin-top: 26px;
             text-align: center;
             font-size: 11px;
-            color: #9ca3af;
+            color: #94a3b8;
         }
-        .footer a { color: #6b7280; text-decoration: none; }
-        .icon { text-align: center; margin-bottom: 6px; font-size: 36px; line-height: 1; }
+        .footer a { color: #64748b; text-decoration: none; font-weight: 600; }
+        .icon {
+            text-align: center; margin: 0 auto 12px; font-size: 30px; line-height: 1;
+            width: 64px; height: 64px; border-radius: 18px;
+            display: flex; align-items: center; justify-content: center;
+            background: #ecfdf5; color: #16a34a; border: 1px solid #bbf7d0;
+        }
+        .icon.fail { background: #fef2f2; color: #dc2626; border-color: #fecaca; }
     </style>
 </head>
 <body>
@@ -117,7 +139,7 @@
                 @endif
             </dl>
         @else
-            <div class="icon" style="color:#b91c1c;" aria-hidden="true">&#10005;</div>
+            <div class="icon fail" aria-hidden="true">&#10005;</div>
             <div class="school">Verification request for <strong>{{ $schoolName }}</strong></div>
             <div style="text-align:center;"><span class="badge fail">Not Found</span></div>
             <h1>Certificate Not Found</h1>

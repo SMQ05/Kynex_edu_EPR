@@ -22,6 +22,7 @@ return [
         'kynexedu.com',
         'kynexsolutions.com',
         'sms.kynexsolutions.com',
+        'edu.kynexsolutions.com',
     ],
 
     /**

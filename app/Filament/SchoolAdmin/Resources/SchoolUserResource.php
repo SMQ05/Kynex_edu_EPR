@@ -91,6 +91,63 @@ class SchoolUserResource extends Resource
         return static::currentSchoolUser()?->hasPermissionTo('system.user_manage') ?? false;
     }
 
+    /**
+     * Campus that the current actor is locked to. Returns null for users
+     * who can manage users across every campus (INSTITUTE_HEAD,
+     * MULTI_INSTITUTE_HEAD). Everyone else (SCHOOL_ADMIN, HR_MANAGER, etc.)
+     * is scoped to their own school_users.campus_id.
+     */
+    public static function scopedCampusId(): ?string
+    {
+        $user = static::currentSchoolUser();
+        if (! $user) {
+            return null;
+        }
+        if ($user->hasAnyRole(['INSTITUTE_HEAD', 'MULTI_INSTITUTE_HEAD'])) {
+            return null;
+        }
+        return $user->campus_id;
+    }
+
+    /**
+     * Constrain the user list when the actor is campus-scoped:
+     *   - Hide rows from other campuses
+     *   - Hide MULTI_INSTITUTE_HEAD holders entirely (they outrank
+     *     campus admins and may not have a campus_id at all)
+     *   - Hide INSTITUTE_HEAD holders too unless the actor outranks them
+     */
+    public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
+    {
+        $query = parent::getEloquentQuery();
+        $actor = static::currentSchoolUser();
+        if (! $actor) {
+            return $query;
+        }
+
+        $scopedCampusId = static::scopedCampusId();
+
+        if ($scopedCampusId) {
+            // Constrain to actor's own campus. Users without a campus_id
+            // (e.g. tenant-wide roles like INSTITUTE_HEAD) are also hidden.
+            $query->where('campus_id', $scopedCampusId);
+
+            // Hide users that hold roles strictly above the actor's level.
+            $actorLevel = RoleHierarchy::levelOf($actor);
+            $tooHigh = collect(RoleHierarchy::LEVELS)
+                ->filter(fn ($lvl) => $lvl > $actorLevel)
+                ->keys()
+                ->all();
+
+            if (! empty($tooHigh)) {
+                $query->whereDoesntHave('roles', function ($q) use ($tooHigh) {
+                    $q->whereIn('name', $tooHigh);
+                });
+            }
+        }
+
+        return $query;
+    }
+
     public static function canCreate(): bool
     {
         return static::currentSchoolUser()?->hasPermissionTo('system.user_manage') ?? false;
@@ -274,24 +331,31 @@ class SchoolUserResource extends Resource
                         Select::make('role_names')
                             ->label('Roles to Assign')
                             ->options(function (): array {
-                                $actor = static::currentSchoolUser();
-
-                                // SaaS-only roles (INSTITUTE_HEAD and MULTI_INSTITUTE_HEAD)
-                                // are excluded entirely except when the actor already
-                                // holds that role themselves — i.e. the institute head
-                                // can transfer / re-assign their own role to a successor.
+                                $actor      = static::currentSchoolUser();
                                 $actorLevel = RoleHierarchy::levelOf($actor);
 
                                 return Role::where('guard_name', 'school_users')
                                     ->get()
                                     ->filter(function (Role $role) use ($actorLevel) {
-                                        if (! RoleHierarchy::isSaasOnly($role->name)) {
-                                            return true;
+                                        // Drop zombie / non-canonical role rows (lowercase
+                                        // duplicates from old seeders). Only roles that exist
+                                        // in RoleHierarchy::LEVELS are assignable.
+                                        if (! array_key_exists($role->name, RoleHierarchy::LEVELS)) {
+                                            return false;
                                         }
-                                        // Only an actor at or above this protected
-                                        // role's level may assign it from inside the
-                                        // school panel (self-replacement / handover).
-                                        return $actorLevel >= RoleHierarchy::levelOfRole($role->name);
+
+                                        // Dual-approval roles (INSTITUTE_HEAD, MULTI_INSTITUTE_HEAD):
+                                        // visible only when there is already a holder (first-time
+                                        // assignment stays with SaaS admin) AND the actor meets the
+                                        // minimum submit level for that role.
+                                        if (RoleHierarchy::isDualApproval($role->name)) {
+                                            if ($actorLevel < RoleHierarchy::dualApprovalSubmitLevel($role->name)) {
+                                                return false;
+                                            }
+                                            // First-time assignment must come from SaaS admin.
+                                            return SchoolUser::role($role->name)->exists();
+                                        }
+                                        return true;
                                     })
                                     ->pluck('name', 'name')
                                     ->toArray();
@@ -300,80 +364,151 @@ class SchoolUserResource extends Resource
                             ->required()
                             ->searchable()
                             ->helperText(function (): string {
-                                return static::actorActsAsInstituteHead(static::currentSchoolUser())
-                                    ? 'You are acting as an institute head — assignments save directly.'
-                                    : 'You can select one or more roles. Protected roles require Institute Head approval.';
+                                $actor = static::currentSchoolUser();
+                                $level = RoleHierarchy::levelOf($actor);
+                                if ($level >= RoleHierarchy::LEVELS['MULTI_INSTITUTE_HEAD']) {
+                                    return 'INSTITUTE_HEAD and MULTI_INSTITUTE_HEAD assignments go through dual approval (SaaS admin OR existing role holder).';
+                                }
+                                if ($level >= RoleHierarchy::LEVELS['INSTITUTE_HEAD']) {
+                                    return 'You can suggest INSTITUTE_HEAD and MULTI_INSTITUTE_HEAD assignments — both require dual approval before taking effect.';
+                                }
+                                if ($level >= RoleHierarchy::LEVELS['SCHOOL_ADMIN']) {
+                                    return 'You can suggest INSTITUTE_HEAD assignments (dual approval). MULTI_INSTITUTE_HEAD is restricted to Institute Head and SaaS admin only.';
+                                }
+                                return 'Protected roles require Institute Head approval.';
                             }),
                     ])
                     ->action(function (SchoolUser $record, array $data) {
-                        $actor     = static::currentSchoolUser();
-                        $roleNames = (array) ($data['role_names'] ?? []);
+                        $actor      = static::currentSchoolUser();
+                        $actorLevel = RoleHierarchy::levelOf($actor);
+                        $roleNames  = (array) ($data['role_names'] ?? []);
 
                         $assigned = [];
                         $pending  = [];
                         $skipped  = [];
 
                         foreach ($roleNames as $roleName) {
-                            // ── INSTITUTE_HEAD: only INSTITUTE_HEAD or higher may
-                            // assign / transfer this role from the school side ─────────
-                            if ($roleName === 'INSTITUTE_HEAD') {
-                                if (RoleHierarchy::levelOf($actor) < RoleHierarchy::levelOfRole('INSTITUTE_HEAD')) {
-                                    $skipped[] = "{$roleName} (only INSTITUTE_HEAD or SaaS admin can assign)";
+                            // Server-side guard: reject any non-canonical role name
+                            // (e.g. lowercase zombie rows that bypass the dropdown filter).
+                            if (! array_key_exists($roleName, RoleHierarchy::LEVELS)) {
+                                $skipped[] = "{$roleName} (invalid role)";
+                                continue;
+                            }
+
+                            // ── Dual-approval roles (INSTITUTE_HEAD / MULTI_INSTITUTE_HEAD) ──
+                            if (RoleHierarchy::isDualApproval($roleName)) {
+                                // Actor level check.
+                                if ($actorLevel < RoleHierarchy::dualApprovalSubmitLevel($roleName)) {
+                                    $skipped[] = "{$roleName} (insufficient permissions)";
                                     continue;
                                 }
 
-                                if ($record->hasRole('INSTITUTE_HEAD')) {
+                                // First-time: SaaS admin only.
+                                if (! SchoolUser::role($roleName)->exists()) {
+                                    $skipped[] = "{$roleName} (no holder exists yet — contact the KynexEdu platform team for first-time assignment)";
+                                    continue;
+                                }
+
+                                if ($record->hasRole($roleName)) {
                                     $skipped[] = "{$roleName} (already assigned)";
                                     continue;
                                 }
 
-                                if (static::actorActsAsInstituteHead($actor)) {
-                                    $record->assignRole('INSTITUTE_HEAD');
-                                    // Newly assigned role becomes the user's active dashboard.
-                                    // Admin can override later via the user edit form's
-                                    // "Active role" select.
-                                    $record->update(['active_role' => 'INSTITUTE_HEAD']);
-                                    $assigned[] = $roleName;
-                                    continue;
-                                }
+                                $approverLevel = RoleHierarchy::dualApprovalLevel($roleName);
 
-                                $existingHead = SchoolUser::role('INSTITUTE_HEAD')->first();
-
-                                if ($existingHead === null) {
-                                    $record->assignRole('INSTITUTE_HEAD');
-                                    // Newly assigned role becomes the user's active dashboard.
-                                    // Admin can override later via the user edit form's
-                                    // "Active role" select.
-                                    $record->update(['active_role' => 'INSTITUTE_HEAD']);
-                                    $assigned[] = $roleName;
-                                    continue;
-                                }
-
-                                app(ApprovalService::class)->submit(
+                                $request = app(ApprovalService::class)->submit(
                                     requestedBy: $actor,
                                     actionType: 'sensitive_role_assignment',
                                     subject: $record,
                                     payload: [
                                         'school_user_id' => $record->id,
-                                        'role_name'      => 'INSTITUTE_HEAD',
+                                        'role_name'      => $roleName,
                                         'action'         => 'assign',
+                                        'requester_name' => $actor->name,
+                                        'target_name'    => $record->name,
                                     ],
+                                    approverLevel: $approverLevel,
                                 );
 
-                                InAppNotification::create([
-                                    'user_id' => $existingHead->id,
-                                    'title'   => 'Institute Head Assignment Request',
-                                    'body'    => "{$actor->name} has requested to assign INSTITUTE_HEAD to {$record->name}. Please review your Approval Queue.",
-                                    'type'    => 'info',
-                                ]);
+                                $schoolName = tenancy()->initialized ? (tenant()->school_name ?? 'Your School') : 'Your School';
+                                $from       = config('mail.from.name', 'KynexEdu') . ' <' . config('mail.from.address', 'noreply@kynexsolutions.com') . '>';
+
+                                // Determine the SaaS admin panel URL for the approval queue button
+                                $saasQueueUrl  = url('/saas/approval-requests');
+                                $schoolQueueUrl = url('/admin/approval-queue');
+
+                                // ── In-app + email: current role holders ──────────────────
+                                SchoolUser::role($roleName)->each(function (SchoolUser $holder) use ($actor, $record, $roleName, $schoolName, $from, $schoolQueueUrl) {
+                                    InAppNotification::create([
+                                        'user_id' => $holder->id,
+                                        'title'   => "{$roleName} Assignment Request",
+                                        'body'    => "{$actor->name} has requested to assign {$roleName} to {$record->name}. Please review your Approval Queue.",
+                                        'type'    => 'info',
+                                    ]);
+
+                                    if (! $holder->email) {
+                                        return;
+                                    }
+                                    try {
+                                        $html = view('emails.role-assignment-request', [
+                                            'schoolName'       => $schoolName,
+                                            'roleName'         => $roleName,
+                                            'targetName'       => $record->name,
+                                            'requesterName'    => $actor->name,
+                                            'approvalQueueUrl' => $schoolQueueUrl,
+                                        ])->render();
+                                        Resend::emails()->send([
+                                            'from'    => $from,
+                                            'to'      => $holder->email,
+                                            'subject' => "Action Required: {$roleName} Assignment Request — {$schoolName}",
+                                            'html'    => $html,
+                                        ]);
+                                    } catch (\Throwable $e) {
+                                        Log::warning('Role assignment holder email failed', ['error' => $e->getMessage()]);
+                                    }
+                                });
+
+                                // ── Email: SaaS admin ─────────────────────────────────────
+                                $saasEmail = env('SAAS_ADMIN_EMAIL', 'admin@kynexedu.com');
+                                try {
+                                    $html = view('emails.role-assignment-request', [
+                                        'schoolName'       => $schoolName,
+                                        'roleName'         => $roleName,
+                                        'targetName'       => $record->name,
+                                        'requesterName'    => $actor->name,
+                                        'approvalQueueUrl' => $saasQueueUrl,
+                                    ])->render();
+                                    Resend::emails()->send([
+                                        'from'    => $from,
+                                        'to'      => $saasEmail,
+                                        'subject' => "Platform Action Required: {$roleName} Assignment at {$schoolName}",
+                                        'html'    => $html,
+                                    ]);
+                                } catch (\Throwable $e) {
+                                    Log::warning('Role assignment SaaS admin email failed', ['error' => $e->getMessage()]);
+                                }
+
+                                // ── Email: requester confirmation ─────────────────────────
+                                if ($actor->email) {
+                                    try {
+                                        $html = view('emails.role-assignment-submitted', [
+                                            'schoolName'    => $schoolName,
+                                            'roleName'      => $roleName,
+                                            'targetName'    => $record->name,
+                                            'requesterName' => $actor->name,
+                                        ])->render();
+                                        Resend::emails()->send([
+                                            'from'    => $from,
+                                            'to'      => $actor->email,
+                                            'subject' => "Request Submitted: {$roleName} for {$record->name} — {$schoolName}",
+                                            'html'    => $html,
+                                        ]);
+                                    } catch (\Throwable $e) {
+                                        Log::warning('Role assignment requester confirmation email failed', ['error' => $e->getMessage()]);
+                                    }
+                                }
 
                                 $pending[] = $roleName;
-                                continue;
-                            }
-
-                            // ── SaaS-only roles — hard block ──
-                            if (RoleHierarchy::isSaasOnly($roleName)) {
-                                $skipped[] = "{$roleName} (SaaS-only)";
                                 continue;
                             }
 
@@ -391,7 +526,7 @@ class SchoolUserResource extends Resource
                                 continue;
                             }
 
-                            // Protected roles: route through approval
+                            // Protected roles: route through normal approval
                             if (RoleHierarchy::isProtected($roleName)) {
                                 app(ApprovalService::class)->submit(
                                     requestedBy: $actor,

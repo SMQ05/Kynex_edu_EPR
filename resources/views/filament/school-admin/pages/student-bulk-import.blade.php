@@ -73,8 +73,21 @@
     {{-- Step 3: Upload --}}
     <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10">
         <h2 class="text-base font-semibold text-gray-950 dark:text-white">Step 3 — Upload your CSV</h2>
-        <form wire:submit.prevent="runImport" class="mt-4 space-y-4">
-            {{ $this->uploadForm }}
+        <form method="POST" action="{{ route('admin.bulk-import.run') }}" enctype="multipart/form-data" class="mt-4 space-y-4">
+            @csrf
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">CSV file</label>
+                <input
+                    type="file"
+                    name="csv_file"
+                    accept=".csv,.txt"
+                    required
+                    class="block w-full text-sm text-gray-700 dark:text-gray-300
+                           file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0
+                           file:text-sm file:font-medium file:bg-primary-50 file:text-primary-700
+                           hover:file:bg-primary-100 dark:file:bg-primary-900/30 dark:file:text-primary-300"
+                >
+            </div>
             <div>
                 <x-filament::button type="submit" color="success" icon="heroicon-o-cloud-arrow-up">
                     Run import
@@ -83,9 +96,16 @@
         </form>
     </div>
 
+    {{-- Import error banner --}}
+    @if (session('import_error'))
+        <div class="rounded-xl bg-rose-50 p-4 ring-1 ring-rose-200 dark:bg-rose-950/30 dark:ring-rose-800/40">
+            <p class="text-sm font-medium text-rose-800 dark:text-rose-300">{{ session('import_error') }}</p>
+        </div>
+    @endif
+
     {{-- Step 4: Result --}}
-    @if ($this->lastResult)
-        @php $r = $this->lastResult; @endphp
+    @if (session('import_result'))
+        @php $r = session('import_result'); @endphp
         <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10">
             <h2 class="text-base font-semibold text-gray-950 dark:text-white">Last import result</h2>
 

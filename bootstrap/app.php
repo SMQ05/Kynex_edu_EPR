@@ -36,10 +36,14 @@ return Application::configure(basePath: dirname(__DIR__))
         // Trust nginx reverse proxy so HTTPS URLs are generated correctly
         $middleware->trustProxies(at: '*');
 
-        // Append the stale-session cleanup to every web request. Runs
-        // after StartSession (so the session exists) but before any view
-        // that might try auth()->user() against a dropped tenant DB.
-        $middleware->web(append: [ClearStaleTenantSession::class]);
+        // Append tenancy init + stale-session cleanup to every web request,
+        // including Livewire's internal /livewire/update AJAX route which is
+        // outside routes/tenancy.php and therefore missed the per-route group.
+        // The middleware itself is idempotent (skips if already initialized).
+        $middleware->web(append: [
+            InitializeTenancyBySubdomainOrDomain::class,
+            ClearStaleTenantSession::class,
+        ]);
 
         // Override default guest redirect so unauthenticated users are sent
         // to the portal login instead of the non-existent 'login' route.

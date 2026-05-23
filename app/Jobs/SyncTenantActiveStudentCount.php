@@ -42,14 +42,20 @@ class SyncTenantActiveStudentCount implements ShouldQueue
             return;
         }
 
-        // Initialize tenancy to switch to tenant DB
-        tenancy()->initialize($tenant);
+        // Initialize tenancy to switch to tenant DB — preserve any caller's
+        // existing tenancy state when this job runs sync inside a request.
+        $weInitialized = false;
+        if (! tenancy()->initialized || tenant()?->id !== $tenant->id) {
+            tenancy()->initialize($tenant);
+            $weInitialized = true;
+        }
 
         try {
             $count = Student::where('status', 'enrolled')->count();
         } finally {
-            // Always end tenancy to return to central context
-            tenancy()->end();
+            if ($weInitialized) {
+                tenancy()->end();
+            }
         }
 
         // Update central tenant record

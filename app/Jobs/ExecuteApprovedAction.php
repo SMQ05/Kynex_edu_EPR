@@ -62,11 +62,15 @@ class ExecuteApprovedAction implements ShouldQueue
 
         $handler = app($handlerClass);
 
-        // Initialise tenancy if the request belongs to a tenant
+        // Initialise tenancy if the request belongs to a tenant — but only
+        // if we actually need to (sync queue means we may already be inside
+        // a tenant-aware HTTP request; tearing that down breaks the caller).
+        $weInitialized = false;
         if ($request->tenant_id) {
             $tenant = \App\Models\Tenant::find($request->tenant_id);
-            if ($tenant) {
+            if ($tenant && (! tenancy()->initialized || tenant()?->id !== $tenant->id)) {
                 tenancy()->initialize($tenant);
+                $weInitialized = true;
             }
         }
 
@@ -82,7 +86,7 @@ class ExecuteApprovedAction implements ShouldQueue
             Log::error("ExecuteApprovedAction: Handler failed for request {$request->id}: {$e->getMessage()}");
             throw $e;
         } finally {
-            if ($request->tenant_id && tenancy()->initialized) {
+            if ($weInitialized && tenancy()->initialized) {
                 tenancy()->end();
             }
         }

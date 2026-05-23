@@ -39,6 +39,7 @@ class InitializeTenancyBySubdomainOrDomain
 
         $host = $request->getHost();
         $centralDomains = config('tenancy.central_domains', []);
+        usort($centralDomains, fn($a, $b) => strlen($b) <=> strlen($a));
 
         if (in_array($host, $centralDomains, true)) {
             $tenantId = ($request->hasSession() ? $request->session()->get('tenant_id') : null)

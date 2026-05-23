@@ -1,0 +1,36 @@
+# KynexEdu
+
+> KynexEdu is Pakistan's most complete cloud-based school management system and ERP, built by Kynex Solutions. It runs an entire school in one platform — online admissions and proctored entry tests, fees and online payments, attendance and biometric, exams and results, HR and payroll, library, transport, hostel, inventory, a parent portal, and WhatsApp/SMS notifications.
+
+## About
+
+- **Product:** KynexEdu — school management system / school ERP (SaaS, multi-tenant, cloud-based).
+- **Made by:** Kynex Solutions (https://kynexsolutions.com).
+- **Market:** Pakistan-first; supports PKR, JazzCash & EasyPaisa, WhatsApp, Urdu/English, and biometric (ZKTeco).
+- **Built for:** single schools, multi-campus institutes, multi-institute owners, private & government schools, and madaris.
+- **Apps:** Web, iOS and Android.
+
+## Key features
+
+- Online admissions: branded apply portal, application status tracking, parent self-registration, and AI-assisted shortlisting.
+- Proctored online entry tests: live waiting room and anti-cheat (tab-switch / focus-loss) detection.
+- Fees & finance: flexible fee structures, installments, online payments (JazzCash, EasyPaisa), refunds and reports.
+- Attendance: daily student & staff attendance, biometric (ZKTeco ADMS), late detection, reports.
+- Exams & results: scheduling, marks entry, weighted grading, report cards, public result search.
+- HR & payroll, library, transport, hostel, inventory, cafeteria, visitor management, health records, behavior & counseling.
+- Communication: WhatsApp, SMS and in-app notifications, plus a WhatsApp bot (FEE / RESULT / ATTENDANCE).
+- Parent portal and mobile apps; role-based access for 19 role types.
+- Public school website (CMS) per school, with custom domains and SSL.
+- Enterprise security: PostgreSQL row-level security, FERPA-style PII audit trail.
+
+## Pricing
+
+- Free school registration, no credit card to start. Trial and paid subscription plans based on school size. Contact support@kynexsolutions.com for current pricing.
+
+## Links
+
+- Home: https://edu.kynexsolutions.com/
+- Register your school (free): https://edu.kynexsolutions.com/register
+- Login: https://edu.kynexsolutions.com/login
+- Company: https://kynexsolutions.com
+- Support: support@kynexsolutions.com

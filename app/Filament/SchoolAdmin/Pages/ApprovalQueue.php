@@ -6,7 +6,9 @@ namespace App\Filament\SchoolAdmin\Pages;
 
 use App\Enums\ApprovalStatus;
 use App\Models\ApprovalRequest;
+use App\Models\SchoolUser;
 use App\Services\ApprovalService;
+use App\Support\RoleHierarchy;
 use Filament\Pages\Page;
 use App\Filament\SchoolAdmin\Concerns\HasPermissionCheck;
 use Filament\Actions\Action;
@@ -39,7 +41,12 @@ class ApprovalQueue extends Page implements HasTable
             return false;
         }
 
-        return $user->hasRole(['SCHOOL_ADMIN', 'INSTITUTE_HEAD', 'MULTI_INSTITUTE_HEAD']);
+        return $user->hasRole([
+            'SCHOOL_ADMIN',
+            'INSTITUTE_HEAD',
+            'MULTI_INSTITUTE_HEAD',
+            'EXAM_ADMIN', // can approve stage-2 admission overrides
+        ]);
     }
 
     protected static ?string $navigationLabel = 'Approval Queue';
@@ -61,6 +68,55 @@ class ApprovalQueue extends Page implements HasTable
             ->count();
 
         return $count > 0 ? (string) $count : null;
+    }
+
+    /**
+     * Constrain visibility based on the user's roles. SCHOOL_ADMIN and
+     * INSTITUTE_HEAD see everything (existing behaviour). EXAM_ADMIN
+     * sees only requests targeted at their level (admission overrides).
+     *
+     * Returns an array of approver_level values to include, or null to
+     * skip the filter (full visibility).
+     */
+    protected function visibleToCurrentReviewerLevels(): ?array
+    {
+        $user = auth()->guard('school_users')->user();
+        if (! $user) {
+            return [];
+        }
+
+        // Build the set of approver_level values this user can see.
+        $approvable = RoleHierarchy::approvableLevels($user);
+
+        // EXAM_ADMIN also sees their own level.
+        if ($user->hasRole('EXAM_ADMIN')) {
+            $approvable[] = 'exam_admin';
+        }
+
+        // If the user can see everything (full admin), return null to skip filter.
+        $allLevels = ['institute_head', 'institute_head_or_saas', 'multi_head_or_saas', 'exam_admin', 'saas_admin'];
+        if (array_diff($allLevels, $approvable) === []) {
+            return null;
+        }
+
+        return array_unique($approvable);
+    }
+
+    /**
+     * True when the currently logged-in school user is authorised to APPROVE
+     * (not just see) the given ApprovalRequest based on its approver_level.
+     */
+    protected static function canApprove(ApprovalRequest $request): bool
+    {
+        $user = auth()->guard('school_users')->user();
+        if (! $user instanceof SchoolUser) {
+            return false;
+        }
+
+        $approvable = RoleHierarchy::approvableLevels($user);
+        $level      = $request->approver_level ?? 'institute_head';
+
+        return in_array($level, $approvable, true);
     }
 
     /**
@@ -208,6 +264,12 @@ class ApprovalQueue extends Page implements HasTable
                         tenancy()->initialized,
                         fn ($q) => $q->forTenant(tenant()->id),
                     )
+                    // EXAM_ADMIN reviewers see only the rows targeted at
+                    // their level (currently stage-2 admission overrides).
+                    ->when(
+                        $this->visibleToCurrentReviewerLevels(),
+                        fn ($q, $levels) => $q->whereIn('approver_level', $levels),
+                    )
                     ->latest()
             )
             ->columns([
@@ -275,6 +337,14 @@ class ApprovalQueue extends Page implements HasTable
                             ->rows(3),
                     ])
                     ->action(function (ApprovalRequest $record, array $data): void {
+                        if (! static::canApprove($record)) {
+                            Notification::make()
+                                ->title('Not authorised')
+                                ->body('Your role does not permit approving this type of request.')
+                                ->danger()
+                                ->send();
+                            return;
+                        }
                         app(ApprovalService::class)->approve(
                             request: $record,
                             reviewer: auth()->guard('school_users')->user(),
@@ -285,7 +355,10 @@ class ApprovalQueue extends Page implements HasTable
                             ->success()
                             ->send();
                     })
-                    ->visible(fn (ApprovalRequest $record): bool => $record->status === ApprovalStatus::Pending),
+                    ->visible(fn (ApprovalRequest $record): bool =>
+                        $record->status === ApprovalStatus::Pending &&
+                        static::canApprove($record)
+                    ),
 
                 Action::make('reject')
                     ->label('Reject')
@@ -299,6 +372,14 @@ class ApprovalQueue extends Page implements HasTable
                             ->rows(3),
                     ])
                     ->action(function (ApprovalRequest $record, array $data): void {
+                        if (! static::canApprove($record)) {
+                            Notification::make()
+                                ->title('Not authorised')
+                                ->body('Your role does not permit rejecting this type of request.')
+                                ->danger()
+                                ->send();
+                            return;
+                        }
                         app(ApprovalService::class)->reject(
                             request: $record,
                             reviewer: auth()->guard('school_users')->user(),
@@ -309,7 +390,21 @@ class ApprovalQueue extends Page implements HasTable
                             ->danger()
                             ->send();
                     })
-                    ->visible(fn (ApprovalRequest $record): bool => $record->status === ApprovalStatus::Pending),
+                    ->visible(fn (ApprovalRequest $record): bool =>
+                        $record->status === ApprovalStatus::Pending &&
+                        static::canApprove($record)
+                    ),
+
+                // View-only indicator for requests this user cannot approve.
+                Action::make('pendingOtherApprover')
+                    ->label('Awaiting approver')
+                    ->icon('heroicon-o-clock')
+                    ->color('gray')
+                    ->disabled()
+                    ->visible(fn (ApprovalRequest $record): bool =>
+                        $record->status === ApprovalStatus::Pending &&
+                        ! static::canApprove($record)
+                    ),
 
                 Action::make('viewPayload')
                     ->label('Details')

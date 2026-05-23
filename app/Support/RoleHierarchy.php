@@ -57,12 +57,37 @@ final class RoleHierarchy
     ];
 
     /**
-     * Roles that can ONLY be assigned/revoked by a SaasAdmin via the platform panel.
-     * School-level users — even INSTITUTE_HEAD — cannot assign these.
+     * Roles that can ONLY be assigned for the very FIRST TIME by a SaasAdmin via the
+     * platform panel. Once a holder exists, the school-side elevated-role workflow
+     * (dual-approval) takes over for reassignment.
+     *
+     * Do NOT remove entries from here without updating the school-panel assign logic.
      */
     public const SAAS_ONLY_ROLES = [
         'MULTI_INSTITUTE_HEAD',
         'INSTITUTE_HEAD',
+    ];
+
+    /**
+     * Roles that require dual approval (school head + SaaS admin, either one suffices)
+     * when being reassigned from the school panel after the first-time SaaS assignment.
+     *
+     * Key   = role name
+     * Value = minimum actor level required to *submit* the request from the school panel.
+     *         INSTITUTE_HEAD (100) → any SCHOOL_ADMIN (90) or above may submit.
+     *         MULTI_INSTITUTE_HEAD (110) → only INSTITUTE_HEAD (100) or above may submit.
+     */
+    public const DUAL_APPROVAL_SUBMIT_LEVEL = [
+        'INSTITUTE_HEAD'       => 90,   // SCHOOL_ADMIN and above
+        'MULTI_INSTITUTE_HEAD' => 100,  // INSTITUTE_HEAD and above
+    ];
+
+    /**
+     * approver_level value used in ApprovalRequest for each dual-approval role.
+     */
+    public const DUAL_APPROVAL_LEVEL = [
+        'INSTITUTE_HEAD'       => 'institute_head_or_saas',
+        'MULTI_INSTITUTE_HEAD' => 'multi_head_or_saas',
     ];
 
     // ── Public API ───────────────────────────────────────────────────
@@ -101,7 +126,8 @@ final class RoleHierarchy
     }
 
     /**
-     * True if the role can only be assigned by the SaaS platform admin.
+     * True if the role's FIRST-TIME assignment must come from the SaaS platform admin.
+     * Once a holder exists the school-panel dual-approval workflow applies.
      */
     public static function isSaasOnly(string $role): bool
     {
@@ -109,14 +135,68 @@ final class RoleHierarchy
     }
 
     /**
+     * True if this role uses the dual-approval (school head OR SaaS) workflow
+     * when submitted from the school panel (only applies to reassignment, not
+     * first-time assignment which remains SaaS-only).
+     */
+    public static function isDualApproval(string $role): bool
+    {
+        return array_key_exists($role, self::DUAL_APPROVAL_SUBMIT_LEVEL);
+    }
+
+    /**
+     * Minimum actor level required to SUBMIT a dual-approval request for this role.
+     * Returns PHP_INT_MAX for roles that are not in the dual-approval list.
+     */
+    public static function dualApprovalSubmitLevel(string $role): int
+    {
+        return self::DUAL_APPROVAL_SUBMIT_LEVEL[$role] ?? PHP_INT_MAX;
+    }
+
+    /**
+     * The approver_level string to store on ApprovalRequest for a dual-approval role.
+     */
+    public static function dualApprovalLevel(string $role): string
+    {
+        return self::DUAL_APPROVAL_LEVEL[$role] ?? 'institute_head';
+    }
+
+    /**
+     * Which school-panel approver levels a given role can approve.
+     * Returns the set of approver_level values the $user is authorised to approve.
+     */
+    public static function approvableLevels(SchoolUser $user): array
+    {
+        $baseLevel = self::levelOf($user);
+
+        $levels = ['institute_head']; // SCHOOL_ADMIN and above always see this
+
+        if ($baseLevel >= self::LEVELS['INSTITUTE_HEAD']) {
+            $levels[] = 'institute_head_or_saas'; // INSTITUTE_HEAD can approve these
+        }
+
+        if ($baseLevel >= self::LEVELS['MULTI_INSTITUTE_HEAD']) {
+            $levels[] = 'multi_head_or_saas'; // only MULTI_INSTITUTE_HEAD can approve these
+        }
+
+        return $levels;
+    }
+
+    /**
      * Determines whether $actor is permitted to act on $target.
      *
-     * Returns true when EITHER:
-     *  a) the actor has bypass_approvals permission, OR
-     *  b) the actor's max role level is strictly greater than the target's.
+     * Rules:
+     *   - Strictly higher level → always allowed (e.g. INSTITUTE_HEAD acting
+     *     on SCHOOL_ADMIN).
+     *   - Equal level → allowed ONLY if the actor has bypass_approvals
+     *     (e.g. a peer admin overseeing another peer in extraordinary cases).
+     *   - Lower level → never allowed, even with bypass_approvals. This is
+     *     critical: bypass_approvals exists to skip approval workflows, not
+     *     to grant level-punching rights. A SCHOOL_ADMIN must NOT be able
+     *     to edit an INSTITUTE_HEAD just because they hold bypass.
      *
-     * Returning false means the action requires an approval request or is
-     * blocked outright.
+     * Returning false means the action requires an approval request (for
+     * dual-approval roles) or is blocked outright.
      */
     public static function canAct(?SchoolUser $actor, SchoolUser $target): bool
     {
@@ -124,12 +204,18 @@ final class RoleHierarchy
             return false;
         }
 
-        // Users with bypass_approvals can always act
-        if ($actor->hasPermissionTo('bypass_approvals')) {
+        $actorLevel  = self::levelOf($actor);
+        $targetLevel = self::levelOf($target);
+
+        if ($actorLevel > $targetLevel) {
             return true;
         }
 
-        return self::levelOf($actor) > self::levelOf($target);
+        if ($actorLevel === $targetLevel && $actor->hasPermissionTo('bypass_approvals')) {
+            return true;
+        }
+
+        return false;
     }
 
     /**
