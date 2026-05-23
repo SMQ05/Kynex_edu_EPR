@@ -12,7 +12,8 @@ elif [ ! -f .env ]; then
     : > .env
 fi
 
-mkdir -p storage/framework/cache storage/framework/sessions storage/framework/views bootstrap/cache
+mkdir -p storage/framework/cache storage/framework/sessions storage/framework/views \
+         bootstrap/cache bootstrap/cache/views
 chown -R www-data:www-data storage bootstrap/cache
 chmod -R ug+rwx storage bootstrap/cache
 
@@ -45,10 +46,21 @@ php artisan package:discover --ansi
 if [ "${RUN_MIGRATIONS_AND_SEED:-false}" = "true" ]; then
     php artisan migrate --force
     php artisan db:seed --force
-    php artisan optimize:clear
     php artisan kynex:ensure-dev-demo
-    php artisan storage:link || true
 fi
+
+php artisan storage:link || true
+
+# Pre-compile Blade views BEFORE Apache accepts any traffic.
+# Why: views are compiled on demand. With multiple Apache workers (and the
+# app/queue/scheduler containers sharing the storage volume), two processes can
+# write the same compiled view at once and leave it half-finished, which throws
+# a "syntax error, unexpected end of file" 500. Compiling once here — no traffic
+# yet, single process, into the per-container VIEW_COMPILED_PATH — makes that
+# race impossible. Clear first so a stale/corrupt compiled view can't survive.
+php artisan view:clear --ansi || true
+php artisan view:cache --ansi || true
+chown -R www-data:www-data storage bootstrap/cache
 
 echo "Tooling inside container:"
 php --version | head -n 1
