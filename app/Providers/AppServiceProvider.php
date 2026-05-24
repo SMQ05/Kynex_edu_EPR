@@ -30,11 +30,11 @@ class AppServiceProvider extends ServiceProvider
         // The mobile API's tokens are tenant-scoped: SchoolUser (the tokenable)
         // lives in the tenant DB and uses ULID keys. We ship our own
         // personal_access_tokens migration under database/migrations/tenant
-        // (with ulidMorphs) and suppress Sanctum's default central/bigint
-        // migration so it never runs against the central DB.
-        if (class_exists(\Laravel\Sanctum\Sanctum::class)) {
-            \Laravel\Sanctum\Sanctum::ignoreMigrations();
-        }
+        // (with ulidMorphs). Sanctum 4 no longer auto-loads its default
+        // migration (it only *publishes* on demand via the "sanctum-migrations"
+        // tag), so there is nothing to suppress here — and the old
+        // Sanctum::ignoreMigrations() helper was removed in v4. Our tenant
+        // migration remains the only personal_access_tokens migration that runs.
 
         // Force a robust session config. The original container image
         // bakes SESSION_DRIVER=file / SESSION_LIFETIME=120 into the OS
