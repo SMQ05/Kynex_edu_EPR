@@ -113,6 +113,8 @@ class InventoryTransactionResource extends Resource
                         'return' => 'info',
                         'adjust' => 'primary',
                         'write_off' => 'danger',
+                        'sell' => 'gray',
+                        default => 'gray',
                     }),
                 TextColumn::make('quantity')
                     ->color(fn (int $state): string => $state >= 0 ? 'success' : 'danger')
@@ -131,6 +133,7 @@ class InventoryTransactionResource extends Resource
                         'return' => 'Return',
                         'adjust' => 'Adjust',
                         'write_off' => 'Write Off',
+                        'sell' => 'Sell',
                     ]),
                 Tables\Filters\SelectFilter::make('item_id')
                     ->relationship('item', 'name')

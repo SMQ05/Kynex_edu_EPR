@@ -20,6 +20,7 @@ class Visitor extends Model
         'cnic',
         'organization',
         'purpose',
+        'visit_purpose_id',
         'whom_to_meet',
         'school_user_to_meet_id',
         'check_in_time',
@@ -45,6 +46,11 @@ class Visitor extends Model
     public function personToMeet(): BelongsTo
     {
         return $this->belongsTo(SchoolUser::class, 'school_user_to_meet_id');
+    }
+
+    public function visitPurpose(): BelongsTo
+    {
+        return $this->belongsTo(FrontOfficeReference::class, 'visit_purpose_id');
     }
 
     public function recorder(): BelongsTo

@@ -86,7 +86,10 @@ class SchoolAdminPanelProvider extends PanelProvider
                 'Health & Wellbeing',
                 'Online Classes',
                 'Certificates & ID Cards',
+                'Fees',
+                'Finance',
                 'Reports',
+                'Resources',
                 'Website CMS',
                 'Settings',
                 'Compliance',
@@ -118,6 +121,10 @@ class SchoolAdminPanelProvider extends PanelProvider
             ->renderHook(
                 'panels::head.end',
                 fn () => $this->getUrduFontLink(),
+            )
+            ->renderHook(
+                'panels::head.end',
+                fn () => $this->getAppearanceStyles(),
             )
             ->renderHook(
                 'panels::body.start',
@@ -193,5 +200,37 @@ HTML;
         }
 
         return '<script>document.documentElement.setAttribute("dir","rtl");</script>';
+    }
+
+    /**
+     * Inject per-tenant appearance/theme CSS (Phase 7 "Style"). Evaluated at
+     * render time when tenancy is initialized; fail-empty so it can never
+     * break the panel (e.g. before the appearance_settings table exists).
+     */
+    private function getAppearanceStyles(): string
+    {
+        try {
+            if (! function_exists('tenant') || ! tenant()) {
+                return '';
+            }
+
+            $a = \App\Models\Tenant\AppearanceSetting::current();
+            $css = '';
+
+            if (! empty($a->panel_background_color)) {
+                $css .= '.fi-body{background-color:' . $a->panel_background_color . ';}';
+            }
+            if (! empty($a->font_family)) {
+                $css .= "body{font-family:'" . $a->font_family . "',sans-serif;}";
+            }
+            if (! empty($a->primary_color)) {
+                $css .= ':root{--kx-primary:' . $a->primary_color . ';}'
+                    . '.fi-btn-color-primary{background-color:' . $a->primary_color . ' !important;}';
+            }
+
+            return $css === '' ? '' : '<style>' . $css . '</style>';
+        } catch (\Throwable) {
+            return '';
+        }
     }
 }

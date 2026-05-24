@@ -165,6 +165,9 @@ class StaffResource extends Resource
                             ->label('Account Number')
                             ->maxLength(100),
                     ]),
+
+                // Admin-defined dynamic fields (Phase 8). Empty when none defined.
+                ...\App\Filament\SchoolAdmin\Support\CustomFieldsForm::section('staff'),
             ]);
     }
 

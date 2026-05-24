@@ -22,7 +22,9 @@ use Filament\Tables\Table;
 use Filament\Actions\EditAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
+use Illuminate\Support\Collection;
 
 class SectionResource extends Resource
 {
@@ -215,6 +217,30 @@ class SectionResource extends Resource
             ])
             ->bulkActions([
                 BulkActionGroup::make([
+                    BulkAction::make('assignClassTeacher')
+                        ->label('Assign Class Teacher')
+                        ->icon('heroicon-o-user')
+                        ->color('primary')
+                        ->form([
+                            Components\Select::make('class_teacher_id')
+                                ->label('Class Teacher')
+                                ->options(fn () => SchoolUser::query()
+                                    ->whereHas('roles', fn ($q) => $q->whereIn('name', ['TEACHER', 'EXAM_ADMIN']))
+                                    ->where('is_active', true)
+                                    ->orderBy('name')
+                                    ->pluck('name', 'id'))
+                                ->searchable()
+                                ->preload()
+                                ->required(),
+                        ])
+                        ->action(function (Collection $records, array $data): void {
+                            $records->each->update(['class_teacher_id' => $data['class_teacher_id']]);
+                            Notification::make()
+                                ->title('Class teacher assigned to ' . $records->count() . ' section(s)')
+                                ->success()
+                                ->send();
+                        })
+                        ->deselectRecordsAfterCompletion(),
                     DeleteBulkAction::make(),
                 ]),
             ]);

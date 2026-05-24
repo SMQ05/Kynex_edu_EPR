@@ -6,6 +6,7 @@ namespace App\Filament\SchoolAdmin\Resources;
 
 use App\Filament\SchoolAdmin\Resources\VisitorResource\Pages;
 use App\Models\SchoolUser;
+use App\Models\Tenant\FrontOfficeReference;
 use App\Models\Tenant\Visitor;
 use Filament\Resources\Resource;
 use App\Filament\SchoolAdmin\Concerns\HasPermissionCheck;
@@ -57,7 +58,16 @@ class VisitorResource extends Resource
                 TextInput::make('organization')
                     ->maxLength(255),
 
+                Select::make('visit_purpose_id')
+                    ->label('Purpose Category')
+                    ->options(fn (): array => FrontOfficeReference::options('visit_purpose'))
+                    ->searchable()
+                    ->native(false)
+                    ->nullable()
+                    ->helperText('Manage options under Front Office → Front Office Setup'),
+
                 Textarea::make('purpose')
+                    ->label('Purpose (details)')
                     ->required()
                     ->rows(2)
                     ->columnSpanFull(),
@@ -97,6 +107,7 @@ class VisitorResource extends Resource
             ->columns([
                 TextColumn::make('visitor_name')->searchable()->sortable(),
                 TextColumn::make('phone'),
+                TextColumn::make('visitPurpose.name')->label('Purpose')->badge()->placeholder('—')->toggleable(),
                 TextColumn::make('purpose')->limit(30),
                 TextColumn::make('whom_to_meet')
                     ->label('Meeting')

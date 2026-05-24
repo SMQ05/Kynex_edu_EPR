@@ -122,6 +122,28 @@ class RbacPermissionSeeder extends Seeder
             'approve_refunds'                => 'Approve Refunds',
             'issue_refunds'                  => 'Issue Refunds (Above Threshold: Approval Required)',
             'manage_expenses'                => 'Manage Expenses',
+            'manage_accounts'                => 'Manage Accounts (income, bank, chart, transfers)',
+            'manage_wallet'                  => 'Manage Wallets (deposits, refunds, ledger)',
+            // Examination (Phase 4)
+            'manage_question_bank'           => 'Manage Question Bank',
+            'manage_online_exams'            => 'Manage Online Exams',
+            'manage_exam_plan'               => 'Manage Exam Plan (admit card, seat plan)',
+            'manage_exam_settings'           => 'Manage Exam Settings',
+            // Academic content & HR (Phase 6)
+            'manage_lesson_plans'            => 'Manage Lesson Plans',
+            'manage_study_materials'         => 'Manage Study Materials',
+            'manage_download_center'         => 'Manage Download Center',
+            'manage_teacher_evaluations'     => 'Manage Teacher Evaluations',
+            // Communication & Access (Phase 7)
+            'manage_events'                  => 'Manage Events & Calendar',
+            'use_chat'                       => 'Use Chat',
+            'view_user_logs'                 => 'View User Activity Logs',
+            'manage_login_permissions'       => 'Manage Login Permissions',
+            'manage_appearance_settings'     => 'Manage Appearance / Theme',
+            'manage_system_utilities'        => 'Manage System Utilities',
+            'manage_modules'                 => 'Manage Module Toggles',
+            // Settings (Phase 8)
+            'manage_custom_fields'           => 'Manage Custom Fields',
             'approve_expenses'               => 'Approve Expenses (Below Budget Limit)',
             'approve_large_expenses'         => 'Approve Large Expenses (Approval Required)',
             'manage_budget'                  => 'Manage Budget',
@@ -266,6 +288,11 @@ class RbacPermissionSeeder extends Seeder
             'manage_inquiries'               => 'Manage Admissions Inquiries',
             'manage_phone_directory'         => 'Manage Internal Phone Directory',
             'manage_inventory'               => 'Manage School Inventory',
+            // Front Office (Admin Section port)
+            'manage_complaints'              => 'Manage Complaints',
+            'manage_postal'                  => 'Manage Postal Receive/Dispatch',
+            'manage_phone_call_log'          => 'Manage Phone Call Log',
+            'manage_front_office_setup'      => 'Manage Front Office Setup (reference lists)',
 
             // ════════════════════════════════════════════════════════════
             // HEALTH & COUNSELING (Confidential)
@@ -410,6 +437,8 @@ class RbacPermissionSeeder extends Seeder
                 'approve_refunds', 'issue_refunds', // above threshold = approval
                 'manage_expenses', 'approve_expenses',
                 'approve_large_expenses', // approval required
+                'manage_accounts',
+                'manage_wallet',
                 'view_payroll', 'run_payroll', // approval required
                 'manage_scholarships', 'approve_scholarships', // above threshold = approval
                 'view_budget', 'send_fee_reminders',
@@ -455,6 +484,9 @@ class RbacPermissionSeeder extends Seeder
                 'manage_visitors', 'manage_visitor_records',
                 'issue_visitor_passes', 'manage_inquiries',
                 'manage_phone_directory', 'manage_inventory',
+                // Front Office (Admin Section port)
+                'manage_complaints', 'manage_postal',
+                'manage_phone_call_log', 'manage_front_office_setup',
                 // Staff Attendance
                 'manage_staff_attendance',
                 // Health (read-only confidential view allowed)
@@ -488,6 +520,9 @@ class RbacPermissionSeeder extends Seeder
                 // Academic
                 'view_classes', 'view_sections', 'view_academic_calendar',
                 'view_own_timetable',
+                // Ported features (Phases 4/6/7)
+                'manage_question_bank', 'manage_lesson_plans', 'manage_study_materials',
+                'manage_download_center', 'manage_events', 'use_chat',
                 'mark_attendance_manual',       // always available for own class
                 'mark_attendance_biometric',    // when device is on
                 'mark_attendance_fallback',     // when device is offline
@@ -546,6 +581,8 @@ class RbacPermissionSeeder extends Seeder
                 'view_fee_payments', 'record_fee_payment', 'edit_fee_payment',
                 'void_fee_payment', 'issue_refunds', 'approve_refunds',
                 'manage_expenses', 'approve_expenses',
+                'manage_accounts',
+                'manage_wallet',
                 'manage_budget', 'view_budget',
                 'manage_payroll', 'run_payroll', 'view_payroll',
                 'manage_payroll_inputs',
@@ -568,6 +605,7 @@ class RbacPermissionSeeder extends Seeder
                 'manage_staff_documents', 'manage_certifications',
                 'manage_leave_requests', 'approve_leave', 'view_leave_balance',
                 'manage_performance_reviews',
+                'manage_teacher_evaluations', 'use_chat',
                 'view_payroll', 'manage_payroll_inputs',
                 'manage_staff_attendance',
                 'manage_contracts',
@@ -682,6 +720,9 @@ class RbacPermissionSeeder extends Seeder
                 'issue_visitor_passes',
                 'manage_inquiries',
                 'manage_phone_directory',
+                // Front Office (Admin Section port)
+                'manage_complaints', 'manage_postal',
+                'manage_phone_call_log', 'manage_front_office_setup',
                 'view_announcements',
                 'receive_notifications',
                 'view_visitor_reports', 'view_inquiry_reports',
@@ -780,6 +821,13 @@ class RbacPermissionSeeder extends Seeder
             'view_fee_payments', 'record_fee_payment', 'void_fee_payment',
             'approve_refunds', 'issue_refunds',
             'manage_expenses', 'approve_expenses', 'approve_large_expenses',
+            'manage_accounts',
+            'manage_wallet',
+            // Phases 4/6/7/8
+            'manage_question_bank', 'manage_online_exams', 'manage_exam_plan', 'manage_exam_settings',
+            'manage_lesson_plans', 'manage_study_materials', 'manage_download_center', 'manage_teacher_evaluations',
+            'manage_events', 'use_chat', 'view_user_logs', 'manage_login_permissions',
+            'manage_appearance_settings', 'manage_system_utilities', 'manage_modules', 'manage_custom_fields',
             'manage_budget', 'view_budget',
             'manage_payroll', 'run_payroll', 'view_payroll',
             'manage_scholarships', 'approve_scholarships',
