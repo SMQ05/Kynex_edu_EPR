@@ -37,7 +37,7 @@ return new class extends Migration
             $table->timestamps();
             $table->softDeletes();
 
-            $table->foreign('interested_class_id')->references('id')->on('school_classes')->nullOnDelete();
+            $table->foreign('interested_class_id')->references('id')->on('classes')->nullOnDelete();
             $table->foreign('source_id')->references('id')->on('front_office_references')->nullOnDelete();
             $table->foreign('assigned_to')->references('id')->on('school_users')->nullOnDelete();
             $table->foreign('campus_id')->references('id')->on('campuses')->nullOnDelete();
