@@ -28,9 +28,14 @@ return new class extends Migration
             $table->timestamps();
             $table->softDeletes();
 
-            $table->foreign('parent_id')->references('id')->on('account_heads')->nullOnDelete();
             $table->foreign('created_by')->references('id')->on('school_users')->nullOnDelete();
             $table->index(['type', 'is_active']);
+        });
+
+        // Self-referencing FK added after creation so the primary key exists
+        // first (Postgres rejects a self-FK compiled before the PK).
+        Schema::table('account_heads', function (Blueprint $table): void {
+            $table->foreign('parent_id')->references('id')->on('account_heads')->nullOnDelete();
         });
 
         // Bank / cash accounts

@@ -37,8 +37,13 @@ return new class extends Migration
 
             $table->index(['cms_menu_id', 'parent_id', 'sort']);
             $table->foreign('cms_menu_id')->references('id')->on('cms_menus')->cascadeOnDelete();
-            $table->foreign('parent_id')->references('id')->on('cms_menu_items')->nullOnDelete();
             $table->foreign('created_by')->references('id')->on('school_users')->nullOnDelete();
+        });
+
+        // Self-referencing FK added after creation so the primary key exists
+        // first (Postgres rejects a self-FK compiled before the PK).
+        Schema::table('cms_menu_items', function (Blueprint $table): void {
+            $table->foreign('parent_id')->references('id')->on('cms_menu_items')->nullOnDelete();
         });
     }
 
