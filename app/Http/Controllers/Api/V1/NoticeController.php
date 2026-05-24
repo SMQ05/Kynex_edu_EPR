@@ -37,7 +37,7 @@ class NoticeController extends Controller
         ]);
 
         $user = $request->user();
-        $userRole = $user->getActiveRoleName() ?? 'student';
+        $userRole = $user->getActiveRoleName() ?? 'STUDENT';
 
         $query = Notice::query()
             ->with('creator')
@@ -67,7 +67,7 @@ class NoticeController extends Controller
     public function show(Request $request, string $id): JsonResponse
     {
         $user = $request->user();
-        $userRole = $user->getActiveRoleName() ?? 'student';
+        $userRole = $user->getActiveRoleName() ?? 'STUDENT';
 
         $notice = Notice::with('creator')
             ->published()

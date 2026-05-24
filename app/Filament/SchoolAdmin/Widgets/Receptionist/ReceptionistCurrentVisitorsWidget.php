@@ -15,6 +15,11 @@ class ReceptionistCurrentVisitorsWidget extends BaseWidget
 
     protected static ?string $heading = 'Current Visitors (Checked In)';
 
+    public static function canView(): bool
+    {
+        return tenancy()->initialized;
+    }
+
     public function table(Table $table): Table
     {
         return $table

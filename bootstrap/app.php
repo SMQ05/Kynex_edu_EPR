@@ -45,6 +45,18 @@ return Application::configure(basePath: dirname(__DIR__))
             ClearStaleTenantSession::class,
         ]);
 
+        // Third-party webhooks / device callbacks (tenant routes) POST in
+        // without a Laravel CSRF token. They live in the `web` group, so
+        // exempt them from CSRF or every callback 419s:
+        //   - JazzCash / EasyPaisa payment callbacks (money confirmation)
+        //   - ZKTeco ADMS biometric devices (iclock push protocol)
+        //   - Meta WhatsApp webhook (verified by signature/token instead)
+        $middleware->validateCsrfTokens(except: [
+            'payment/*/callback',
+            'iclock/*',
+            'whatsapp/webhook',
+        ]);
+
         // Override default guest redirect so unauthenticated users are sent
         // to the portal login instead of the non-existent 'login' route.
         $middleware->redirectGuestsTo(fn () => route('school.login'));

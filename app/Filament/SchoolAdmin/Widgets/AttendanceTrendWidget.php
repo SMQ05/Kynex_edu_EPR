@@ -25,6 +25,11 @@ class AttendanceTrendWidget extends ChartWidget
 
     protected ?string $maxHeight = '280px';
 
+    public static function canView(): bool
+    {
+        return tenancy()->initialized;
+    }
+
     protected function getData(): array
     {
         $totalStudents = Student::where('status', 'enrolled')->count();

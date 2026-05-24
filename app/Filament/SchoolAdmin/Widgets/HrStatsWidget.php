@@ -16,6 +16,11 @@ class HrStatsWidget extends BaseWidget
 {
     protected static ?int $sort = 2;
 
+    public static function canView(): bool
+    {
+        return tenancy()->initialized;
+    }
+
     protected function getStats(): array
     {
         $today = today();

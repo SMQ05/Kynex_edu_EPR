@@ -12,6 +12,11 @@ class ParentStatsWidget extends BaseWidget
 {
     protected static ?int $sort = 1;
 
+    public static function canView(): bool
+    {
+        return tenancy()->initialized;
+    }
+
     protected function getStats(): array
     {
         $userId = auth()->guard('school_users')->id();

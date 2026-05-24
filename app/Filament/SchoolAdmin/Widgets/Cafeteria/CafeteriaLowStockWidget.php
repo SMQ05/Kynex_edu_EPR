@@ -15,6 +15,11 @@ class CafeteriaLowStockWidget extends BaseWidget
 
     protected static ?string $heading = 'Low Stock Inventory Items';
 
+    public static function canView(): bool
+    {
+        return tenancy()->initialized;
+    }
+
     public function table(Table $table): Table
     {
         return $table

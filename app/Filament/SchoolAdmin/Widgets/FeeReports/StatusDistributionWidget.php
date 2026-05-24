@@ -22,6 +22,11 @@ class StatusDistributionWidget extends ChartWidget
 
     protected ?string $maxHeight = '260px';
 
+    public static function canView(): bool
+    {
+        return tenancy()->initialized;
+    }
+
     protected function getData(): array
     {
         $yearId = AcademicYear::query()->where('is_current', true)->value('id');

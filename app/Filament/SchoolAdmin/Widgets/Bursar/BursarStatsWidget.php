@@ -18,7 +18,7 @@ class BursarStatsWidget extends BaseWidget
 
     public static function canView(): bool
     {
-        return auth()->user()?->active_role === 'BURSAR';
+        return auth('school_users')->user()?->active_role === 'BURSAR';
     }
 
     protected function getStats(): array

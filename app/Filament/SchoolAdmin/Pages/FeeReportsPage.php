@@ -140,8 +140,8 @@ class FeeReportsPage extends Page implements HasTable
                     ->icon('heroicon-o-arrow-uturn-left')
                     ->color('danger')
                     ->visible(function (): bool {
-                        $user = auth()->user();
-                        return $user->hasRole(['ACCOUNTANT', 'SCHOOL_ADMIN']);
+                        $user = auth('school_users')->user();
+                        return $user?->hasRole(['ACCOUNTANT', 'SCHOOL_ADMIN']) ?? false;
                     })
                     ->hidden(fn (StudentFee $record): bool => $record->paid_paisas <= 0)
                     ->form([

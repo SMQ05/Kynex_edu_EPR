@@ -11,4 +11,9 @@ class CounselorStubWidget extends Widget
     protected int | string | array $columnSpan = 'full';
 
     protected string $view = 'filament.school-admin.widgets.counselor-stub';
+
+    public static function canView(): bool
+    {
+        return tenancy()->initialized;
+    }
 }

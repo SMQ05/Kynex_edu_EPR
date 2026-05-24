@@ -52,6 +52,15 @@ return [
             'driver' => 'session',
             'provider' => 'school_users',
         ],
+
+        // Token guard for the mobile API (/api/v1/*). Resolves the bearer
+        // token to its tokenable SchoolUser via Sanctum. The provider is
+        // school_users so token abilities + the user model line up with the
+        // tenant-scoped personal_access_tokens table.
+        'sanctum' => [
+            'driver' => 'sanctum',
+            'provider' => 'school_users',
+        ],
     ],
 
     /*

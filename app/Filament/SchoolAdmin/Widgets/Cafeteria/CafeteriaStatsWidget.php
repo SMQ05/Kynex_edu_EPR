@@ -10,6 +10,11 @@ class CafeteriaStatsWidget extends BaseWidget
 {
     protected static ?int $sort = 1;
 
+    public static function canView(): bool
+    {
+        return tenancy()->initialized;
+    }
+
     protected function getStats(): array
     {
         // Cafeteria POS detail = Phase 5

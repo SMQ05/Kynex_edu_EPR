@@ -46,8 +46,8 @@ class AnalyticsDashboard extends Page
 
     public static function canAccess(): bool
     {
-        $role = auth()->user()?->active_role
-            ?? auth()->user()?->roles?->first()?->name;
+        $role = auth('school_users')->user()?->active_role
+            ?? auth('school_users')->user()?->roles?->first()?->name;
 
         return in_array($role, ['SCHOOL_ADMIN', 'INSTITUTE_HEAD', 'MULTI_INSTITUTE_HEAD']);
     }

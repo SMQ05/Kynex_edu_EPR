@@ -24,6 +24,11 @@ class FeeStatusDistributionWidget extends ChartWidget
 
     protected ?string $maxHeight = '260px';
 
+    public static function canView(): bool
+    {
+        return tenancy()->initialized;
+    }
+
     protected function getData(): array
     {
         $statusCounts = [];

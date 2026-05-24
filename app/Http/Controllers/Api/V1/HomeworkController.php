@@ -50,7 +50,7 @@ class HomeworkController extends Controller
             ->with(['schoolClass', 'section', 'subject', 'teacher']);
 
         // Auto-scope student users to their class/section
-        if ($user->hasRole('student')) {
+        if ($user->hasRole('STUDENT')) {
             $student = Student::where('school_user_id', $user->id)->first();
             if ($student) {
                 $query->where('class_id', $student->class_id)
@@ -61,7 +61,7 @@ class HomeworkController extends Controller
                     $q->where('student_id', $student->id);
                 }]);
             }
-        } elseif ($user->hasRole('guardian')) {
+        } elseif ($user->hasRole('PARENT')) {
             // Guardians see homework for their linked students' classes
             $students = Student::whereHas('guardians', function ($q) use ($user) {
                 $q->where('school_user_id', $user->id);
@@ -119,7 +119,7 @@ class HomeworkController extends Controller
             ->with(['schoolClass', 'section', 'subject', 'teacher']);
 
         // Load appropriate submissions based on role
-        if ($user->hasRole('student')) {
+        if ($user->hasRole('STUDENT')) {
             $student = Student::where('school_user_id', $user->id)->first();
             if ($student) {
                 $query->with(['submissions' => function ($q) use ($student) {
@@ -136,14 +136,14 @@ class HomeworkController extends Controller
         // For student response, attach mySubmission
         $data = (new HomeworkAssignmentResource($homework))->toArray($request);
 
-        if ($user->hasRole('student') && $student) {
+        if ($user->hasRole('STUDENT') && $student) {
             $mySubmission = $homework->submissions->first();
             $data['my_submission'] = $mySubmission
                 ? (new HomeworkSubmissionResource($mySubmission))->toArray($request)
                 : null;
         }
 
-        if (! $user->hasRole('student')) {
+        if (! $user->hasRole('STUDENT')) {
             $data['submissions'] = HomeworkSubmissionResource::collection($homework->submissions)->toArray($request);
         }
 
@@ -166,7 +166,7 @@ class HomeworkController extends Controller
     {
         $user = $request->user();
 
-        if (! $user->hasRole('student')) {
+        if (! $user->hasRole('STUDENT')) {
             return response()->json([
                 'success' => false,
                 'message' => 'Only students can submit homework.',

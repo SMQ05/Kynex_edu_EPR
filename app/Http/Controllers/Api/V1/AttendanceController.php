@@ -60,7 +60,7 @@ class AttendanceController extends Controller
 
         // Filter by student — if user is a student, auto-scope to their records
         $user = $request->user();
-        if ($user->hasRole('student')) {
+        if ($user->hasRole('STUDENT')) {
             $student = Student::where('school_user_id', $user->id)->first();
             if ($student) {
                 $query->where('student_id', $student->id);
@@ -110,7 +110,7 @@ class AttendanceController extends Controller
     public function summary(Request $request): JsonResponse
     {
         $user = $request->user();
-        $isStudent = $user->hasRole('student');
+        $isStudent = $user->hasRole('STUDENT');
 
         $request->validate([
             'student_id' => [$isStudent ? 'sometimes' : 'required', 'string'],
@@ -154,7 +154,7 @@ class AttendanceController extends Controller
         $user = $request->user();
 
         // Only staff (teacher, admin) can mark attendance
-        if ($user->hasRole('student') || $user->hasRole('guardian')) {
+        if ($user->hasRole('STUDENT') || $user->hasRole('PARENT')) {
             return response()->json([
                 'success' => false,
                 'message' => 'You do not have permission to mark attendance.',

@@ -139,7 +139,7 @@ class HealthRecordResource extends Resource
                 Toggle::make('is_confidential')
                     ->label('Mark as Confidential')
                     ->hint('Only Nurse, Counselor, and Admin can see confidential records')
-                    ->visible(fn () => auth()->user()?->hasAnyRole([
+                    ->visible(fn () => auth('school_users')->user()?->hasAnyRole([
                         'SCHOOL_ADMIN', 'NURSE', 'COUNSELOR',
                     ])),
                 Textarea::make('notes')
@@ -182,7 +182,7 @@ class HealthRecordResource extends Resource
                     ->icon('heroicon-o-lock-closed')
                     ->color('danger')
                     ->label('')
-                    ->visible(fn () => auth()->user()?->hasAnyRole([
+                    ->visible(fn () => auth('school_users')->user()?->hasAnyRole([
                         'SCHOOL_ADMIN', 'NURSE', 'COUNSELOR',
                     ])),
                 Tables\Columns\IconColumn::make('is_active')

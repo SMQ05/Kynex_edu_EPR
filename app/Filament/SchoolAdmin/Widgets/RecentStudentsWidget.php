@@ -15,6 +15,11 @@ class RecentStudentsWidget extends BaseWidget
 
     protected static ?string $heading = 'Recently Enrolled Students';
 
+    public static function canView(): bool
+    {
+        return tenancy()->initialized;
+    }
+
     public function table(Table $table): Table
     {
         return $table

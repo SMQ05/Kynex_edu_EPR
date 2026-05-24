@@ -70,7 +70,7 @@ class NotificationComposer extends Page implements HasForms
             ];
         }
 
-        $isTeacher            = auth()->user()?->hasRole('TEACHER');
+        $isTeacher            = auth('school_users')->user()?->hasRole('TEACHER');
         $teachersCanSend      = (bool) ($tenant->teachers_can_send_notifications ?? true);
         $teachersOwnWhatsApp  = (bool) ($tenant->teachers_can_use_own_whatsapp   ?? false);
 

@@ -11,4 +11,9 @@ class TransportGpsPlaceholderWidget extends Widget
     protected int | string | array $columnSpan = 'full';
 
     protected string $view = 'filament.school-admin.widgets.transport-gps-placeholder';
+
+    public static function canView(): bool
+    {
+        return tenancy()->initialized;
+    }
 }

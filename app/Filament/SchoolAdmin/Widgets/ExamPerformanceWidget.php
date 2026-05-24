@@ -24,6 +24,11 @@ class ExamPerformanceWidget extends ChartWidget
 
     protected ?string $maxHeight = '300px';
 
+    public static function canView(): bool
+    {
+        return tenancy()->initialized;
+    }
+
     protected function getData(): array
     {
         // Get last 6 exams

@@ -16,6 +16,11 @@ class ParentChildrenWidget extends BaseWidget
 
     protected static ?string $heading = 'My Children';
 
+    public static function canView(): bool
+    {
+        return tenancy()->initialized;
+    }
+
     public function table(Table $table): Table
     {
         $childrenIds = StudentGuardian::where('school_user_id', auth()->guard('school_users')->id())

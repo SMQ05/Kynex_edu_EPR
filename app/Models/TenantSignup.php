@@ -35,6 +35,12 @@ class TenantSignup extends Model
     // ── Table & Key ────────────────────────────────────────────
     protected $table = 'tenant_signups';
 
+    /**
+     * Always resolve against the central DB — tenant_signups is a
+     * central-only table. Prevents tenant-DB lookups when tenancy is active.
+     */
+    protected $connection = 'central';
+
     // ── Mass Assignment ────────────────────────────────────────
     protected $fillable = [
         'school_name',

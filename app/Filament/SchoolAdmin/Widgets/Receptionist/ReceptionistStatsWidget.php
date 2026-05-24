@@ -10,6 +10,11 @@ class ReceptionistStatsWidget extends BaseWidget
 {
     protected static ?int $sort = 1;
 
+    public static function canView(): bool
+    {
+        return tenancy()->initialized;
+    }
+
     protected function getStats(): array
     {
         $currentlyInside = Visitor::where('status', 'checked_in')->count();

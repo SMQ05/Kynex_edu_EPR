@@ -31,6 +31,13 @@ class SaasAdmin extends Authenticatable implements FilamentUser
     // ── Table & Key ────────────────────────────────────────────
     protected $table = 'saas_admins';
 
+    /**
+     * Always resolve against the central DB — saas_admins is a central-only
+     * table backing the saas_admin guard. Prevents tenant-DB lookups when
+     * tenancy is active (e.g. an impersonation flow that initialized a tenant).
+     */
+    protected $connection = 'central';
+
     // ── Mass Assignment ────────────────────────────────────────
     protected $fillable = [
         'name',

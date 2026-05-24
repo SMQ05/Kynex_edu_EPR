@@ -18,7 +18,11 @@ class RegistrarStatsWidget extends BaseWidget
 
     public static function canView(): bool
     {
-        return auth()->user()?->active_role === 'REGISTRAR';
+        if (! tenancy()->initialized) {
+            return false;
+        }
+
+        return auth('school_users')->user()?->active_role === 'REGISTRAR';
     }
 
     protected function getStats(): array

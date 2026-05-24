@@ -24,6 +24,11 @@ class CollectionTrendWidget extends ChartWidget
 
     protected ?string $maxHeight = '300px';
 
+    public static function canView(): bool
+    {
+        return tenancy()->initialized;
+    }
+
     protected function getData(): array
     {
         $months = [];

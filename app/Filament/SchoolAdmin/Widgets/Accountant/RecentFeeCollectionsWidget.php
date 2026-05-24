@@ -15,6 +15,11 @@ class RecentFeeCollectionsWidget extends BaseWidget
 
     protected static ?string $heading = 'Recent Fee Collections';
 
+    public static function canView(): bool
+    {
+        return tenancy()->initialized;
+    }
+
     public function table(Table $table): Table
     {
         return $table

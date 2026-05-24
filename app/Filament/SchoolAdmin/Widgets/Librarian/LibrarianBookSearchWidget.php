@@ -11,4 +11,9 @@ class LibrarianBookSearchWidget extends Widget
     protected int | string | array $columnSpan = 'full';
 
     protected string $view = 'filament.school-admin.widgets.librarian-book-search';
+
+    public static function canView(): bool
+    {
+        return tenancy()->initialized;
+    }
 }

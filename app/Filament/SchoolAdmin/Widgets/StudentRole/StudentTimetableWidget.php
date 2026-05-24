@@ -15,6 +15,11 @@ class StudentTimetableWidget extends BaseWidget
 
     protected static ?string $heading = "Today's Timetable";
 
+    public static function canView(): bool
+    {
+        return tenancy()->initialized;
+    }
+
     public function table(Table $table): Table
     {
         // Student sees their class timetable based on linked student record

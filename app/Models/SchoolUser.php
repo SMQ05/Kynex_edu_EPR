@@ -17,6 +17,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use App\Models\Concerns\RequiresApproval;
+use Laravel\Sanctum\HasApiTokens;
 use Spatie\Permission\Traits\HasRoles;
 
 /**
@@ -44,7 +45,7 @@ use Spatie\Permission\Traits\HasRoles;
  */
 class SchoolUser extends Authenticatable implements FilamentUser
 {
-    use HasUlids, HasRoles, HasFactory, Notifiable, SoftDeletes, RequiresApproval;
+    use HasApiTokens, HasUlids, HasRoles, HasFactory, Notifiable, SoftDeletes, RequiresApproval;
 
     protected $table = 'school_users';
 

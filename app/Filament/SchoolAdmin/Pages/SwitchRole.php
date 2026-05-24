@@ -22,16 +22,25 @@ class SwitchRole extends Page
 
     public function mount(): void
     {
-        $user = auth()->user();
+        // The school panel authenticates against the `school_users` guard,
+        // not the default `web` guard. Using auth() here returned null and
+        // crashed mount() with a null-deref.
+        $user = auth('school_users')->user();
+
+        if (! $user) {
+            $this->redirect(route('filament.school-admin.pages.dashboard'));
+            return;
+        }
+
         $this->currentRole = $user->getActiveRoleName();
         $this->availableRoles = $user->roles->pluck('name')->toArray();
     }
 
     public function switchTo(string $roleName): void
     {
-        $user = auth()->user();
+        $user = auth('school_users')->user();
 
-        if ($user->switchRole($roleName)) {
+        if ($user && $user->switchRole($roleName)) {
             Notification::make()
                 ->title("Switched to {$roleName}")
                 ->success()

@@ -148,7 +148,7 @@ class StaffResource extends Resource
                             ->helperText('Used for teacher notifications (admin only)')
                             ->tel()
                             ->maxLength(15)
-                            ->visible(fn () => auth()->user()
+                            ->visible(fn () => auth('school_users')->user()
                                 ?->hasRole(['SCHOOL_ADMIN', 'INSTITUTE_HEAD', 'MULTI_INSTITUTE_HEAD', 'TEACHER'])),
                     ]),
 

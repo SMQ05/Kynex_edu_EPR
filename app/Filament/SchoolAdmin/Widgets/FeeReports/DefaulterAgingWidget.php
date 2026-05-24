@@ -22,6 +22,11 @@ class DefaulterAgingWidget extends ChartWidget
 
     protected ?string $maxHeight = '260px';
 
+    public static function canView(): bool
+    {
+        return tenancy()->initialized;
+    }
+
     protected function getData(): array
     {
         $today = now()->toDateString();

@@ -15,12 +15,17 @@ class CampusRecentAdmissionsWidget extends BaseWidget
 
     protected static ?string $heading = 'Recent Admissions (Your Campus)';
 
+    public static function canView(): bool
+    {
+        return tenancy()->initialized;
+    }
+
     public function table(Table $table): Table
     {
         return $table
             ->query(
                 Student::query()
-                    ->where('campus_id', auth()->user()->campus_id)
+                    ->where('campus_id', auth('school_users')->user()?->campus_id)
                     ->latest()
                     ->limit(10)
             )

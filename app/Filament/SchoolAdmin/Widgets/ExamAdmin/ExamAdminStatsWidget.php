@@ -18,7 +18,11 @@ class ExamAdminStatsWidget extends BaseWidget
 
     public static function canView(): bool
     {
-        return auth()->user()?->active_role === 'EXAM_ADMIN';
+        if (! tenancy()->initialized) {
+            return false;
+        }
+
+        return auth('school_users')->user()?->active_role === 'EXAM_ADMIN';
     }
 
     protected function getStats(): array

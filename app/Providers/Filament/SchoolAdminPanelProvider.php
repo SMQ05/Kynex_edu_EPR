@@ -39,7 +39,7 @@ class SchoolAdminPanelProvider extends PanelProvider
                     ->label('Switch Role')
                     ->icon('heroicon-o-arrows-right-left')
                     ->url(fn () => route('filament.school-admin.pages.switch-role'))
-                    ->visible(fn () => auth()->check() && auth()->user()->roles->count() > 1),
+                    ->visible(fn () => auth('school_users')->check() && (auth('school_users')->user()?->roles->count() ?? 0) > 1),
                 MenuItem::make()
                     ->label('Logout')
                     ->icon('heroicon-o-arrow-left-on-rectangle')

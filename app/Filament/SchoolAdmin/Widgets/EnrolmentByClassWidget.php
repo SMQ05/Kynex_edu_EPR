@@ -25,6 +25,11 @@ class EnrolmentByClassWidget extends ChartWidget
 
     protected ?string $maxHeight = '280px';
 
+    public static function canView(): bool
+    {
+        return tenancy()->initialized;
+    }
+
     protected function getData(): array
     {
         $classes = SchoolClass::orderBy('numeric_level')->get();

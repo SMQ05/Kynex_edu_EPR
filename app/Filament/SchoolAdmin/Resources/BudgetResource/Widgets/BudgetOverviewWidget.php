@@ -13,6 +13,11 @@ class BudgetOverviewWidget extends BaseWidget
 {
     protected ?string $pollingInterval = '30s';
 
+    public static function canView(): bool
+    {
+        return tenancy()->initialized;
+    }
+
     protected function getStats(): array
     {
         $currentYear = AcademicYear::where('is_current', true)->first();

@@ -15,6 +15,11 @@ class UpcomingOnlineClassesWidget extends BaseWidget
 
     protected static ?string $heading = 'Upcoming Online Classes';
 
+    public static function canView(): bool
+    {
+        return tenancy()->initialized;
+    }
+
     public function table(Table $table): Table
     {
         return $table

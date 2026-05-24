@@ -20,6 +20,11 @@ class FeeKpiWidget extends StatsOverviewWidget
 
     protected int|string|array $columnSpan = 'full';
 
+    public static function canView(): bool
+    {
+        return tenancy()->initialized;
+    }
+
     protected function getStats(): array
     {
         $yearId = AcademicYear::query()->where('is_current', true)->value('id');

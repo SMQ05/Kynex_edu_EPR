@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Livewire;
 
 use App\Models\Tenant\InAppNotification;
+use Illuminate\Support\Collection;
+use Livewire\Attributes\Computed;
 use Livewire\Component;
 
 /**
@@ -13,42 +15,74 @@ use Livewire\Component;
  *
  * Renders in the top navigation bar of the school admin panel.
  * Polls every 30 seconds for new notifications (fallback if Echo not configured).
+ *
+ * The notification list is exposed as a #[Computed] property rather than a
+ * public property. Holding an Eloquent collection in component state forced
+ * Livewire to dehydrate/rehydrate 10 tenant models on every poll, which broke
+ * with "Error while loading page" app-wide. A computed property re-queries on
+ * render and is never serialized into the snapshot.
+ *
+ * Every DB access is also guarded by tenancy()->initialized so a dropped /
+ * mid-session tenant context degrades to an empty bell instead of a 500.
  */
 class NotificationBell extends Component
 {
     public int $unreadCount = 0;
 
-    /** @var \Illuminate\Support\Collection<int, InAppNotification> */
-    public $notifications;
-
     public bool $showDropdown = false;
 
     public function mount(): void
     {
-        $this->refreshNotifications();
+        $this->refreshUnreadCount();
     }
 
     /**
-     * Reload notifications and unread count from the database.
+     * The 10 most recent notifications for the current user. Computed so it is
+     * re-queried each render and never stored in the Livewire snapshot.
+     *
+     * @return Collection<int, InAppNotification>
      */
-    public function refreshNotifications(): void
+    #[Computed]
+    public function notifications(): Collection
     {
+        if (! tenancy()->initialized) {
+            return collect();
+        }
+
         $user = auth()->guard('school_users')->user();
 
         if (! $user) {
-            $this->notifications = collect();
+            return collect();
+        }
+
+        return InAppNotification::forUser($user->id)
+            ->orderByDesc('created_at')
+            ->limit(10)
+            ->get();
+    }
+
+    /**
+     * Recompute the unread badge and bust the cached notifications list.
+     * Bound to wire:poll and the Echo listener.
+     */
+    public function refreshNotifications(): void
+    {
+        unset($this->notifications); // bust the computed-property cache
+        $this->refreshUnreadCount();
+    }
+
+    private function refreshUnreadCount(): void
+    {
+        if (! tenancy()->initialized) {
             $this->unreadCount = 0;
             return;
         }
 
-        $this->notifications = InAppNotification::forUser($user->id)
-            ->orderByDesc('created_at')
-            ->limit(10)
-            ->get();
+        $user = auth()->guard('school_users')->user();
 
-        $this->unreadCount = InAppNotification::forUser($user->id)
-            ->unread()
-            ->count();
+        $this->unreadCount = $user
+            ? InAppNotification::forUser($user->id)->unread()->count()
+            : 0;
     }
 
     /**
@@ -56,11 +90,14 @@ class NotificationBell extends Component
      */
     public function markAsRead(string $id): void
     {
+        if (! tenancy()->initialized) {
+            return;
+        }
+
         $notification = InAppNotification::find($id);
 
         if ($notification && $notification->user_id === auth()->guard('school_users')->id()) {
             $notification->markAsRead();
-            $this->unreadCount = max(0, $this->unreadCount - 1);
 
             if ($notification->action_url) {
                 $this->redirect($notification->action_url);
@@ -76,25 +113,24 @@ class NotificationBell extends Component
      */
     public function markAllAsRead(): void
     {
+        if (! tenancy()->initialized) {
+            return;
+        }
+
         $user = auth()->guard('school_users')->user();
 
         if ($user) {
             InAppNotification::forUser($user->id)
                 ->unread()
                 ->update(['read_at' => now()]);
-
-            $this->unreadCount = 0;
-            $this->refreshNotifications();
         }
+
+        $this->refreshNotifications();
     }
 
     public function toggleDropdown(): void
     {
         $this->showDropdown = ! $this->showDropdown;
-
-        if ($this->showDropdown) {
-            $this->refreshNotifications();
-        }
     }
 
     /**

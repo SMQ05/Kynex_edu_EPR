@@ -20,6 +20,11 @@ class PendingLeaveRequestsWidget extends BaseWidget
 
     protected static ?string $heading = 'Pending Leave Requests';
 
+    public static function canView(): bool
+    {
+        return tenancy()->initialized;
+    }
+
     public function table(Table $table): Table
     {
         return $table

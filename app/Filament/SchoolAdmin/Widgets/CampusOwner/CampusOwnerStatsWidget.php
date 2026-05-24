@@ -12,9 +12,14 @@ class CampusOwnerStatsWidget extends BaseWidget
 {
     protected static ?int $sort = 1;
 
+    public static function canView(): bool
+    {
+        return tenancy()->initialized;
+    }
+
     protected function getStats(): array
     {
-        $campusId = auth()->user()->campus_id;
+        $campusId = auth('school_users')->user()?->campus_id;
 
         return [
             Stat::make('Enrolled Students', Student::where('campus_id', $campusId)->where('status', 'enrolled')->count())

@@ -46,6 +46,12 @@ class Invoice extends Model
     protected $table = 'invoices';
 
     /**
+     * Always resolve against the central DB — invoices is a central-only
+     * table. Prevents tenant-DB lookups when tenancy is active.
+     */
+    protected $connection = 'central';
+
+    /**
      * Default paisa column used by the `price_in_pkr` accessor.
      */
     protected string $primaryPaisaColumn = 'total_paisas';

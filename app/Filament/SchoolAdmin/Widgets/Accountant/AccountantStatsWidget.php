@@ -12,6 +12,11 @@ class AccountantStatsWidget extends BaseWidget
 {
     protected static ?int $sort = 1;
 
+    public static function canView(): bool
+    {
+        return tenancy()->initialized;
+    }
+
     protected function getStats(): array
     {
         $todayCollected = FeePayment::whereDate('payment_date', today())

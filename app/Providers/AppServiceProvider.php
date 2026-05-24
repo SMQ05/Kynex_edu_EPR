@@ -27,6 +27,15 @@ class AppServiceProvider extends ServiceProvider
             \App\Models\Tenant::class,
         );
 
+        // The mobile API's tokens are tenant-scoped: SchoolUser (the tokenable)
+        // lives in the tenant DB and uses ULID keys. We ship our own
+        // personal_access_tokens migration under database/migrations/tenant
+        // (with ulidMorphs) and suppress Sanctum's default central/bigint
+        // migration so it never runs against the central DB.
+        if (class_exists(\Laravel\Sanctum\Sanctum::class)) {
+            \Laravel\Sanctum\Sanctum::ignoreMigrations();
+        }
+
         // Force a robust session config. The original container image
         // bakes SESSION_DRIVER=file / SESSION_LIFETIME=120 into the OS
         // env, which causes Filament/Livewire to fail with "Error while

@@ -19,6 +19,11 @@ class AttendanceClerkClassListWidget extends BaseWidget
 
     protected static ?string $heading = 'Classes — Today\'s Attendance';
 
+    public static function canView(): bool
+    {
+        return tenancy()->initialized;
+    }
+
     public function table(Table $table): Table
     {
         $today = now()->toDateString();

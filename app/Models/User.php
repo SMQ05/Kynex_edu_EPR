@@ -18,6 +18,13 @@ class User extends Authenticatable
     use HasFactory, Notifiable;
 
     /**
+     * Always resolve against the central DB — the default `web` guard's
+     * users table is central-only. Prevents tenant-DB lookups when tenancy
+     * is active.
+     */
+    protected $connection = 'central';
+
+    /**
      * Get the attributes that should be cast.
      *
      * @return array<string, string>

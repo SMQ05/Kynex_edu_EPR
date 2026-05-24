@@ -43,6 +43,14 @@ class SubscriptionPlan extends Model
     protected $table = 'subscription_plans';
 
     /**
+     * Always resolve against the central DB. subscription_plans only
+     * exists on central; without this, accessing this model (e.g. via
+     * $tenant->plan) while tenancy is initialized would query the tenant
+     * DB and throw "relation does not exist".
+     */
+    protected $connection = 'central';
+
+    /**
      * Default paisa column used by the `price_in_pkr` accessor.
      */
     protected string $primaryPaisaColumn = 'base_price_paisas';

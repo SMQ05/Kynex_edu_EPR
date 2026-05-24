@@ -24,6 +24,11 @@ class FeeCollectionTrendWidget extends ChartWidget
 
     protected ?string $maxHeight = '280px';
 
+    public static function canView(): bool
+    {
+        return tenancy()->initialized;
+    }
+
     protected function getData(): array
     {
         $months = collect();

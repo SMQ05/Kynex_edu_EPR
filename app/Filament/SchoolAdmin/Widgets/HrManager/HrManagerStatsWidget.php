@@ -18,7 +18,11 @@ class HrManagerStatsWidget extends BaseWidget
 
     public static function canView(): bool
     {
-        return auth()->user()?->active_role === 'HR_MANAGER';
+        if (! tenancy()->initialized) {
+            return false;
+        }
+
+        return auth('school_users')->user()?->active_role === 'HR_MANAGER';
     }
 
     protected function getStats(): array

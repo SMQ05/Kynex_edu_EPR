@@ -17,6 +17,10 @@ class TeacherTimetableWidget extends BaseWidget
 
     public static function canView(): bool
     {
+        if (! tenancy()->initialized) {
+            return false;
+        }
+
         $user = auth()->guard('school_users')->user();
 
         return $user?->hasRole('TEACHER') ?? false;

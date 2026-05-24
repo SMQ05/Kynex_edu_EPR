@@ -79,7 +79,11 @@ class HomeworkPendingReviewWidget extends BaseWidget
      */
     public static function canView(): bool
     {
-        $user = auth()->user();
+        if (! tenancy()->initialized) {
+            return false;
+        }
+
+        $user = auth('school_users')->user();
 
         if (! $user) {
             return false;

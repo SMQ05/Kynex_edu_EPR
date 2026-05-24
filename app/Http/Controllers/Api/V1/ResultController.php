@@ -47,12 +47,12 @@ class ResultController extends Controller
 
         // Auto-scope student users to their own results
         $user = $request->user();
-        if ($user->hasRole('student')) {
+        if ($user->hasRole('STUDENT')) {
             $student = Student::where('school_user_id', $user->id)->first();
             if ($student) {
                 $query->where('student_id', $student->id);
             }
-        } elseif ($user->hasRole('guardian')) {
+        } elseif ($user->hasRole('PARENT')) {
             // Guardians see results for their linked students
             $studentIds = Student::whereHas('guardians', function ($q) use ($user) {
                 $q->where('school_user_id', $user->id);
@@ -97,7 +97,7 @@ class ResultController extends Controller
 
         // Authorization: students can only see their own results
         $user = $request->user();
-        if ($user->hasRole('student')) {
+        if ($user->hasRole('STUDENT')) {
             $student = Student::where('school_user_id', $user->id)->first();
             if (! $student || $result->student_id !== $student->id) {
                 return response()->json([

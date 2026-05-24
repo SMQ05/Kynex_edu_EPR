@@ -41,7 +41,7 @@
 
             {{-- Notification List --}}
             <div class="max-h-80 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-700">
-                @forelse ($notifications as $notification)
+                @forelse ($this->notifications as $notification)
                     <button
                         wire:click="markAsRead('{{ $notification->id }}')"
                         class="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition flex items-start gap-3 {{ $notification->read_at ? 'opacity-60' : '' }}"

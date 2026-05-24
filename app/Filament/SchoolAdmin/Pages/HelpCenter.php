@@ -39,12 +39,12 @@ class HelpCenter extends Page
     /** Visible to anyone authenticated; the page itself is read-only and contains no data. */
     public static function canAccess(): bool
     {
-        return auth('school_users')->check() || auth()->check();
+        return auth('school_users')->check();
     }
 
     public static function shouldRegisterNavigation(): bool
     {
-        return auth('school_users')->check() || auth()->check();
+        return auth('school_users')->check();
     }
 
     /**

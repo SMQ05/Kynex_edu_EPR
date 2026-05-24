@@ -23,6 +23,12 @@ class PlatformApiSetting extends Model
 {
     protected $table = 'platform_api_settings';
 
+    /**
+     * Always resolve against the central DB — platform_api_settings is a
+     * central-only table. Prevents tenant-DB lookups when tenancy is active.
+     */
+    protected $connection = 'central';
+
     protected $fillable = [
         'group',
         'key',
