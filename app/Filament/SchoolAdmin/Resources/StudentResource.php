@@ -257,6 +257,9 @@ class StudentResource extends Resource
                                 ->helperText('Toggle off if this contact is informational only.'),
                         ]),
                 ]),
+
+            // Admin-defined dynamic fields (Phase 8). Empty when none defined.
+            ...\App\Filament\SchoolAdmin\Support\CustomFieldsForm::section('student'),
         ]);
     }
 
@@ -519,6 +522,13 @@ class StudentResource extends Resource
     }
 
     // ── Pages ───────────────────────────────────────────────────
+
+    public static function getRelations(): array
+    {
+        return [
+            \App\Filament\SchoolAdmin\Resources\StudentResource\RelationManagers\ClassEnrolmentsRelationManager::class,
+        ];
+    }
 
     public static function getPages(): array
     {

@@ -212,7 +212,77 @@ class SchoolUser extends Authenticatable implements FilamentUser
             return false;
         }
 
-        return $this->is_active === true;
+        if ($this->is_active !== true) {
+            return false;
+        }
+
+        // Admins always retain access — a misconfigured login/fee rule must
+        // never lock out the people who would fix it.
+        if ($this->hasRole(['SCHOOL_ADMIN', 'INSTITUTE_HEAD', 'MULTI_INSTITUTE_HEAD'])) {
+            return true;
+        }
+
+        // Login Permission (Phase 7): a role can be switched off. Fail-open
+        // on any error (e.g. table not yet migrated) so access is never lost.
+        try {
+            $activeRole = $this->getActiveRoleName();
+            if ($activeRole && ! \App\Models\Tenant\LoginPermission::roleCanLogin($activeRole)) {
+                return false;
+            }
+        } catch (\Throwable) {
+            // ignore — fail open
+        }
+
+        // Due-Fees login block (Phase 7): optionally bar guardians whose
+        // children have overdue fees beyond the grace period. Fail-open.
+        try {
+            if (! $this->passesDueFeesLoginCheck()) {
+                return false;
+            }
+        } catch (\Throwable) {
+            // ignore — fail open
+        }
+
+        return true;
+    }
+
+    /**
+     * Due-fees login gate. Returns true (allowed) unless the feature is on,
+     * applies to this guardian, and their children's overdue balance exceeds
+     * the configured threshold.
+     */
+    protected function passesDueFeesLoginCheck(): bool
+    {
+        $cfg = \App\Models\Tenant\DueFeesLoginSetting::current();
+        if (! $cfg->enabled) {
+            return true;
+        }
+
+        $isGuardian = $this->hasRole('PARENT') || $this->getActiveRoleName() === 'PARENT';
+        if (! $isGuardian || ! in_array($cfg->applies_to, ['guardians', 'both'], true)) {
+            return true;
+        }
+
+        $studentIds = \App\Models\Tenant\Student::query()
+            ->whereHas('guardians', function ($q): void {
+                $q->where('school_user_id', $this->id)->orWhere('email', $this->email);
+            })
+            ->pluck('id');
+
+        if ($studentIds->isEmpty()) {
+            return true;
+        }
+
+        $graceDate = now()->subDays((int) $cfg->grace_days);
+        $overdue = \App\Models\Tenant\StudentFee::query()
+            ->whereIn('student_id', $studentIds)
+            ->where('status', \App\Enums\StudentFeeStatus::Pending)
+            ->where('due_date', '<', $graceDate)
+            ->get();
+
+        $totalDue = (int) $overdue->sum(fn ($f) => max(0, (int) $f->balance_paisas));
+
+        return $totalDue <= (int) ($cfg->min_due_paisas ?? 0);
     }
 
     /**

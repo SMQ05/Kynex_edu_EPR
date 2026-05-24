@@ -101,6 +101,105 @@ class AiAssistant
     }
 
     /**
+     * Agentic chat with tool/function-calling. Runs a bounded loop: the
+     * model may call read tools (executed via $executor), whose results are
+     * fed back until it produces a final answer. Falls back to a plain
+     * answer if it never stops calling tools.
+     *
+     * @param  array<int, array{role:string,content:string}>  $messages
+     * @param  list<array<string,mixed>>                       $toolSchemas  OpenAI tool definitions
+     * @param  callable(string $name, array $args): string     $executor
+     */
+    public function chatWithTools(
+        string $systemPrompt,
+        array $messages,
+        array $toolSchemas,
+        callable $executor,
+        string $feature = 'assistant_tools',
+        int $maxIterations = 4,
+    ): string {
+        $this->ensureEnabled();
+        $this->ensureWithinBudget();
+
+        $provider = $this->tenant->ai_provider ?: 'openrouter';
+        [$baseUrl, $apiKey, $extraHeaders] = $this->resolveEndpoint($provider);
+        $model = $this->resolveModel($provider);
+        $maxTokens = (int) config('services.openrouter.max_tokens', 1200);
+
+        $convo = array_merge(
+            [['role' => 'system', 'content' => $systemPrompt]],
+            $messages,
+        );
+
+        for ($i = 0; $i < $maxIterations; $i++) {
+            $payload = [
+                'model'       => $model,
+                'messages'    => $convo,
+                'max_tokens'  => $maxTokens,
+                'temperature' => 0.4,
+            ];
+            if ($toolSchemas !== []) {
+                $payload['tools'] = $toolSchemas;
+                $payload['tool_choice'] = 'auto';
+            }
+
+            $response = Http::withToken($apiKey)
+                ->withHeaders($extraHeaders)
+                ->timeout(60)
+                ->post($baseUrl . '/chat/completions', $payload);
+
+            if (! $response->successful()) {
+                throw new \RuntimeException("AI request failed ({$provider}): HTTP " . $response->status());
+            }
+
+            $data = $response->json();
+            $message = $data['choices'][0]['message'] ?? [];
+            $this->logUsage($model, $provider, $data['usage'] ?? [], $this->estimateCost($data['usage'] ?? [], $model, $provider), $feature);
+
+            $toolCalls = $message['tool_calls'] ?? [];
+            if (empty($toolCalls)) {
+                return trim((string) ($message['content'] ?? ''));
+            }
+
+            // Record the assistant's tool-call turn, then answer each call.
+            $convo[] = $message;
+            foreach ($toolCalls as $call) {
+                $fnName = $call['function']['name'] ?? '';
+                $rawArgs = $call['function']['arguments'] ?? '{}';
+                $args = is_array($rawArgs) ? $rawArgs : (json_decode((string) $rawArgs, true) ?: []);
+                $result = $executor($fnName, is_array($args) ? $args : []);
+
+                $convo[] = [
+                    'role'         => 'tool',
+                    'tool_call_id' => $call['id'] ?? '',
+                    'content'      => is_string($result) ? $result : (string) json_encode($result),
+                ];
+            }
+        }
+
+        // Iteration budget exhausted — ask once more without tools for a
+        // final synthesised answer.
+        $response = Http::withToken($apiKey)
+            ->withHeaders($extraHeaders)
+            ->timeout(60)
+            ->post($baseUrl . '/chat/completions', [
+                'model'       => $model,
+                'messages'    => $convo,
+                'max_tokens'  => $maxTokens,
+                'temperature' => 0.4,
+            ]);
+
+        if (! $response->successful()) {
+            return 'Sorry, I could not complete that request.';
+        }
+
+        $data = $response->json();
+        $this->logUsage($model, $provider, $data['usage'] ?? [], $this->estimateCost($data['usage'] ?? [], $model, $provider), $feature);
+
+        return trim((string) ($data['choices'][0]['message']['content'] ?? 'Sorry, I could not complete that request.'));
+    }
+
+    /**
      * Pick base URL, API key and auth headers for the chosen provider.
      *
      * @return array{0: string, 1: string, 2: array<string,string>}

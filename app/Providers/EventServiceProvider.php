@@ -68,6 +68,20 @@ class EventServiceProvider extends ServiceProvider
                 return $event->tenant;
             })->shouldBeQueued(false)->toListener(),
         );
+
+        // User activity log (Phase 7) — record school-user logins/logouts.
+        // UserActivity is fail-silent, so this never breaks auth.
+        Event::listen(\Illuminate\Auth\Events\Login::class, function (\Illuminate\Auth\Events\Login $event): void {
+            if (($event->guard ?? null) === 'school_users' && $event->user) {
+                \App\Support\UserActivity::for($event->user)->record('login', null, null, 'Logged in');
+            }
+        });
+
+        Event::listen(\Illuminate\Auth\Events\Logout::class, function (\Illuminate\Auth\Events\Logout $event): void {
+            if (($event->guard ?? null) === 'school_users' && $event->user) {
+                \App\Support\UserActivity::for($event->user)->record('logout', null, null, 'Logged out');
+            }
+        });
     }
 
     public function shouldDiscoverEvents(): bool

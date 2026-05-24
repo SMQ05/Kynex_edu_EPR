@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\SchoolAdmin\Resources\HomeworkAssignmentResource\RelationManagers;
 
+use App\Filament\SchoolAdmin\Support\CheckOriginalityAction;
 use App\Jobs\NotifyHomeworkGraded;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -79,6 +80,9 @@ class HomeworkSubmissionsRelationManager extends RelationManager
             ])
             ->defaultSort('submitted_at', 'desc')
             ->actions([
+                // Premium, opt-in, advisory-only AI-originality check (auto-hidden
+                // unless the school has enabled Originality.ai). Never grades.
+                CheckOriginalityAction::make('submission_text'),
                 Action::make('grade')
                     ->label('Grade')
                     ->icon('heroicon-o-pencil-square')

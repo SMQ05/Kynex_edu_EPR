@@ -19,6 +19,18 @@ class EditStudent extends EditRecord
         ];
     }
 
+    protected function mutateFormDataBeforeFill(array $data): array
+    {
+        $data['custom_fields'] = \App\Filament\SchoolAdmin\Support\CustomFieldsForm::load('student', $this->record->id);
+
+        return $data;
+    }
+
+    protected function afterSave(): void
+    {
+        \App\Filament\SchoolAdmin\Support\CustomFieldsForm::save('student', $this->record->id, $this->data['custom_fields'] ?? []);
+    }
+
     protected function getRedirectUrl(): string
     {
         return $this->getResource()::getUrl('index');

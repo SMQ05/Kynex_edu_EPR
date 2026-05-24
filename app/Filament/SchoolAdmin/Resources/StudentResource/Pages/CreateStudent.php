@@ -68,6 +68,10 @@ class CreateStudent extends CreateRecord
     protected function afterCreate(): void
     {
         $student = $this->record;
+
+        // Persist admin-defined custom fields (Phase 8).
+        \App\Filament\SchoolAdmin\Support\CustomFieldsForm::save('student', $student->id, $this->data['custom_fields'] ?? []);
+
         $user = auth()->guard('school_users')->user();
         $bypass = static::userBypassesApproval($user);
 

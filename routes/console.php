@@ -1,5 +1,6 @@
 <?php
 
+use App\Jobs\FrontOfficeFollowUpReminders;
 use App\Jobs\NotifyAbsentStudentsAndParents;
 use App\Jobs\ProcessBiometricLogs;
 use App\Jobs\OverdueHomeworkReminder;
@@ -149,6 +150,22 @@ Schedule::call(function () {
         });
 })->dailyAt('07:00')
   ->name('overdue-homework-reminders')
+  ->withoutOverlapping();
+
+/*
+ * Front-office follow-up reminders — notify assigned staff of admission
+ * enquiries and phone calls that are due/overdue for follow-up. Phase 1.
+ */
+Schedule::call(function () {
+    Tenant::on('central')
+        ->where('status', 'active')
+        ->each(function (Tenant $tenant) {
+            $tenant->run(function () {
+                FrontOfficeFollowUpReminders::dispatch();
+            });
+        });
+})->dailyAt('08:00')
+  ->name('front-office-follow-up-reminders')
   ->withoutOverlapping();
 
 // ─────────────────────────────────────────────────────────────────

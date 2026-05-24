@@ -7,6 +7,10 @@ namespace App\Filament\SchoolAdmin\Pages;
 use App\Filament\SchoolAdmin\Concerns\HasPermissionCheck;
 use App\Models\Tenant\FeeGroup;
 use App\Models\Tenant\FeeType;
+use App\Models\Tenant\SchoolClass;
+use App\Services\Ai\AiAssistant;
+use App\Services\Ai\AiAvailability;
+use App\Services\Ai\Concerns\ExtractsJson;
 use Filament\Actions\Action;
 use Filament\Forms\Components;
 use Filament\Notifications\Notification;
@@ -24,6 +28,7 @@ use Filament\Pages\Page;
 class FeeCatalog extends Page
 {
     use HasPermissionCheck;
+    use ExtractsJson;
 
     protected static string $rbacPermission = 'view_fee_structures';
 
@@ -79,6 +84,17 @@ class FeeCatalog extends Page
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('suggestStructure')
+                ->label('Suggest with AI')
+                ->icon('heroicon-o-sparkles')
+                ->color('primary')
+                ->visible(fn (): bool => AiAvailability::enabled())
+                ->requiresConfirmation()
+                ->modalHeading('Suggest a fee structure with AI')
+                ->modalDescription('AI proposes common fee groups and types for your school. Existing names are skipped — review and set amounts afterwards in Fee Structure.')
+                ->modalSubmitActionLabel('Generate')
+                ->action(fn () => $this->suggestStructure()),
+
             Action::make('addType')
                 ->label('+ Add Fee Type')
                 ->icon('heroicon-o-tag')
@@ -169,6 +185,68 @@ class FeeCatalog extends Page
         if ($type) {
             $type->update(['is_recurring' => ! $type->is_recurring]);
             Notification::make()->title('Updated')->success()->send();
+        }
+    }
+
+    /**
+     * AI-suggest a full fee structure (groups + types) for this school and
+     * create whatever doesn't already exist. Amounts are set later in the
+     * Fee Structure screen. Advisory: only creates records the admin
+     * triggered, and never overwrites existing names.
+     */
+    public function suggestStructure(): void
+    {
+        try {
+            $school  = tenant()?->school_name ?? 'this school';
+            $classes = SchoolClass::query()->orderBy('name')->limit(20)->pluck('name')->implode(', ');
+
+            $system = 'You design fee structures for schools in Pakistan. Output JSON ONLY in this shape: '
+                . '{"groups":[{"name":"...","types":[{"name":"...","recurring":true|false}]}]}. '
+                . 'Use common, sensible categories (e.g. Tuition, Admission, Transport, Examination, Boarding). '
+                . '3-6 groups, 1-4 types each. recurring=true for monthly charges, false for one-time.';
+            $user = "School: {$school}. Classes: " . ($classes ?: 'not specified') . '. Propose a fee structure.';
+
+            $reply = AiAssistant::forCurrentTenant()->chat($system, [['role' => 'user', 'content' => $user]], 'fee_structure_suggest');
+            $data  = $this->extractJson($reply);
+
+            $createdGroups = 0;
+            $createdTypes  = 0;
+
+            foreach (($data['groups'] ?? []) as $g) {
+                $gname = trim((string) ($g['name'] ?? ''));
+                if ($gname === '') {
+                    continue;
+                }
+                $group = FeeGroup::firstOrCreate(['name' => $gname]);
+                if ($group->wasRecentlyCreated) {
+                    $createdGroups++;
+                }
+
+                foreach (($g['types'] ?? []) as $t) {
+                    $tname = trim((string) ($t['name'] ?? ''));
+                    if ($tname === '') {
+                        continue;
+                    }
+                    $exists = FeeType::where('fee_group_id', $group->id)->where('name', $tname)->exists();
+                    if ($exists) {
+                        continue;
+                    }
+                    FeeType::create([
+                        'fee_group_id' => $group->id,
+                        'name'         => $tname,
+                        'is_recurring' => (bool) ($t['recurring'] ?? false),
+                    ]);
+                    $createdTypes++;
+                }
+            }
+
+            Notification::make()
+                ->title("Added {$createdGroups} group(s) and {$createdTypes} fee type(s)")
+                ->body('Now set amounts per class in Fee Structure.')
+                ->success()
+                ->send();
+        } catch (\Throwable $e) {
+            Notification::make()->title('AI suggestion failed')->body($e->getMessage())->danger()->send();
         }
     }
 }

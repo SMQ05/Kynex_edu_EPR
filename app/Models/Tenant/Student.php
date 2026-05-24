@@ -118,6 +118,19 @@ class Student extends Model
         return $this->hasMany(StudentFee::class);
     }
 
+    /** Additional class enrolments beyond the primary class/section (Multi-Class Student). */
+    public function classEnrolments(): HasMany
+    {
+        return $this->hasMany(StudentClassEnrolment::class, 'student_id');
+    }
+
+    /** Student groups this student belongs to (houses, clubs, remedial). */
+    public function groups(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(StudentGroup::class, 'student_group_members', 'student_id', 'student_group_id')
+            ->withTimestamps();
+    }
+
     public function feePayments(): HasMany
     {
         return $this->hasMany(FeePayment::class);

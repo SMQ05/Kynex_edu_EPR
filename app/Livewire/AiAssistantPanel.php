@@ -144,11 +144,37 @@ class AiAssistantPanel extends Component
             $facts = (new RoleScopedFacts())->for($user, (string) $this->activeRole);
             $systemPrompt .= (new RoleScopedFacts())->asSystemBlock($facts);
 
-            $reply = AiAssistant::forCurrentTenant()->chat(
-                systemPrompt: $systemPrompt,
-                messages: $messages,
-                feature: 'role_assistant_' . strtolower($this->activeRole),
-            );
+            $feature = 'role_assistant_' . strtolower($this->activeRole);
+
+            // Agentic tools (read-only, office/admin roles only). If the model
+            // can't do tool-calling, fall back to plain chat.
+            $tools = \App\Services\Ai\AiToolRegistry::forUser($user);
+
+            if ($tools !== []) {
+                $systemPrompt .= "\n\nYou can call tools to look up live data (student records, fee balances, attendance). "
+                    . 'Use a tool when the user asks about a specific student or current numbers; otherwise answer directly.';
+                try {
+                    $reply = AiAssistant::forCurrentTenant()->chatWithTools(
+                        $systemPrompt,
+                        $messages,
+                        \App\Services\Ai\AiToolRegistry::schema($tools),
+                        fn (string $name, array $args): string => \App\Services\Ai\AiToolRegistry::execute($tools, $name, $args),
+                        $feature,
+                    );
+                } catch (\Throwable) {
+                    $reply = AiAssistant::forCurrentTenant()->chat(
+                        systemPrompt: $systemPrompt,
+                        messages: $messages,
+                        feature: $feature,
+                    );
+                }
+            } else {
+                $reply = AiAssistant::forCurrentTenant()->chat(
+                    systemPrompt: $systemPrompt,
+                    messages: $messages,
+                    feature: $feature,
+                );
+            }
 
             AiMessage::create([
                 'conversation_id' => $convo->id,
