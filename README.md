@@ -36,7 +36,8 @@ These are development defaults from [.env.docker](.env.docker):
 - Email: `admin@kynexedu.com`
 - Password: `password`
 - School portal URL: `http://localhost:8000/login`
-- Demo school email: `admin@demo.kynexedu.com`
+- Demo school email: `git config --global --unset user.name
+git config --global --unset user.email`
 - Demo school password: `password`
 
 If another user pulls the repository and starts it with the same Docker env values, they will log in with the same seeded SaaS admin credentials. The account is recreated or updated on startup by `DatabaseSeeder`, so the login stays consistent for fresh Docker databases.
