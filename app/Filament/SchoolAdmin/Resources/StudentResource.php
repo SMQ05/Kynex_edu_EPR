@@ -92,7 +92,10 @@ class StudentResource extends Resource
                         ))
                         ->searchable()
                         ->preload()
-                        ->nullable(),
+                        ->required()
+                        ->validationMessages([
+                            'required' => 'Please select a section before saving.',
+                        ]),
 
                     Components\Select::make('category_id')
                         ->label('Student Category')

@@ -9,6 +9,7 @@ use App\Models\Tenant\StudentCategory;
 use Filament\Forms\Components;
 use Filament\Resources\Resource;
 use App\Filament\SchoolAdmin\Concerns\HasPermissionCheck;
+use Illuminate\Validation\Rules\Unique;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Tables;
@@ -44,7 +45,18 @@ class StudentCategoryResource extends Resource
                 ->schema([
                     Components\TextInput::make('name')
                         ->required()
-                        ->maxLength(255),
+                        ->maxLength(255)
+                        ->live(onBlur: true) // re-validate on blur, not only on submit
+                        ->unique(
+                            column: 'name',
+                            ignoreRecord: true,
+                            modifyRuleUsing: fn (Unique $rule) => $rule
+                                ->model(StudentCategory::class) // bind to tenant DB connection
+                                ->withoutTrashed(),
+                        )
+                        ->validationMessages([
+                            'unique' => 'This entry already exists.',
+                        ]),
 
                     Components\ColorPicker::make('color')
                         ->label('Display Color')
