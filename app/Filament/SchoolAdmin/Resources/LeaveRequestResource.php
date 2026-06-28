@@ -82,11 +82,33 @@ class LeaveRequestResource extends Resource
                             
                             ->displayFormat('d M Y')
                             ->live()
-                            ->afterStateUpdated(fn (Get $get, Set $set) => self::recalcDays($get, $set)),
+                            ->afterStateUpdated(fn (Get $get, Set $set) => self::recalcDays($get, $set))
+                            ->rules([
+                                fn (Get $get, ?LeaveRequest $record): \Closure => function (string $attribute, $value, \Closure $fail) use ($get, $record) {
+                                    $schoolUserId = $get('school_user_id');
+                                    $toDate = $get('to_date');
+                                    
+                                    if (!$schoolUserId || !$value || !$toDate) {
+                                        return;
+                                    }
+                                    
+                                    $query = LeaveRequest::where('school_user_id', $schoolUserId)
+                                        ->where('from_date', $value)
+                                        ->where('to_date', $toDate);
+                                        
+                                    if ($record) {
+                                        $query->where('id', '!=', $record->id);
+                                    }
+                                    
+                                    if ($query->exists()) {
+                                        $fail('A duplicate leave request for these exact dates already exists.');
+                                    }
+                                }
+                            ]),
 
                         DatePicker::make('to_date')
                             ->required()
-                            
+
                             ->displayFormat('d M Y')
                             ->afterOrEqual('from_date')
                             ->live()
