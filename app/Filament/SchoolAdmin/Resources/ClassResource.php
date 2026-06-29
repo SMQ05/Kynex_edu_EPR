@@ -54,22 +54,40 @@ class ClassResource extends Resource
                         ->required()
                         ->maxLength(255)
                         ->placeholder('e.g. Grade 1, Class X')
+                        ->live(onBlur: true) // re-validate on blur, not only on submit
                         // Class name must be unique within the selected campus.
+                        // The same name is allowed when the campus differs.
+                        // Tenancy makes the tenant connection the default, so the
+                        // 'classes' table resolves correctly. Soft-deleted rows are
+                        // excluded so a name can be reused after deletion.
                         ->unique(
                             table: 'classes',
                             column: 'name',
                             ignoreRecord: true,
-                            modifyRuleUsing: fn (Unique $rule, Get $get) => $rule
-                                ->where('campus_id', $get('campus_id'))
-                                ->whereNull('deleted_at'),
-                        ),
+                            modifyRuleUsing: function (Unique $rule, Get $get): Unique {
+                                $campusId = $get('campus_id');
+
+                                // Scope to the selected campus, or explicitly to the
+                                // no-campus group when none is chosen.
+                                $rule = $campusId
+                                    ? $rule->where('campus_id', $campusId)
+                                    : $rule->whereNull('campus_id');
+
+                                // Exclude soft-deleted rows so a name frees up after deletion.
+                                return $rule->whereNull('deleted_at');
+                            },
+                        )
+                        ->validationMessages([
+                            'unique' => 'The class name already exists for this campus context.',
+                        ]),
 
                     Components\Select::make('campus_id')
                         ->label('Campus')
                         ->relationship('campus', 'name')
                         ->searchable()
                         ->preload()
-                        ->nullable(),
+                        ->nullable()
+                        ->live(), // changing campus re-checks the class-name uniqueness
 
                     Components\TextInput::make('numeric_level')
                         ->label('Numeric Level')
