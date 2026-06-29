@@ -47,12 +47,13 @@ class StudentCategoryResource extends Resource
                         ->required()
                         ->maxLength(255)
                         ->live(onBlur: true) // re-validate on blur, not only on submit
+                        // Tenancy makes the tenant connection the default, so the
+                        // 'student_categories' table resolves correctly.
                         ->unique(
+                            table: 'student_categories',
                             column: 'name',
                             ignoreRecord: true,
-                            modifyRuleUsing: fn (Unique $rule) => $rule
-                                ->model(StudentCategory::class) // bind to tenant DB connection
-                                ->withoutTrashed(),
+                            modifyRuleUsing: fn (Unique $rule) => $rule->whereNull('deleted_at'),
                         )
                         ->validationMessages([
                             'unique' => 'This entry already exists.',
