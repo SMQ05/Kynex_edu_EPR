@@ -32,4 +32,9 @@ class EditExam extends EditRecord
             NotifyResultPublished::dispatch($record);
         }
     }
+
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('index');
+    }
 }
