@@ -8,6 +8,8 @@ use App\Filament\SchoolAdmin\Resources\ClassResource\Pages;
 use App\Models\Tenant\SchoolClass;
 use Filament\Forms\Components;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Utilities\Get;
+use Illuminate\Validation\Rules\Unique;
 use App\Filament\SchoolAdmin\Concerns\HasPermissionCheck;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -51,7 +53,16 @@ class ClassResource extends Resource
                     Components\TextInput::make('name')
                         ->required()
                         ->maxLength(255)
-                        ->placeholder('e.g. Grade 1, Class X'),
+                        ->placeholder('e.g. Grade 1, Class X')
+                        // Class name must be unique within the selected campus.
+                        ->unique(
+                            table: 'classes',
+                            column: 'name',
+                            ignoreRecord: true,
+                            modifyRuleUsing: fn (Unique $rule, Get $get) => $rule
+                                ->where('campus_id', $get('campus_id'))
+                                ->whereNull('deleted_at'),
+                        ),
 
                     Components\Select::make('campus_id')
                         ->label('Campus')

@@ -34,6 +34,8 @@ class StudentBulkImporter
 {
     /** @var array<string,string|null> name→id lookup caches */
     private array $classes = [];
+    /** @var array<string,array<int,string>> lowercase name→[id,…] for unambiguous name-only fallback */
+    private array $classesByName = [];
     private array $sections = [];
     private array $years = [];
     private array $campuses = [];
@@ -124,24 +126,36 @@ class StudentBulkImporter
             throw new \RuntimeException('At least one of guardian_phone / father_phone / mother_phone is required.');
         }
 
-        $classId   = $this->resolveClass(trim((string) ($r['class_name'] ?? '')));
+        // Resolve campus first: classes are unique per campus, so the class
+        // lookup needs the campus to disambiguate same-named classes.
+        $campusId  = $this->resolveCampus(trim((string) ($r['campus_name'] ?? '')));
+        $classId   = $this->resolveClass(trim((string) ($r['class_name'] ?? '')), $campusId);
         $sectionId = $this->resolveSection(trim((string) ($r['section_name'] ?? '')), $classId);
         $yearId    = $this->resolveYear(trim((string) ($r['academic_year'] ?? '')));
-        $campusId  = $this->resolveCampus(trim((string) ($r['campus_name'] ?? '')));
         $categoryId = ! empty($r['category_name']) ? $this->resolveCategory(trim((string) $r['category_name'])) : null;
 
         if (! $yearId) {
             throw new \RuntimeException('academic_year not found and no current year is set.');
         }
-        if (! $classId) {
-            throw new \RuntimeException("class_name '{$r['class_name']}' not found.");
-        }
+        // Validate campus before class: the class lookup depends on the campus,
+        // so a missing campus would otherwise surface as a confusing
+        // "class not found" error.
         if (! $campusId) {
             $campusInput = (string) ($r['campus_name'] ?? '');
             if ($campusInput === '' && count($this->campuses) > 1) {
                 throw new \RuntimeException("campus_name is required when the school has multiple campuses (this tenant has " . count($this->campuses) . ").");
             }
             throw new \RuntimeException("campus_name '" . ($campusInput ?: '(blank)') . "' not found.");
+        }
+        if (! $classId) {
+            throw new \RuntimeException("class_name '{$r['class_name']}' not found for the resolved campus.");
+        }
+        // section_id is NOT NULL on the schema. resolveSection() returns null
+        // for a blank/unknown section_name, so guard here instead of letting
+        // PostgreSQL throw a not-null violation on insert.
+        if (! $sectionId) {
+            $sectionInput = trim((string) ($r['section_name'] ?? ''));
+            throw new \RuntimeException("section_name '" . ($sectionInput ?: '(blank)') . "' not found for class '{$r['class_name']}'. A section is required.");
         }
 
         // admission_number is NOT NULL on the schema. Auto-generate one
@@ -311,7 +325,17 @@ class StudentBulkImporter
 
     private function buildLookups(): void
     {
-        $this->classes  = SchoolClass::query()->pluck('id', 'name')->all();
+        // Classes are unique per campus, so the same name can legitimately exist
+        // under two campuses. Key the primary lookup by campus to avoid resolving
+        // "Grade 1 @ Campus B" to "Grade 1 @ Campus A"; keep a name→[ids] map for
+        // an unambiguous name-only fallback (single-campus / legacy CSVs).
+        $this->classes = [];
+        $this->classesByName = [];
+        foreach (SchoolClass::query()->select('id', 'name', 'campus_id')->get() as $c) {
+            $nameKey = strtolower((string) $c->name);
+            $this->classes[($c->campus_id ?? '') . '|' . $nameKey] = $c->id;
+            $this->classesByName[$nameKey][] = $c->id;
+        }
         $this->sections = Section::query()->select('id', 'name', 'class_id')->get()
             ->mapWithKeys(fn ($s) => [strtolower($s->class_id . '|' . $s->name) => $s->id])->all();
         $this->years    = AcademicYear::query()->pluck('id', 'name')->all();
@@ -323,10 +347,25 @@ class StudentBulkImporter
         }
     }
 
-    private function resolveClass(string $name): ?string
+    private function resolveClass(string $name, ?string $campusId): ?string
     {
         if ($name === '') return null;
-        return $this->classes[$name] ?? $this->fuzzyLookup($this->classes, $name);
+        $nameKey = strtolower($name);
+
+        // 1. Exact match within the resolved campus.
+        if ($campusId !== null && isset($this->classes[$campusId . '|' . $nameKey])) {
+            return $this->classes[$campusId . '|' . $nameKey];
+        }
+
+        // 2. A class not tied to any campus (campus_id IS NULL) matches regardless.
+        if (isset($this->classes['|' . $nameKey])) {
+            return $this->classes['|' . $nameKey];
+        }
+
+        // 3. Name-only fallback, but only when unambiguous across campuses —
+        //    otherwise we'd risk silently placing the student in the wrong campus.
+        $ids = $this->classesByName[$nameKey] ?? [];
+        return count($ids) === 1 ? $ids[0] : null;
     }
 
     private function resolveSection(string $name, ?string $classId): ?string
