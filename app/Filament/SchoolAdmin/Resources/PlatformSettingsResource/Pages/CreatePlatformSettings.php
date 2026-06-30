@@ -9,5 +9,9 @@ use Filament\Resources\Pages\CreateRecord;
 
 class CreatePlatformSettings extends CreateRecord
 {
-    protected static string $resource = PlatformSettingsResource::class;
+protected static string $resource = PlatformSettingsResource::class;
+    protected function getRedirectUrl(): string
+    {
+        return static::getResource()::getUrl('index');
+    }
 }
