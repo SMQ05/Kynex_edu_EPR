@@ -10,4 +10,9 @@ use Filament\Resources\Pages\CreateRecord;
 class CreateAttendanceSetting extends CreateRecord
 {
     protected static string $resource = AttendanceSettingsResource::class;
+
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('index');
+    }
 }
