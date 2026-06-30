@@ -14,6 +14,16 @@ class EditExamSeatPlan extends EditRecord
 {
     protected static string $resource = ExamSeatPlanResource::class;
 
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('index');
+    }
+
+    protected function getCancelRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('index');
+    }
+
     protected function getHeaderActions(): array
     {
         return [

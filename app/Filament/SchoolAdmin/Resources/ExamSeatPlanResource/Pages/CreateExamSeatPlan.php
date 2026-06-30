@@ -18,6 +18,11 @@ class CreateExamSeatPlan extends CreateRecord
         return $this->getResource()::getUrl('index');
     }
 
+    protected function getCancelRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('index');
+    }
+
     protected function beforeCreate(): void
     {
         $state = $this->form->getState();
