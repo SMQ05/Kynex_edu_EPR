@@ -29,4 +29,5 @@ class EditCmsContactMessage extends EditRecord
             $this->record->update(['status' => 'read']);
         }
     }
+    
 }
