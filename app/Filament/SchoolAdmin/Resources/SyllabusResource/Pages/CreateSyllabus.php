@@ -10,4 +10,9 @@ use Filament\Resources\Pages\CreateRecord;
 class CreateSyllabus extends CreateRecord
 {
     protected static string $resource = SyllabusResource::class;
+
+        protected function getRedirectUrl(): string
+    {
+        return static::getResource()::getUrl('index');
+    }
 }
