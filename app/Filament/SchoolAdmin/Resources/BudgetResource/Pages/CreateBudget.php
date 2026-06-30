@@ -6,4 +6,10 @@ use Filament\Resources\Pages\CreateRecord;
 class CreateBudget extends CreateRecord
 {
     protected static string $resource = BudgetResource::class;
+
+    protected function getRedirectUrl(): string
+    {
+        return static::getResource()::getUrl('index');
+    }
+    
 }
