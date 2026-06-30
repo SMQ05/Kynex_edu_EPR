@@ -1,9 +1,6 @@
 <?php
-
 declare(strict_types=1);
-
 namespace App\Filament\SchoolAdmin\Resources\VisitorResource\Pages;
-
 use App\Filament\SchoolAdmin\Resources\VisitorResource;
 use Filament\Resources\Pages\CreateRecord;
 
@@ -20,11 +17,7 @@ class CreateVisitor extends CreateRecord
 
     protected function getRedirectUrl(): string
     {
-        return VisitorResource::getUrl();
+        return $this->getResource()::getUrl('index');
     }
 
-    protected function afterCreate(): void
-    {
-        $this->redirect(VisitorResource::getUrl(), navigate: true);
-    }
 }

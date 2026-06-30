@@ -8,4 +8,9 @@ use Filament\Resources\Pages\CreateRecord;
 class CreateCafeteriaMenuItem extends CreateRecord
 {
     protected static string $resource = CafeteriaMenuItemResource::class;
+    
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('index');
+    }
 }
