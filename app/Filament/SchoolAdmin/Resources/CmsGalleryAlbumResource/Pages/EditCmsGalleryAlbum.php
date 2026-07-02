@@ -8,4 +8,9 @@ use Filament\Resources\Pages\EditRecord;
 class EditCmsGalleryAlbum extends EditRecord
 {
     protected static string $resource = CmsGalleryAlbumResource::class;
+
+    protected function getRedirectUrl(): string
+    {
+        return static::getResource()::getUrl('index');
+    }
 }

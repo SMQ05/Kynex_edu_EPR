@@ -9,6 +9,11 @@ class EditInventorySupplier extends EditRecord
     protected static string $resource = InventorySupplierResource::class;
     protected function getHeaderActions(): array
     {
-        return [Actions\DeleteAction::make()];
+        return [Actions\DeleteAction::make()];     
     }
+        protected function getRedirectUrl(): string
+    {
+        return static::getResource()::getUrl('index');
+    }
+  
 }

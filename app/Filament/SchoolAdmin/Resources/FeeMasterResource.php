@@ -16,9 +16,11 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
+use Illuminate\Validation\Rules\Unique;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
@@ -68,7 +70,8 @@ class FeeMasterResource extends Resource
                         ->preload()
                         ->placeholder('Class default — applies to every section')
                         ->helperText('Leave blank to set the class-wide default. Pick a section here only when that section pays a different amount than the class default.')
-                        ->nullable(),
+                        ->nullable()
+                        ->reactive(),
 
                     Select::make('fee_type_id')
                         ->label('Fee Type')
@@ -79,7 +82,27 @@ class FeeMasterResource extends Resource
                             ->toArray())
                         ->required()
                         ->searchable()
-                        ->preload(),
+                        ->preload()
+                        ->reactive()
+                        ->unique(
+                            table: 'fee_masters',
+                            column: 'fee_type_id',
+                            ignoreRecord: true,
+                            modifyRuleUsing: function (Unique $rule, Get $get): Unique {
+                                $rule = $rule
+                                    ->where('class_id', $get('class_id'))
+                                    ->where('academic_year_id', $get('academic_year_id'));
+
+                                if ($get('section_id')) {
+                                    return $rule->where('section_id', $get('section_id'));
+                                }
+
+                                return $rule->whereNull('section_id');
+                            },
+                        )
+                        ->validationMessages([
+                            'unique' => 'A fee structure row already exists for this class, fee type, academic year and section scope.',
+                        ]),
 
                     Select::make('academic_year_id')
                         ->label('Academic Year')
@@ -87,7 +110,8 @@ class FeeMasterResource extends Resource
                         ->required()
                         ->searchable()
                         ->preload()
-                        ->default(fn () => AcademicYear::query()->where('is_current', true)->value('id')),
+                        ->default(fn () => AcademicYear::query()->where('is_current', true)->value('id'))
+                        ->reactive(),
 
                     TextInput::make('amount_pkr')
                         ->label('Amount (PKR)')

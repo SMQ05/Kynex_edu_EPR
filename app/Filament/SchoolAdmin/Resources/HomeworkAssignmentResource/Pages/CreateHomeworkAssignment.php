@@ -10,4 +10,8 @@ use Filament\Resources\Pages\CreateRecord;
 class CreateHomeworkAssignment extends CreateRecord
 {
     protected static string $resource = HomeworkAssignmentResource::class;
+        protected function getRedirectUrl(): string
+    {
+        return static::getResource()::getUrl('index');
+    }
 }

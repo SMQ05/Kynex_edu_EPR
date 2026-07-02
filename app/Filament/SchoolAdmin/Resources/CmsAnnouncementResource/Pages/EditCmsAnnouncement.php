@@ -8,4 +8,8 @@ use Filament\Resources\Pages\EditRecord;
 class EditCmsAnnouncement extends EditRecord
 {
     protected static string $resource = CmsAnnouncementResource::class;
+        protected function getRedirectUrl(): string
+    {
+        return static::getResource()::getUrl('index');
+    }
 }

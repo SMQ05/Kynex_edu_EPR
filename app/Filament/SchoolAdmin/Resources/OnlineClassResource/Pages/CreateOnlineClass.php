@@ -6,4 +6,9 @@ use Filament\Resources\Pages\CreateRecord;
 class CreateOnlineClass extends CreateRecord
 {
     protected static string $resource = OnlineClassResource::class;
+    protected function getRedirectUrl(): string
+    {
+        return static::getResource()::getUrl('index');
+    }
+    
 }

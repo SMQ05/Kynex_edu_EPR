@@ -16,4 +16,8 @@ class ListCmsContactMessages extends ListRecords
     {
         return [CreateAction::make()];
     }
+        protected function getRedirectUrl(): string
+    {
+        return static::getResource()::getUrl('index');
+    }
 }

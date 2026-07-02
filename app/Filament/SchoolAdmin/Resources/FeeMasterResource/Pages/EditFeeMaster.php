@@ -26,4 +26,8 @@ class EditFeeMaster extends EditRecord
         unset($data['amount_pkr']);
         return $data;
     }
+    protected function getRedirectUrl(): string
+    {
+        return static::getResource()::getUrl('index');
+    }
 }
