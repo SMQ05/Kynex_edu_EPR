@@ -6,4 +6,9 @@ use Filament\Resources\Pages\CreateRecord;
 class CreateHostelAllocation extends CreateRecord
 {
     protected static string $resource = HostelAllocationResource::class;
+
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('index');
+    }
 }

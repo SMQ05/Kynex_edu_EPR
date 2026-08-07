@@ -37,12 +37,12 @@ class Holiday extends Model
     }
 
     /** Number of calendar days the holiday spans (inclusive). */
-   public function getDaysAttribute(): int
-{
-    if (! $this->start_date || ! $this->end_date) {
-        return 0;
-    }
+    public function getDaysAttribute(): int
+    {
+        if (! $this->start_date || ! $this->end_date) {
+            return 0;
+        }
 
-    return (int) $this->start_date->diffInDays($this->end_date) + 1;
-}
+        return (int) $this->start_date->diffInDays($this->end_date) + 1;
+    }
 }
