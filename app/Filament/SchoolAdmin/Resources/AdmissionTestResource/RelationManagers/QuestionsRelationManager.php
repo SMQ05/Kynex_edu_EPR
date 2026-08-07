@@ -70,6 +70,11 @@ class QuestionsRelationManager extends RelationManager
                     // Stored as ['A' => 'first', 'B' => 'second'] — convert
                     // back to repeater rows so the user sees just the text.
                     if (is_array($state) && $state !== [] && ! array_is_list($state)) {
+                        $firstValue = reset($state);
+                        if (is_array($firstValue)) {
+                            return;
+                        }
+
                         $component->state(
                             array_map(fn ($v) => ['text' => (string) $v], array_values($state))
                         );

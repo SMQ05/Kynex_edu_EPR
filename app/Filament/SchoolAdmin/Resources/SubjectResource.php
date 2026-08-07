@@ -10,6 +10,7 @@ use App\Models\Tenant\Subject;
 use Filament\Forms\Components;
 use Filament\Resources\Resource;
 use App\Filament\SchoolAdmin\Concerns\HasPermissionCheck;
+use Illuminate\Validation\Rules\Unique;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Tables;
@@ -45,7 +46,21 @@ class SubjectResource extends Resource
                 ->schema([
                     Components\TextInput::make('name')
                         ->required()
-                        ->maxLength(255),
+                        ->maxLength(255)
+                        ->live(onBlur: true) // re-validate on blur, not only on submit
+                        // Subject name must be unique; prevents duplicate entries.
+                        // Tenancy makes the tenant connection the default, so the
+                        // 'subjects' table resolves correctly. Exclude soft-deleted
+                        // rows so a name can be reused after deletion.
+                        ->unique(
+                            table: 'subjects',
+                            column: 'name',
+                            ignoreRecord: true,
+                            modifyRuleUsing: fn (Unique $rule) => $rule->whereNull('deleted_at'),
+                        )
+                        ->validationMessages([
+                            'unique' => 'A subject with this name already exists.',
+                        ]),
 
                     Components\TextInput::make('code')
                         ->label('Subject Code')

@@ -10,4 +10,9 @@ use Filament\Resources\Pages\CreateRecord;
 class CreateAttendanceDevice extends CreateRecord
 {
     protected static string $resource = AttendanceDeviceResource::class;
+
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('index');
+    }
 }

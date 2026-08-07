@@ -9,6 +9,7 @@ use App\Models\Tenant\StudentCategory;
 use Filament\Forms\Components;
 use Filament\Resources\Resource;
 use App\Filament\SchoolAdmin\Concerns\HasPermissionCheck;
+use Illuminate\Validation\Rules\Unique;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Tables;
@@ -44,7 +45,19 @@ class StudentCategoryResource extends Resource
                 ->schema([
                     Components\TextInput::make('name')
                         ->required()
-                        ->maxLength(255),
+                        ->maxLength(255)
+                        ->live(onBlur: true) // re-validate on blur, not only on submit
+                        // Tenancy makes the tenant connection the default, so the
+                        // 'student_categories' table resolves correctly.
+                        ->unique(
+                            table: 'student_categories',
+                            column: 'name',
+                            ignoreRecord: true,
+                            modifyRuleUsing: fn (Unique $rule) => $rule->whereNull('deleted_at'),
+                        )
+                        ->validationMessages([
+                            'unique' => 'This entry already exists.',
+                        ]),
 
                     Components\ColorPicker::make('color')
                         ->label('Display Color')

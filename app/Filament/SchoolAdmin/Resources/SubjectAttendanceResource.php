@@ -59,18 +59,35 @@ class SubjectAttendanceResource extends Resource
                     Select::make('class_id')
                         ->label('Class')
                         ->relationship('schoolClass', 'name')
-                        ->searchable()->preload()->required()->live(),
+                        ->searchable()
+                        ->preload()
+                        ->required()
+                        ->live()
+                        ->reactive()
+                        ->afterStateUpdated(fn (callable $set) => $set('section_id', null)),
                     Select::make('section_id')
                         ->label('Section')
-                        ->relationship('section', 'name')
-                        ->searchable()->preload()->required(),
+                        ->relationship('section', 'name', fn ($query, $get) => $query->when(
+                            $get('class_id'),
+                            fn ($q, $classId) => $q->where('class_id', $classId),
+                        ))
+                        ->searchable()
+                        ->preload()
+                        ->required()
+                        ->reactive()
+                        ->afterStateUpdated(fn (callable $set) => $set('student_id', null)),
                     Select::make('subject_id')
                         ->label('Subject')
                         ->relationship('subject', 'name')
-                        ->searchable()->preload()->required(),
+                        ->searchable()
+                        ->preload()
+                        ->required(),
                     Select::make('student_id')
                         ->label('Student')
-                        ->relationship('student', 'first_name')
+                        ->relationship('student', 'first_name', fn ($query, $get) => $query
+                            ->when($get('class_id'), fn ($q, $classId) => $q->where('class_id', $classId))
+                            ->when($get('section_id'), fn ($q, $sectionId) => $q->where('section_id', $sectionId)),
+                        )
                         ->getOptionLabelFromRecordUsing(fn ($record): string => trim($record->first_name . ' ' . $record->last_name))
                         ->searchable(['first_name', 'last_name', 'admission_number'])
                         ->preload()

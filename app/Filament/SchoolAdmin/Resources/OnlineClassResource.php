@@ -87,7 +87,8 @@ class OnlineClassResource extends Resource
                     ->schema([
                         TextInput::make('meeting_url')
                             ->url()
-                            ->maxLength(500),
+                            ->required()
+                            ->maxLength(255),
 
                         TextInput::make('meeting_id')
                             ->maxLength(255),

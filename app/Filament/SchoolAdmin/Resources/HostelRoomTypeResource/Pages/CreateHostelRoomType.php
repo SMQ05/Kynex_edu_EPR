@@ -6,4 +6,9 @@ use Filament\Resources\Pages\CreateRecord;
 class CreateHostelRoomType extends CreateRecord
 {
     protected static string $resource = HostelRoomTypeResource::class;
+
+     protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('index');
+    }
 }

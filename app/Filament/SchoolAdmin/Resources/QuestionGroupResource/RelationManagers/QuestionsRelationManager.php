@@ -77,6 +77,11 @@ class QuestionsRelationManager extends RelationManager
                 ->visible(fn (callable $get) => $get('type') === 'mcq')
                 ->afterStateHydrated(function (Repeater $component, $state) {
                     if (is_array($state) && $state !== [] && ! array_is_list($state)) {
+                        $firstValue = reset($state);
+                        if (is_array($firstValue)) {
+                            return;
+                        }
+
                         $component->state(
                             array_map(fn ($v) => ['text' => (string) $v], array_values($state))
                         );

@@ -102,4 +102,9 @@ class CreateExpense extends CreateRecord
             ->success()
             ->send();
     }
+    protected function getRedirectUrl(): string
+    {
+        return static::getResource()::getUrl('index');
+    }
+    
 }

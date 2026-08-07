@@ -10,4 +10,9 @@ use Filament\Resources\Pages\CreateRecord;
 class CreateHostelBuilding extends CreateRecord
 {
     protected static string $resource = HostelBuildingResource::class;
+
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('index');
+    }
 }

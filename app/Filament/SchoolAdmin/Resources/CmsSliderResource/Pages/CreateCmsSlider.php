@@ -8,4 +8,9 @@ use Filament\Resources\Pages\CreateRecord;
 class CreateCmsSlider extends CreateRecord
 {
     protected static string $resource = CmsSliderResource::class;
+
+        protected function getRedirectUrl(): string
+    {
+        return static::getResource()::getUrl('index');
+    }
 }

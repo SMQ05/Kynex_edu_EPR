@@ -157,7 +157,21 @@ class StudentApplicationResource extends Resource
                         ->searchable(),
                     Components\Select::make('campus_id')
                         ->options(fn () => Campus::pluck('name', 'id'))
-                        ->searchable(),
+                        ->searchable()
+                        ->default(function () {
+                            $user = auth('school_users')->user();
+                            if ($user && ! $user->hasAnyRole(['INSTITUTE_HEAD', 'MULTI_INSTITUTE_HEAD'])) {
+                                return $user->campus_id;
+                            }
+                            return null;
+                        })
+                        ->disabled(function () {
+                            $user = auth('school_users')->user();
+                            return $user
+                                && ! $user->hasAnyRole(['INSTITUTE_HEAD', 'MULTI_INSTITUTE_HEAD'])
+                                && $user->campus_id;
+                        })
+                        ->dehydrated(),
                 ]),
 
             Section::make('Entry Test')
