@@ -25,4 +25,9 @@ class EditOnlineExam extends EditRecord
         $this->record->load('questions');
         $this->record->recomputeTotalMarks();
     }
+
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('index');
+    }
 }
