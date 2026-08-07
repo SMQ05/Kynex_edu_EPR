@@ -360,6 +360,28 @@ abstract class DemoProfile
      */
     abstract public function lectures(): array;
 
+    /**
+     * Online exam bank, for the AI-graded assessment feature.
+     *
+     * Each exam: level, subject, name, state, duration in minutes, and its
+     * questions. State is one of:
+     *
+     *   graded   — window closed, attempts submitted and already AI-graded.
+     *              This is what you show a customer who wants to see the output.
+     *   open     — window open right now, so an exam can be sat live during the
+     *              demo and graded in front of them.
+     *   upcoming — window in the future, so the schedule is not empty.
+     *
+     * Each question: [type, text, options|null, correct answer|null, marks,
+     * explanation|null]. The type drives grading, per ExamQuestion:
+     *   mcq / true_false with a correct answer  -> auto-graded
+     *   essay, or short_answer with NO correct answer -> routed to AI
+     * A question bank with no ungraded types would never exercise the AI path.
+     *
+     * @return array<int,array{level:int,subject:string,name:string,state:string,duration:int,questions:array<int,array{0:string,1:string,2:?array,3:?string,4:int,5:?string}>}>
+     */
+    abstract public function onlineExams(): array;
+
     abstract public function alumni(): array;
 
     /**

@@ -648,6 +648,110 @@ final class UsaProfile extends DemoProfile
         ];
     }
 
+    /**
+     * Three online exams, one in each state, all with AI grading enabled.
+     *
+     * Questions are original and deliberately mixed: auto-gradable MCQ and
+     * true/false alongside essay and open short-answer items that carry no
+     * correct answer, which is what routes them to the AI grader.
+     */
+    public function onlineExams(): array
+    {
+        return [
+            // ── Already sat and AI-graded: the "show me the output" exam ──
+            [
+                'level' => 12,
+                'subject' => 'Biology',
+                'name' => 'Photosynthesis — Unit Assessment',
+                'state' => 'graded',
+                'duration' => 40,
+                'questions' => [
+                    ['mcq', 'Which gas is released as a by-product of photosynthesis?',
+                        ['Carbon dioxide', 'Oxygen', 'Nitrogen', 'Hydrogen'], 'Oxygen', 2,
+                        'Water is split during the light reactions, releasing oxygen.'],
+                    ['mcq', 'In which part of the chloroplast does the Calvin cycle take place?',
+                        ['Thylakoid membrane', 'Stroma', 'Outer membrane', 'Nucleus'], 'Stroma', 2,
+                        'The light reactions occur in the thylakoid membrane; the Calvin cycle occurs in the stroma.'],
+                    ['true_false', 'The light-independent reactions can continue indefinitely in complete darkness.',
+                        null, 'false', 2,
+                        'They do not use light directly, but they consume ATP and NADPH produced by the light reactions, so they stall once those run out.'],
+                    ['mcq', 'Chlorophyll appears green because it primarily:',
+                        ['Absorbs green light', 'Reflects green light', 'Emits green light', 'Converts light to green pigment'],
+                        'Reflects green light', 2,
+                        'Chlorophyll absorbs strongly in the blue and red regions and reflects green.'],
+                    // AI-graded: no correct_answer supplied
+                    ['short_answer', 'Name the two stages of photosynthesis and state which one produces glucose.',
+                        null, null, 4, null],
+                    ['essay', 'Explain why the Calvin cycle depends on the light reactions. Refer to the specific molecules that pass between the two stages, and describe what would happen to the rate of glucose production if light were removed for several hours.',
+                        null, null, 8, null],
+                ],
+            ],
+
+            // ── Open now: sit it live during the demo ────────────────
+            [
+                'level' => 12,
+                'subject' => 'Physics',
+                'name' => "Newton's Laws — Open Assessment",
+                'state' => 'open',
+                'duration' => 30,
+                'questions' => [
+                    ['mcq', 'A book rests on a table. Which statement is correct?',
+                        [
+                            'No forces act on the book',
+                            'Gravity acts on the book but the table exerts no force',
+                            'Gravity and the table\'s upward force act on the book and sum to zero',
+                            'The forces on the book are a Newton third-law pair',
+                        ],
+                        'Gravity and the table\'s upward force act on the book and sum to zero', 2,
+                        'Both forces act on the same object, so they are not a third-law pair — they simply cancel.'],
+                    ['true_false', 'An object moving at constant velocity has no net force acting on it.',
+                        null, 'true', 2,
+                        'Constant velocity means zero acceleration, which by the second law means zero net force.'],
+                    ['mcq', 'Why can a rocket accelerate in the vacuum of space?',
+                        [
+                            'It pushes against the air',
+                            'It pushes exhaust gas backwards and the gas pushes it forwards',
+                            'Gravity pulls it forwards',
+                            'It cannot accelerate in a vacuum',
+                        ],
+                        'It pushes exhaust gas backwards and the gas pushes it forwards', 2,
+                        'Third-law pair between rocket and exhaust; no external medium is needed.'],
+                    ['short_answer', 'A passenger lurches forward when a bus brakes suddenly. Explain this using inertia.',
+                        null, null, 4, null],
+                    ['essay', 'A student claims that in a tug of war the two teams pull on each other with equal and opposite force, so neither team can ever win. Identify the flaw in this reasoning and explain what actually determines the outcome.',
+                        null, null, 8, null],
+                ],
+            ],
+
+            // ── Scheduled: keeps the upcoming list populated ─────────
+            [
+                'level' => 12,
+                'subject' => 'U.S. History',
+                'name' => 'Constitution & Federalism — Semester Assessment',
+                'state' => 'upcoming',
+                'duration' => 50,
+                'questions' => [
+                    ['mcq', 'Which weakness of the Articles of Confederation most directly caused the national government\'s financial problems?',
+                        [
+                            'It had no national army',
+                            'It could not levy taxes directly',
+                            'It had no written bill of rights',
+                            'It allowed only one house of Congress',
+                        ],
+                        'It could not levy taxes directly', 2,
+                        'Without direct taxing power, Congress depended on requisitions the states often ignored.'],
+                    ['true_false', 'The Bill of Rights was part of the Constitution as originally ratified in 1788.',
+                        null, 'false', 2,
+                        'It was added by amendment afterwards, largely as the price of Anti-Federalist support for ratification.'],
+                    ['short_answer', 'Define federalism in one or two sentences, and give one example of a power shared by both national and state governments.',
+                        null, null, 4, null],
+                    ['essay', 'The Constitutional Convention was called to revise the Articles of Confederation and instead replaced them. Explain what the delegates concluded could not be fixed by revision, and assess one compromise they reached that you consider defensible and one you do not.',
+                        null, null, 10, null],
+                ],
+            ],
+        ];
+    }
+
     public function alumni(): array
     {
         return [

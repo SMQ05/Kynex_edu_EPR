@@ -415,6 +415,12 @@ final class PakProfile extends DemoProfile
         return [];
     }
 
+    /** No online exam bank authored for this school. */
+    public function onlineExams(): array
+    {
+        return [];
+    }
+
     public function alumni(): array
     {
         return [

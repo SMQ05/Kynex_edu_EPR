@@ -12,6 +12,7 @@ use Database\Seeders\Demo\FeesSeeder;
 use Database\Seeders\Demo\FinanceSeeder;
 use Database\Seeders\Demo\IdCardsAndCertificatesSeeder;
 use Database\Seeders\Demo\LecturesAndAssignmentsSeeder;
+use Database\Seeders\Demo\OnlineExamsSeeder;
 use Database\Seeders\Demo\NotificationsSeeder;
 use Database\Seeders\Demo\SchoolIdentitySeeder;
 use Database\Seeders\Demo\StaffSeeder;
@@ -369,6 +370,12 @@ class DemoTenantSeeder extends Seeder
         $exams = new ExamsAndResultsSeeder($staff, $classes, $studentsAndParents);
         $exams->setCommand($this->command);
         $exams->run();
+
+        // Online exams with AI grading. Runs alongside the lecture content so
+        // the assessment bank lines up with the material students were taught.
+        $onlineExams = new OnlineExamsSeeder($staff, $classes, $studentsAndParents);
+        $onlineExams->setCommand($this->command);
+        $onlineExams->run();
 
         // Lectures, homework lifecycle and AI tutor history. Runs after
         // students and exams so it can attach to real cohorts.
