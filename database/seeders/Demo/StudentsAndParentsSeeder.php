@@ -391,17 +391,19 @@ class StudentsAndParentsSeeder extends Seeder
      */
     protected function seedAlumni(): void
     {
-        $class10Id = $this->classes->classIdByNumber[10];
-        $section10A = $this->classes->sectionByKey['10-A']['id'] ?? null;
+        // Graduating level, not a fixed Class 10: the US school graduates from
+        // Grade 12. Falls back to the highest seeded level if the profile names
+        // one that does not exist.
+        $gradLevel = $this->profile()->graduatingLevel();
+        $class10Id = $this->classes->classIdByNumber[$gradLevel]
+            ?? $this->classes->classIdByNumber[max(array_keys($this->classes->classIdByNumber))];
+        // Alumni hang off the graduating level's first section (Class 10 for
+        // the Pakistani school, Grade 12 for the US one).
+        $gradKey = $gradLevel . '-A';
+        $section10A = $this->classes->sectionByKey[$gradKey]['id'] ?? null;
 
         $alumniSeq = 1;
-        $alumni = [
-            ['Imran', 'Khan', 'male', 2024],
-            ['Fatima', 'Sheikh', 'female', 2024],
-            ['Hassan', 'Iqbal', 'male', 2025],
-            ['Maryam', 'Ahmed', 'female', 2025],
-            ['Ali', 'Hussain', 'male', 2025],
-        ];
+        $alumni = $this->profile()->alumni();
 
         foreach ($alumni as [$first, $last, $gender, $gradYear]) {
             $id = (string) Str::ulid();

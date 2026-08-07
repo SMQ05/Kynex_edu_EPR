@@ -1,0 +1,107 @@
+{{--
+    Shared styling for the student portal.
+
+    WHY THIS FILE EXISTS: Filament's compiled stylesheet ships layout and
+    typography utilities but NOT the Tailwind colour scale or grid columns.
+    Verified against public/css/filament/filament/app.css:
+
+        present  text-3xl  font-bold  text-sm  flex  truncate
+        MISSING  text-gray-500  text-primary-600  text-green-600
+                 text-red-600  grid  grid-cols-*
+
+    So `class="grid grid-cols-4 text-gray-500"` silently renders as an
+    unstyled block — which is not a visible failure, just a page that quietly
+    looks wrong. Everything this portal needs is therefore defined here once
+    and pulled in per page. `.dark` is the class Filament sets on <html>.
+
+    Include with: @include('filament.student-portal.partials.styles')
+--}}
+<style>
+    /* ── Layout ─────────────────────────────────────────────────── */
+    .sp-grid-stats { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+    .sp-grid-two   { display: grid; gap: 1.5rem; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); }
+    .sp-grid-cards { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+
+    /* ── Stat tiles ─────────────────────────────────────────────── */
+    .sp-stat        { text-align: center; }
+    .sp-stat__value { font-size: 1.875rem; font-weight: 700; line-height: 1.25; }
+    .sp-stat__label { margin-top: .25rem; font-size: .875rem; color: #6b7280; }
+    .sp-stat__hint  { display: block; font-size: .75rem; color: #9ca3af; }
+    .dark .sp-stat__label { color: #9ca3af; }
+    .dark .sp-stat__hint  { color: #6b7280; }
+
+    /* ── Semantic colours ───────────────────────────────────────── */
+    .sp-teal { color: #0d9488; }  .dark .sp-teal { color: #2dd4bf; }
+    .sp-good { color: #16a34a; }  .dark .sp-good { color: #4ade80; }
+    .sp-warn { color: #d97706; }  .dark .sp-warn { color: #fbbf24; }
+    .sp-bad  { color: #dc2626; }  .dark .sp-bad  { color: #f87171; }
+    .sp-ink  { color: #111827; }  .dark .sp-ink  { color: #f9fafb; }
+    .sp-mute { color: #6b7280; }  .dark .sp-mute { color: #9ca3af; }
+
+    /* ── List rows ──────────────────────────────────────────────── */
+    .sp-row      { display: flex; align-items: flex-start; justify-content: space-between;
+                   gap: .75rem; padding: .75rem 0; border-bottom: 1px solid #f3f4f6; }
+    .sp-row:last-child { border-bottom: 0; }
+    .dark .sp-row      { border-bottom-color: #1f2937; }
+    .sp-row__title { font-weight: 500; color: #111827; }
+    .dark .sp-row__title { color: #f9fafb; }
+    .sp-row__meta  { font-size: .75rem; color: #6b7280; }
+    .dark .sp-row__meta { color: #9ca3af; }
+    .sp-empty { padding: 1.5rem 0; text-align: center; font-size: .875rem; color: #6b7280; }
+
+    /* ── Badges ─────────────────────────────────────────────────── */
+    .sp-badge       { flex-shrink: 0; border-radius: 9999px; padding: .125rem .5rem;
+                      font-size: .75rem; font-weight: 500; white-space: nowrap; }
+    .sp-badge--due  { background: #f3f4f6; color: #374151; }
+    .sp-badge--late { background: #fee2e2; color: #b91c1c; }
+    .sp-badge--exam { background: #ccfbf1; color: #0f766e; }
+    .sp-badge--ok   { background: #dcfce7; color: #15803d; }
+    .sp-badge--wait { background: #fef3c7; color: #b45309; }
+    .sp-badge--ai   { background: #ede9fe; color: #6d28d9; }
+    .dark .sp-badge--due  { background: #1f2937; color: #d1d5db; }
+    .dark .sp-badge--late { background: rgba(127,29,29,.4);  color: #fca5a5; }
+    .dark .sp-badge--exam { background: rgba(19,78,74,.5);   color: #5eead4; }
+    .dark .sp-badge--ok   { background: rgba(22,101,52,.4);  color: #86efac; }
+    .dark .sp-badge--wait { background: rgba(146,64,14,.4);  color: #fcd34d; }
+    .dark .sp-badge--ai   { background: rgba(76,29,149,.4);  color: #c4b5fd; }
+
+    /* ── Tables ─────────────────────────────────────────────────── */
+    .sp-table { width: 100%; border-collapse: collapse; font-size: .875rem; }
+    .sp-table th { text-align: left; font-weight: 600; font-size: .75rem;
+                   text-transform: uppercase; letter-spacing: .03em;
+                   color: #6b7280; padding: .5rem .75rem;
+                   border-bottom: 1px solid #e5e7eb; }
+    .sp-table td { padding: .625rem .75rem; border-bottom: 1px solid #f3f4f6; color: #374151; }
+    .sp-table tr:last-child td { border-bottom: 0; }
+    .sp-table td.sp-num, .sp-table th.sp-num { text-align: right; font-variant-numeric: tabular-nums; }
+    .dark .sp-table th { color: #9ca3af; border-bottom-color: #374151; }
+    .dark .sp-table td { color: #d1d5db; border-bottom-color: #1f2937; }
+    .sp-table__scroll { overflow-x: auto; }
+
+    /* ── Progress bar (attendance, fee paid ratio) ──────────────── */
+    .sp-bar      { height: .5rem; border-radius: 9999px; background: #e5e7eb; overflow: hidden; }
+    .dark .sp-bar { background: #374151; }
+    .sp-bar__fill { height: 100%; border-radius: 9999px; background: #0d9488; }
+
+    /* ── ID card ────────────────────────────────────────────────── */
+    .sp-card {
+        max-width: 26rem; border-radius: 1rem; overflow: hidden;
+        background: linear-gradient(135deg, #0f3d2e 0%, #0d9488 100%);
+        color: #fff; box-shadow: 0 10px 25px -5px rgba(0,0,0,.3);
+    }
+    .sp-card__head { padding: 1rem 1.25rem; border-bottom: 1px solid rgba(255,255,255,.2); }
+    .sp-card__body { display: flex; gap: 1.25rem; padding: 1.25rem; align-items: flex-start; }
+    .sp-card__photo { width: 5.5rem; height: 6.5rem; border-radius: .5rem; flex-shrink: 0;
+                      background: rgba(255,255,255,.15); display: flex;
+                      align-items: center; justify-content: center;
+                      font-size: 2rem; font-weight: 700; }
+    .sp-card__field { margin-bottom: .5rem; }
+    .sp-card__key   { font-size: .625rem; text-transform: uppercase; letter-spacing: .06em;
+                      opacity: .75; }
+    .sp-card__val   { font-size: .875rem; font-weight: 600; }
+    .sp-card__foot  { display: flex; gap: 1rem; align-items: center;
+                      padding: 1rem 1.25rem; background: rgba(0,0,0,.18); }
+    .sp-card__qr    { width: 5rem; height: 5rem; border-radius: .375rem;
+                      background: #fff; padding: .25rem; flex-shrink: 0; }
+    .sp-card__qr img { width: 100%; height: 100%; display: block; }
+</style>

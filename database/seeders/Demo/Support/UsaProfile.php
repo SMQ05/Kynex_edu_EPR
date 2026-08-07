@@ -204,9 +204,21 @@ final class UsaProfile extends DemoProfile
         );
     }
 
+    /**
+     * A subdomain of a domain the operator actually controls, not a .edu.
+     *
+     * Two reasons this is not lincoln.kynexsolutions.com:
+     *   1. .edu is restricted by EDUCAUSE to accredited US institutions. A US
+     *      buyer may well know that, and a fake .edu in a sales demo reads as
+     *      careless.
+     *   2. MAIL_MAILER is configured for a live Resend key. If anything in the
+     *      demo ever actually sends, addresses on an unowned domain hard-bounce
+     *      and damage the sender reputation of the real account. Keeping demo
+     *      addresses on a controlled domain contains that.
+     */
     public function emailDomain(): string
     {
-        return 'lincolnheights.edu';
+        return 'lincoln.kynexsolutions.com';
     }
 
     public function leadership(): array
@@ -495,6 +507,88 @@ final class UsaProfile extends DemoProfile
         ];
     }
 
+    public function feeGroups(): array
+    {
+        return [
+            'Tuition' => 'Monthly tuition, billed over ten months',
+            'Enrollment' => 'Registration and one-time enrollment charges',
+            'Assessments' => 'Standardised testing and AP exam fees',
+            'Optional Services' => 'Bus service, athletics, activity fees',
+        ];
+    }
+
+    public function feeTypes(): array
+    {
+        return [
+            ['Monthly Tuition', 'Tuition', true],
+            ['Registration Fee', 'Enrollment', false],
+            ['Technology Fee', 'Enrollment', false],
+            ['Science Lab Fee', 'Optional Services', true],
+            ['Library & Media Fee', 'Optional Services', true],
+            ['Athletics Fee', 'Optional Services', true],
+            ['Computer Science Lab', 'Optional Services', true],
+            ['Bus Service', 'Optional Services', true],
+            ['AP & Assessment Fees', 'Assessments', false],
+            ['Books & Supplies', 'Enrollment', false],
+        ];
+    }
+
+    /**
+     * Amounts in USD. Tuition lands around $8.5k-$11.5k a year across ten
+     * monthly instalments, which is the realistic band for an independent day
+     * school in central Texas.
+     */
+    public function feeRates(): array
+    {
+        return [
+            'Monthly Tuition' => ['lower' => 850, 'middle' => 975, 'upper' => 1150],
+            'Registration Fee' => ['lower' => 350, 'middle' => 400, 'upper' => 450],
+            'Technology Fee' => ['lower' => 180, 'middle' => 240, 'upper' => 300],
+            'Library & Media Fee' => ['lower' => 40, 'middle' => 50, 'upper' => 60],
+            'Athletics Fee' => ['lower' => 60, 'middle' => 110, 'upper' => 160],
+            'Science Lab Fee' => ['lower' => 0, 'middle' => 70, 'upper' => 130],
+            'Computer Science Lab' => ['lower' => 0, 'middle' => 55, 'upper' => 85],
+            'Bus Service' => ['lower' => 185, 'middle' => 185, 'upper' => 185],
+            'AP & Assessment Fees' => ['lower' => 0, 'middle' => 45, 'upper' => 105],
+            'Books & Supplies' => ['lower' => 95, 'middle' => 120, 'upper' => 145],
+        ];
+    }
+
+    /** Lower school K-5, middle school 6-8, upper school 9-12. */
+    public function feeTierFor(int $level): string
+    {
+        return $level <= 5 ? 'lower' : ($level <= 8 ? 'middle' : 'upper');
+    }
+
+    public function feeRoles(): array
+    {
+        return [
+            'tuition' => 'Monthly Tuition',
+            'admission' => 'Registration Fee',
+            'transport' => 'Bus Service',
+            'recurring' => [
+                'Monthly Tuition', 'Library & Media Fee', 'Athletics Fee',
+                'Science Lab Fee', 'Computer Science Lab',
+            ],
+        ];
+    }
+
+    public function alumni(): array
+    {
+        return [
+            ['Nathaniel', 'Brooks', 'male', 2024],
+            ['Priya', 'Raman', 'female', 2024],
+            ['Dominic', 'Alvarez', 'male', 2025],
+            ['Sarah', 'Whitfield', 'female', 2025],
+            ['Joshua', 'Okonjo', 'male', 2025],
+        ];
+    }
+
+    public function graduatingLevel(): int
+    {
+        return 12;
+    }
+
     public function certificatePrefix(): string
     {
         return 'LHA';
@@ -560,10 +654,10 @@ final class UsaProfile extends DemoProfile
                 'content' => '<h2>Get in Touch</h2>'
                     . '<p><strong>Address:</strong> 4820 Shoal Creek Blvd, Austin, TX 78756, United States</p>'
                     . '<p><strong>Phone:</strong> (512) 555-0100</p>'
-                    . '<p><strong>Email:</strong> office@lincolnheights.edu</p>'
+                    . '<p><strong>Email:</strong> office@lincoln.kynexsolutions.com</p>'
                     . '<p>Front office: Monday to Friday, 7:45 AM to 4:00 PM</p>',
                 'meta_title' => 'Contact Lincoln Heights Academy',
-                'meta_description' => 'Reach Lincoln Heights Academy at (512) 555-0100 or office@lincolnheights.edu.',
+                'meta_description' => 'Reach Lincoln Heights Academy at (512) 555-0100 or office@lincoln.kynexsolutions.com.',
                 'sort_order' => 5,
             ],
             [
@@ -594,11 +688,16 @@ final class UsaProfile extends DemoProfile
             'name' => 'Lincoln Heights Academy',
             'tagline' => 'Learn Boldly. Lead Kindly. — Austin, Texas',
             'address' => '4820 Shoal Creek Blvd, Austin, TX 78756, United States',
-            'email' => 'office@lincolnheights.edu',
+            'email' => 'office@lincoln.kynexsolutions.com',
             'phone' => '+1 (512) 555-0100',
+            'whatsapp' => '+1 (512) 555-0101',
+            'facebook' => 'https://facebook.com/lincolnheightsacademy',
+            'twitter' => 'https://x.com/lincolnheightstx',
+            'instagram' => 'https://instagram.com/lincolnheightsacademy',
+            'youtube' => 'https://youtube.com/@lincolnheightsacademy',
             'city' => 'Austin',
-            'website' => 'https://lincolnheights.edu',
-            'admission_form_url' => 'https://lincolnheights.edu/admissions/apply',
+            'website' => 'https://lincoln.kynexsolutions.com',
+            'admission_form_url' => 'https://lincoln.kynexsolutions.com/admissions/apply',
             'currency_code' => 'USD',
             'currency_symbol' => '$',
             'timezone' => 'America/Chicago',

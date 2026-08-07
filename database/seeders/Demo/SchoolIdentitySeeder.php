@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Database\Seeders\Demo;
 
 use Database\Seeders\Demo\Support\DemoProfile;
+use App\Support\SchoolSettings;
 
 use App\Models\Tenant;
 use Illuminate\Database\Seeder;
@@ -57,8 +58,6 @@ class SchoolIdentitySeeder extends Seeder
     {
         return DemoProfile::current()->school()['email'];
     }
-    public const SCHOOL_WHATSAPP = '+923001234567';
-    public const SCHOOL_FACEBOOK = 'https://facebook.com/aqmpublicschool';
 
     public function run(): void
     {
@@ -67,7 +66,49 @@ class SchoolIdentitySeeder extends Seeder
         $this->renameCentralTenant($tenant);
         $this->consolidateCampuses();
         $this->renameCmsSettings();
+        $this->seedSchoolSettings();
         $this->renameAcademicYear();
+    }
+
+    /**
+     * Populate the school_settings key/value store.
+     *
+     * This table was left completely empty by the seeder, so every
+     * SchoolSettings::get() call anywhere in the app silently fell back to its
+     * inline default — the student ID card showed the framework's app.name
+     * instead of the school, and currency came out as whatever each caller
+     * happened to pass as a fallback. Filling it here means one source of
+     * truth per tenant, taken from the active profile.
+     */
+    protected function seedSchoolSettings(): void
+    {
+        $profile = DemoProfile::current();
+        $school = $profile->school();
+        $cms = $profile->cms();
+
+        SchoolSettings::setMany([
+            'school.name' => $school['name'],
+            'school.tagline' => $school['tagline'],
+            'school.address' => $school['address'],
+            'school.city' => $school['city'],
+            'school.email' => $school['email'],
+            'school.phone' => $school['phone'],
+            'school.website' => $school['website'],
+            'school.founded_year' => (string) $cms['founded_year'],
+            'school.grade_range' => $cms['grade_range'],
+            'school.office_hours' => $cms['office_hours'],
+        ], group: 'school');
+
+        SchoolSettings::setMany([
+            'currency.code' => $school['currency_code'],
+            'currency.symbol' => $school['currency_symbol'],
+        ], group: 'currency');
+
+        SchoolSettings::setMany([
+            'locale.timezone' => $school['timezone'],
+        ], group: 'locale');
+
+        $this->command?->line('  ✓ school_settings seeded (school / currency / locale)');
     }
 
     /**
@@ -235,11 +276,11 @@ class SchoolIdentitySeeder extends Seeder
             'address' => self::schoolAddress(),
             'phone' => self::schoolPhone(),
             'email' => self::schoolEmail(),
-            'whatsapp' => self::SCHOOL_WHATSAPP,
-            'facebook_url' => self::SCHOOL_FACEBOOK,
-            'twitter_url' => 'https://x.com/aqmpublicschool',
-            'instagram_url' => 'https://instagram.com/aqmpublicschool',
-            'youtube_url' => 'https://youtube.com/@aqmpublicschool',
+            'whatsapp' => DemoProfile::current()->school()['whatsapp'],
+            'facebook_url' => DemoProfile::current()->school()['facebook'],
+            'twitter_url' => DemoProfile::current()->school()['twitter'],
+            'instagram_url' => DemoProfile::current()->school()['instagram'],
+            'youtube_url' => DemoProfile::current()->school()['youtube'],
             'primary_color' => '#1a56db',
             'admission_open' => true,
             'admission_form_url' => DemoProfile::current()->school()['admission_form_url'],

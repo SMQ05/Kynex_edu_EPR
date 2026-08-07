@@ -126,7 +126,9 @@ abstract class DemoProfile
      *
      * @return array{
      *     name:string, tagline:string, address:string, email:string,
-     *     phone:string, city:string, website:string, admission_form_url:string,
+     *     phone:string, whatsapp:string, facebook:string,
+     *     twitter:string, instagram:string, youtube:string,
+     *     city:string, website:string, admission_form_url:string,
      *     currency_code:string, currency_symbol:string, timezone:string
      * }
      */
@@ -287,6 +289,63 @@ abstract class DemoProfile
      *         [category, title, min amount, max amount, date]
      */
     abstract public function periodicExpenses(): array;
+
+    /** Prefix for generated certificate numbers, e.g. 'AQM' -> AQM-CERT-2026-001. */
+    /**
+     * Graduated alumni, used as FK targets for completion certificates.
+     *
+     * @return array<int,array{0:string,1:string,2:string,3:int}>
+     *         [first name, last name, gender, graduation year]
+     */
+    /**
+     * Fee groups: name => description.
+     *
+     * @return array<string,string>
+     */
+    abstract public function feeGroups(): array;
+
+    /**
+     * Fee types: [name, group name, is recurring].
+     *
+     * @return array<int,array{0:string,1:string,2:bool}>
+     */
+    abstract public function feeTypes(): array;
+
+    /**
+     * Rate card, fee type name => tier => amount in MAJOR currency units.
+     * A zero means the fee does not apply at that tier.
+     *
+     * @return array<string,array<string,int>>
+     */
+    abstract public function feeRates(): array;
+
+    /**
+     * Which rate tier a grade level falls into. Must return a key present in
+     * every feeRates() entry.
+     */
+    abstract public function feeTierFor(int $level): string;
+
+    /**
+     * Semantic fee roles mapped onto this profile's fee type NAMES.
+     *
+     * FeesSeeder needs to know which type is the recurring tuition line, which
+     * is the one-time joining charge, and which is the opt-in transport line.
+     * It used to hardcode the Pakistani names ('Tuition Monthly',
+     * 'Admission Fee', 'Transport'), so renaming the types for another market
+     * broke the lookups with "Undefined array key". Roles decouple the two.
+     *
+     * @return array{tuition:string,admission:string,transport:string,recurring:array<int,string>}
+     */
+    abstract public function feeRoles(): array;
+
+    abstract public function alumni(): array;
+
+    /**
+     * The final grade level students graduate from — 10 for a school ending
+     * at Class 10, 12 for a US K-12 school. Alumni are attached to this
+     * level's first section.
+     */
+    abstract public function graduatingLevel(): int;
 
     /** Prefix for generated certificate numbers, e.g. 'AQM' -> AQM-CERT-2026-001. */
     abstract public function certificatePrefix(): string;

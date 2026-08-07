@@ -344,6 +344,80 @@ final class PakProfile extends DemoProfile
             ];
     }
 
+    public function feeGroups(): array
+    {
+        return [
+            'Tuition' => 'Recurring monthly tuition fees',
+            'One-time Fees' => 'Admission and one-time charges',
+            'Exam Fees' => 'Per-exam charges',
+            'Optional Services' => 'Transport, library, sports, etc.',
+        ];
+    }
+
+    public function feeTypes(): array
+    {
+        return [
+            ['Tuition Monthly', 'Tuition', true],
+            ['Admission Fee', 'One-time Fees', false],
+            ['Annual Charges', 'One-time Fees', false],
+            ['Lab Fee', 'Optional Services', true],
+            ['Library Fee', 'Optional Services', true],
+            ['Sports Fee', 'Optional Services', true],
+            ['Computer Lab', 'Optional Services', true],
+            ['Transport', 'Optional Services', true],
+            ['Exam Fee', 'Exam Fees', false],
+            ['Stationery', 'One-time Fees', false],
+        ];
+    }
+
+    /** Amounts in PKR. */
+    public function feeRates(): array
+    {
+        return [
+            'Tuition Monthly' => ['low' => 2500, 'mid' => 4500, 'high' => 6500],
+            'Admission Fee' => ['low' => 5000, 'mid' => 8000, 'high' => 12000],
+            'Annual Charges' => ['low' => 3000, 'mid' => 5000, 'high' => 8000],
+            'Library Fee' => ['low' => 200, 'mid' => 300, 'high' => 400],
+            'Sports Fee' => ['low' => 300, 'mid' => 400, 'high' => 500],
+            'Lab Fee' => ['low' => 0, 'mid' => 500, 'high' => 1200],
+            'Computer Lab' => ['low' => 0, 'mid' => 600, 'high' => 800],
+            'Transport' => ['low' => 1500, 'mid' => 1500, 'high' => 1500],
+            'Exam Fee' => ['low' => 500, 'mid' => 800, 'high' => 1200],
+            'Stationery' => ['low' => 500, 'mid' => 750, 'high' => 1000],
+        ];
+    }
+
+    public function feeTierFor(int $level): string
+    {
+        return $level <= 3 ? 'low' : ($level <= 7 ? 'mid' : 'high');
+    }
+
+    public function feeRoles(): array
+    {
+        return [
+            'tuition' => 'Tuition Monthly',
+            'admission' => 'Admission Fee',
+            'transport' => 'Transport',
+            'recurring' => ['Tuition Monthly', 'Library Fee', 'Sports Fee', 'Lab Fee', 'Computer Lab'],
+        ];
+    }
+
+    public function alumni(): array
+    {
+        return [
+            ['Imran', 'Khan', 'male', 2024],
+            ['Fatima', 'Sheikh', 'female', 2024],
+            ['Hassan', 'Iqbal', 'male', 2025],
+            ['Maryam', 'Ahmed', 'female', 2025],
+            ['Ali', 'Hussain', 'male', 2025],
+        ];
+    }
+
+    public function graduatingLevel(): int
+    {
+        return 10;
+    }
+
     public function certificatePrefix(): string
     {
         return 'AQM';
@@ -423,6 +497,11 @@ final class PakProfile extends DemoProfile
             'address' => 'Plot 142, Block C, Johar Town, Lahore, Punjab 54600, Pakistan',
             'email' => 'info@aqmdigital.com',
             'phone' => '+92-42-1234-5678',
+            'whatsapp' => '+923001234567',
+            'facebook' => 'https://facebook.com/aqmpublicschool',
+            'twitter' => 'https://x.com/aqmpublicschool',
+            'instagram' => 'https://instagram.com/aqmpublicschool',
+            'youtube' => 'https://youtube.com/@aqmpublicschool',
             'city' => 'Lahore',
             'website' => 'https://aqmdigital.com',
             'admission_form_url' => 'https://aqmdigital.com/apply',

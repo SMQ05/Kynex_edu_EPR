@@ -412,7 +412,7 @@ HTML;
      * Verification URL for a certificate. Includes ?tenant= so the public
      * verify page can initialize the right tenant DB on the central domain.
      */
-    private function verificationUrlFor(string $certificateNumber): string
+    public function verificationUrlFor(string $certificateNumber): string
     {
         $tenantId = tenancy()->initialized ? tenant()->id : null;
         $base = URL::to('/verify/certificate/' . urlencode($certificateNumber));
@@ -426,7 +426,7 @@ HTML;
      * Uses admission_number as the public identifier so the URL remains
      * stable even if internal IDs change.
      */
-    private function verificationUrlForStudent(Student $student): string
+    public function verificationUrlForStudent(Student $student): string
     {
         $tenantId = tenancy()->initialized ? tenant()->id : null;
         $identifier = $student->registration_number ?: $student->admission_number ?: $student->id;
@@ -437,7 +437,7 @@ HTML;
     /**
      * Generate a base64 data URI containing a PNG QR code.
      */
-    private function qrImageDataUri(string $url): string
+    public function qrImageDataUri(string $url): string
     {
         try {
             $options = new QROptions([

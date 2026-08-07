@@ -69,12 +69,7 @@ class FeesSeeder extends Seeder
         DB::table('fee_types')->delete();
         DB::table('fee_groups')->delete();
 
-        $groups = [
-            'Tuition' => 'Recurring monthly tuition fees',
-            'One-time Fees' => 'Admission and one-time charges',
-            'Exam Fees' => 'Per-exam charges',
-            'Optional Services' => 'Transport, library, sports, etc.',
-        ];
+        $groups = $this->profile()->feeGroups();
         $groupId = [];
         foreach ($groups as $name => $desc) {
             $id = (string) Str::ulid();
@@ -87,20 +82,9 @@ class FeesSeeder extends Seeder
             ]);
             $groupId[$name] = $id;
         }
-        $this->command?->line('  ✓ fee_groups seeded (4)');
+        $this->command?->line('  ✓ fee_groups seeded (' . count($groups) . ')');
 
-        $types = [
-            ['Tuition Monthly', 'Tuition', true],
-            ['Admission Fee', 'One-time Fees', false],
-            ['Annual Charges', 'One-time Fees', false],
-            ['Lab Fee', 'Optional Services', true],
-            ['Library Fee', 'Optional Services', true],
-            ['Sports Fee', 'Optional Services', true],
-            ['Computer Lab', 'Optional Services', true],
-            ['Transport', 'Optional Services', true],
-            ['Exam Fee', 'Exam Fees', false],
-            ['Stationery', 'One-time Fees', false],
-        ];
+        $types = $this->profile()->feeTypes();
         foreach ($types as [$name, $group, $recurring]) {
             $id = (string) Str::ulid();
             DB::table('fee_types')->insert([
@@ -132,25 +116,19 @@ class FeesSeeder extends Seeder
      */
     protected function seedFeeMasters(): void
     {
-        $tier = function (int $class): string {
-            return $class <= 3 ? 'low' : ($class <= 7 ? 'mid' : 'high');
-        };
-        $rates = [
-            'Tuition Monthly' => ['low' => 2500, 'mid' => 4500, 'high' => 6500],
-            'Admission Fee' => ['low' => 5000, 'mid' => 8000, 'high' => 12000],
-            'Annual Charges' => ['low' => 3000, 'mid' => 5000, 'high' => 8000],
-            'Library Fee' => ['low' => 200, 'mid' => 300, 'high' => 400],
-            'Sports Fee' => ['low' => 300, 'mid' => 400, 'high' => 500],
-            'Lab Fee' => ['low' => 0, 'mid' => 500, 'high' => 1200],
-            'Computer Lab' => ['low' => 0, 'mid' => 600, 'high' => 800],
-            'Transport' => ['low' => 1500, 'mid' => 1500, 'high' => 1500],
-            'Exam Fee' => ['low' => 500, 'mid' => 800, 'high' => 1200],
-            'Stationery' => ['low' => 500, 'mid' => 750, 'high' => 1000],
-        ];
+        $tier = fn (int $class): string => $this->profile()->feeTierFor($class);
+        $rates = $this->profile()->feeRates();
 
         $count = 0;
-        for ($n = 1; $n <= 10; $n++) {
-            $classId = $this->classes->classIdByNumber[$n];
+        // Iterate the profile's own grade levels. This was `for ($n = 1; $n <= 10)`,
+        // so on a K-12 school Kindergarten, Grade 11 and Grade 12 received NO fee
+        // schedule at all — those students showed a $0 statement while every other
+        // grade billed normally.
+        foreach (array_keys($this->profile()->gradeLevels()) as $n) {
+            $classId = $this->classes->classIdByNumber[$n] ?? null;
+            if ($classId === null) {
+                continue;
+            }
             $t = $tier($n);
             foreach ($rates as $typeName => $tierRates) {
                 $amount = $tierRates[$t];
@@ -188,7 +166,12 @@ class FeesSeeder extends Seeder
         $receiptSeq = 1;
 
         foreach ($this->studentsAndParents->studentRows as $s) {
-            $amount = $this->masterAmount["{$s['class_number']}-Admission Fee"] ?? null;
+            // Keyed by the profile's admission fee-type NAME. This was the
+            // literal 'Admission Fee', so on a profile that calls it something
+            // else the lookup missed every time and silently `continue`d —
+            // producing "Admission fee invoices (0)" with no error.
+            $admissionName = $this->profile()->feeRoles()['admission'];
+            $amount = $this->masterAmount["{$s['class_number']}-{$admissionName}"] ?? null;
             if ($amount === null) {
                 continue;
             }
@@ -198,7 +181,7 @@ class FeesSeeder extends Seeder
             DB::table('student_fees')->insert([
                 'id' => $studentFeeId,
                 'student_id' => $s['id'],
-                'fee_type_id' => $this->feeTypeIdByName['Admission Fee'],
+                'fee_type_id' => $this->feeTypeIdByName[$this->profile()->feeRoles()['admission']],
                 'academic_year_id' => $this->academicYearId,
                 'due_date' => $admissionDate,
                 'amount_paisas' => $amount,
@@ -249,7 +232,7 @@ class FeesSeeder extends Seeder
     protected function seedMonthlyFeesAndPayments(): void
     {
         $months = ['2026-02', '2026-03', '2026-04', '2026-05'];
-        $recurring = ['Tuition Monthly', 'Library Fee', 'Sports Fee', 'Lab Fee', 'Computer Lab'];
+        $recurring = $this->profile()->feeRoles()['recurring'];
         $receiptSeq = DB::table('fee_payments')->count() + 1;
 
         // Pre-decide which students take transport (~40%).
@@ -282,8 +265,12 @@ class FeesSeeder extends Seeder
                     $feesForMonth[$typeName] = $amount;
                 }
                 if (isset($transportStudentIds[$s['id']])) {
-                    $feesForMonth['Transport'] = $this->masterAmount["{$s['class_number']}-Transport"]
-                        ?? 1500 * 100;
+                    $transportName = $this->profile()->feeRoles()['transport'];
+                    $feesForMonth[$transportName] = $this->masterAmount["{$s['class_number']}-{$transportName}"]
+                        ?? null;
+                    if ($feesForMonth[$transportName] === null) {
+                        unset($feesForMonth[$transportName]);
+                    }
                 }
 
                 if (empty($feesForMonth)) {

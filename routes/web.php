@@ -11,6 +11,7 @@ use App\Http\Controllers\PublicAdmissionTestController;
 use App\Http\Controllers\ResultCardController;
 use App\Http\Controllers\SchoolPortalController;
 use App\Http\Middleware\EnsureCentralHost;
+use App\Http\Controllers\VerificationController;
 use App\Http\Middleware\InitializeTenancyBySubdomainOrDomain;
 use Illuminate\Support\Facades\Route;
 use Stancl\Tenancy\Database\Models\Domain;
@@ -227,6 +228,27 @@ Route::name('school.')->group(function () {
 
 // ─────────────────────────────────────────────────────────────────
 // Caddy On-Demand TLS Domain Check (Phase 15C.6)
+// ─────────────────────────────────────────────────────────────────
+// Public QR verification for printed student ID cards and issued
+// certificates.
+//
+// CertificateService has always encoded QR codes pointing here
+// (/verify/student/{id} and /verify/certificate/{no}, with ?tenant=),
+// but the routes did not exist — so every QR ever printed resolved to a
+// 404. These are that missing half.
+//
+// Intentionally NOT behind tenancy middleware: the tenant is named in the
+// query string and resolved inside the controller, because a code scanned
+// from a printed card arrives at the central host with no tenant context.
+// ─────────────────────────────────────────────────────────────────
+Route::get('/verify/student/{identifier}', [VerificationController::class, 'student'])
+    ->name('verify.student')
+    ->where('identifier', '[A-Za-z0-9\-_]+');
+
+Route::get('/verify/certificate/{number}', [VerificationController::class, 'certificate'])
+    ->name('verify.certificate')
+    ->where('number', '[A-Za-z0-9\-_]+');
+
 // ─────────────────────────────────────────────────────────────────
 // Caddy calls this endpoint before provisioning an SSL certificate.
 // Returns 200 for verified domains, 404 otherwise.

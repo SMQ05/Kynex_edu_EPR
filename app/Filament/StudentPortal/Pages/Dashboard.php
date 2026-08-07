@@ -82,12 +82,13 @@ class Dashboard extends Page
             ->orderByDesc('created_at')
             ->first();
 
-        // There is no balance column: outstanding is
-        // amount - discount + fine - paid, summed over anything not settled.
-        // Statuses in this schema are pending | partial | paid.
+        // There is no balance column. StudentFee::getBalancePaisasAttribute()
+        // derives it per row, but this needs a single aggregate, so the same
+        // definition (amount + fine - discount - paid) is expressed in SQL.
+        // Keep the two in step. Statuses here are pending | partial | paid.
         $outstandingFees = (int) StudentFee::where('student_id', $studentId)
             ->whereIn('status', ['pending', 'partial'])
-            ->selectRaw('COALESCE(SUM(amount_paisas - discount_paisas + fine_paisas - paid_paisas), 0) AS due')
+            ->selectRaw('COALESCE(SUM(amount_paisas + fine_paisas - discount_paisas - paid_paisas), 0) AS due')
             ->value('due');
 
         return [
