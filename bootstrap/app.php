@@ -96,8 +96,21 @@ return Application::configure(basePath: dirname(__DIR__))
 
             foreach ($panels as $prefix => [$guard, $route]) {
                 if ($request->is($prefix . '/*') && auth()->guard($guard)->check()) {
-                    return redirect()->route($route)
-                        ->with('denied_url', $request->url());
+                    // Do NOT use the redirect() helper here. Filament panel pages
+                    // are Livewire components, and Livewire's SupportRedirects
+                    // rebinds the 'redirect' container key to its own Redirector
+                    // whose to()/with() return $this instead of a RedirectResponse.
+                    // The kernel then returns that Redirector as the response and
+                    // PreventRequestForgery::addCookieToResponse() reads ->headers
+                    // on it, so every in-panel 403 died as
+                    // "Undefined property: Livewire\...\Redirector::$headers" (500)
+                    // and this AccessDenied page was never actually reachable.
+                    // Flash the key directly and hand back a real response.
+                    if ($request->hasSession()) {
+                        $request->session()->flash('denied_url', $request->url());
+                    }
+
+                    return new \Illuminate\Http\RedirectResponse(route($route));
                 }
             }
 
