@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Database\Seeders\Demo;
 
+use Database\Seeders\Demo\Support\UsesDemoProfile;
+
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -16,6 +18,8 @@ use Illuminate\Support\Str;
  */
 class NotificationsSeeder extends Seeder
 {
+    use UsesDemoProfile;
+
     public function __construct(
         public StaffSeeder $staff,
     ) {}
@@ -98,7 +102,7 @@ class NotificationsSeeder extends Seeder
                     'id' => (string) Str::ulid(),
                     'user_id' => $userId,
                     'title' => $tpl[0],
-                    'body' => str_replace(['{N}', '{S}'], [strtoupper(Str::random(6)), 'AQM-2025-' . str_pad((string) mt_rand(1, 100), 3, '0', STR_PAD_LEFT)], $tpl[1]),
+                    'body' => str_replace(['{N}', '{S}'], [strtoupper(Str::random(6)), $this->profile()->certificatePrefix() . '-2025-' . str_pad((string) mt_rand(1, 100), 3, '0', STR_PAD_LEFT)], $tpl[1]),
                     'type' => $tpl[2],
                     'action_url' => null,
                     'read_at' => $isRead ? $createdAt->copy()->addHours(mt_rand(1, 12)) : null,

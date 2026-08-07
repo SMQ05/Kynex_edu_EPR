@@ -157,10 +157,40 @@ class DemoTenantSeeder extends Seeder
         if (! $tenant) {
             throw new \RuntimeException('DemoTenantSeeder must run inside tenant context (tenants:run db:seed).');
         }
-        if ($tenant->id !== self::TARGET_TENANT_ID) {
-            $this->command?->error("Refusing to seed: this seeder is hard-pinned to tenant '" . self::TARGET_TENANT_ID . "', got '{$tenant->id}'.");
-            throw new \RuntimeException('Wrong tenant for DemoTenantSeeder.');
+
+        // The seeder used to be hard-pinned to TARGET_TENANT_ID (the live AQM
+        // school) and refused every other tenant. That is now inverted: any
+        // tenant may be seeded, but seeding AQM specifically requires an
+        // explicit DEMO_ALLOW_AQM=1 opt-in.
+        //
+        // Why the inversion: this seeder WIPES operational tables. Pinning it
+        // to a real production tenant meant the only thing it could ever
+        // destroy was live customer data, and an accidental run on the wrong
+        // machine was unrecoverable. AQM now needs a deliberate extra flag,
+        // and everything else (demo tenants) just works.
+        if ($tenant->id === self::TARGET_TENANT_ID
+            && ! $this->detectFlag('--allow-aqm', 'DEMO_ALLOW_AQM')) {
+            $this->command?->error(
+                "Refusing to seed tenant '{$tenant->id}': that is the live AQM school.\n"
+                . '  This seeder wipes operational tables. If you really mean it, '
+                . 're-run with DEMO_ALLOW_AQM=1.'
+            );
+            throw new \RuntimeException('Refusing to seed the AQM tenant without DEMO_ALLOW_AQM=1.');
         }
+
+        // Pick the locale / school-identity profile. Explicit DEMO_PROFILE
+        // wins; otherwise the AQM tenant gets Pakistan and anything else
+        // gets the US school, which is what a fresh demo tenant wants.
+        $profileKey = strtolower(trim((string) getenv('DEMO_PROFILE')));
+        if ($profileKey === '') {
+            $profileKey = $tenant->id === self::TARGET_TENANT_ID ? 'pak' : 'usa';
+        }
+        $profile = match ($profileKey) {
+            'pak', 'pk' => new \Database\Seeders\Demo\Support\PakProfile(),
+            'usa', 'us' => new \Database\Seeders\Demo\Support\UsaProfile(),
+            default => throw new \RuntimeException("Unknown DEMO_PROFILE '{$profileKey}' (expected pak|usa)."),
+        };
+        \Database\Seeders\Demo\Support\DemoProfile::use($profile);
 
         // Pin Faker / mt_rand for reproducibility.
         mt_srand(20260505);
@@ -175,8 +205,9 @@ class DemoTenantSeeder extends Seeder
         $fresh = $this->detectFlag('--fresh', 'DEMO_FRESH');
         $force = $this->detectFlag('--force', 'DEMO_FORCE');
 
-        $this->command?->info('═══ AQM Public School demo seeder ═══');
-        $this->command?->line('Tenant: ' . $tenant->id);
+        $this->command?->info('═══ ' . $profile->school()['name'] . ' demo seeder ═══');
+        $this->command?->line('Tenant : ' . $tenant->id);
+        $this->command?->line('Profile: ' . $profileKey . ' (' . $profile->school()['currency_code'] . ')');
         $this->command?->line('Mode  : ' . ($fresh ? 'FRESH (wipe + reseed)' : 'CHECK ONLY (refuse if data exists)'));
         $this->command?->line('');
 

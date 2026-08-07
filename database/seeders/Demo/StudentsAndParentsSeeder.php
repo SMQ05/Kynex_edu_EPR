@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Database\Seeders\Demo;
 
-use Database\Seeders\Demo\Support\Pak;
+use Database\Seeders\Demo\Support\UsesDemoProfile;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -24,6 +24,8 @@ use Illuminate\Support\Str;
  */
 class StudentsAndParentsSeeder extends Seeder
 {
+    use UsesDemoProfile;
+
     public const CLASS_SIZES = [
         1 => 12, 2 => 11, 3 => 10, 4 => 10, 5 => 9,
         6 => 10, 7 => 10, 8 => 9, 9 => 10, 10 => 9,
@@ -92,8 +94,8 @@ class StudentsAndParentsSeeder extends Seeder
     protected function seedStudentsAndParents(string $appKey): void
     {
         $issuedEmails = [
-            'admin@aqmdigital.com' => true,
-            'principal@aqmdigital.com' => true,
+            'admin@' . $this->profile()->emailDomain() => true,
+            'principal@' . $this->profile()->emailDomain() => true,
         ];
         // Re-add staff emails to avoid collisions
         foreach (DB::table('school_users')->pluck('email') as $email) {
@@ -106,9 +108,9 @@ class StudentsAndParentsSeeder extends Seeder
         $admissionSeq = 1;
         $studentTotal = 0;
 
-        foreach (self::CLASS_SIZES as $classNumber => $size) {
+        foreach ($this->profile()->classSizes() as $classNumber => $size) {
             $classId = $this->classes->classIdByNumber[$classNumber];
-            $sectionsForClass = $classNumber <= 5 ? ['A', 'B'] : ['A'];
+            $sectionsForClass = $this->profile()->sectionsForLevel($classNumber);
             $rollSeqBySection = [];
             foreach ($sectionsForClass as $sec) {
                 $rollSeqBySection[$sec] = 1;
@@ -129,8 +131,8 @@ class StudentsAndParentsSeeder extends Seeder
                     $address = $family['address'];
                     $city = $family['city'];
                 } else {
-                    $surname = Pak::pick(Pak::SURNAMES);
-                    $addr = Pak::address();
+                    $surname = $this->profile()->pick($this->profile()->surnames());
+                    $addr = $this->profile()->address();
                     $address = $addr['address'];
                     $city = $addr['city'];
                     $family = null;
@@ -139,11 +141,11 @@ class StudentsAndParentsSeeder extends Seeder
 
                 // Gender distribution ~52% female / 48% male, with some noise.
                 $isFemale = mt_rand(1, 100) <= 52;
-                $firstName = Pak::pick($isFemale ? Pak::FEMALE_FIRST_NAMES : Pak::MALE_FIRST_NAMES);
+                $firstName = $this->profile()->pick($isFemale ? $this->profile()->femaleFirstNames() : $this->profile()->maleFirstNames());
                 $name = $firstName . ' ' . $surname;
 
                 $studentId = (string) Str::ulid();
-                $admissionNumber = sprintf('AQM-2025-%03d', $admissionSeq++);
+                $admissionNumber = sprintf('%s-2025-%03d', $this->profile()->certificatePrefix(), $admissionSeq++);
                 $rollNumber = (string) ($rollSeqBySection[$sectionName]++);
 
                 // DOB based on class level: Class 1 ≈ 5-6 → DOB 2019-2020, Class 10 ≈ 14-15 → 2010-2011.
@@ -155,8 +157,8 @@ class StudentsAndParentsSeeder extends Seeder
                     $admissionDate = Carbon::now()->subDays(mt_rand(30, 365));
                 }
 
-                $studentEmail = Pak::uniqueEmail(
-                    Pak::emailHandle($firstName, $admissionNumber),
+                $studentEmail = $this->profile()->uniqueEmail(
+                    $this->profile()->emailHandle($firstName, $admissionNumber),
                     $issuedEmails,
                 );
                 $userId = (string) Str::ulid();
@@ -166,8 +168,8 @@ class StudentsAndParentsSeeder extends Seeder
                     'id' => $userId,
                     'name' => $name,
                     'email' => $studentEmail,
-                    'password' => Hash::make(Pak::demoPassword('student', $studentEmail, $appKey)),
-                    'phone' => Pak::phone(),
+                    'password' => Hash::make($this->profile()->demoPassword('student', $studentEmail, $appKey)),
+                    'phone' => $this->profile()->phone(),
                     'is_active' => true,
                     'active_role' => 'STUDENT',
                     'campus_id' => $this->mainCampusId,
@@ -191,11 +193,11 @@ class StudentsAndParentsSeeder extends Seeder
                     'last_name' => $surname,
                     'date_of_birth' => $dob->toDateString(),
                     'gender' => $isFemale ? 'female' : 'male',
-                    'blood_group' => Pak::weightedPick(Pak::BLOOD_GROUP_WEIGHTS),
+                    'blood_group' => $this->profile()->weightedPick($this->profile()->bloodGroupWeights()),
                     'religion' => 'Islam',
                     'nationality' => 'Pakistani',
                     'profile_photo_path' => 'https://placehold.co/200x200/4f46e5/ffffff?text=' . urlencode(strtoupper(substr($firstName, 0, 1) . substr($surname, 0, 1))),
-                    'phone' => Pak::phone(),
+                    'phone' => $this->profile()->phone(),
                     'email' => $studentEmail,
                     'address' => $address,
                     'city' => $city,
@@ -270,7 +272,7 @@ class StudentsAndParentsSeeder extends Seeder
         ];
 
         // Always create a father (most demos expect a primary contact).
-        $fatherFirst = Pak::pick(Pak::MALE_FIRST_NAMES);
+        $fatherFirst = $this->profile()->pick($this->profile()->maleFirstNames());
         $father = $this->createParentSchoolUser(
             $fatherFirst . ' ' . $surname,
             'male',
@@ -282,7 +284,7 @@ class StudentsAndParentsSeeder extends Seeder
         // 70% chance to also create a mother as a portal user, 30% the
         // mother exists as a guardian-only row (no school_user, no portal).
         if (mt_rand(1, 100) <= 70) {
-            $motherFirst = Pak::pick(Pak::FEMALE_FIRST_NAMES);
+            $motherFirst = $this->profile()->pick($this->profile()->femaleFirstNames());
             $mother = $this->createParentSchoolUser(
                 $motherFirst . ' ' . $surname,
                 'female',
@@ -303,17 +305,17 @@ class StudentsAndParentsSeeder extends Seeder
     protected function createParentSchoolUser(string $name, string $gender, string $appKey, array &$issuedEmails): array
     {
         [$first, $last] = explode(' ', $name, 2);
-        $email = Pak::uniqueEmail(Pak::emailHandle($first, $last), $issuedEmails);
+        $email = $this->profile()->uniqueEmail($this->profile()->emailHandle($first, $last), $issuedEmails);
         $userId = (string) Str::ulid();
-        $phone = Pak::phone();
-        $cnic = Pak::cnic();
-        $occupation = Pak::pick(Pak::PARENT_OCCUPATIONS);
+        $phone = $this->profile()->phone();
+        $cnic = $this->profile()->guardianDocumentNumber();
+        $occupation = $this->profile()->pick($this->profile()->parentOccupations());
 
         DB::table('school_users')->insert([
             'id' => $userId,
             'name' => $name,
             'email' => $email,
-            'password' => Hash::make(Pak::demoPassword('parent', $email, $appKey)),
+            'password' => Hash::make($this->profile()->demoPassword('parent', $email, $appKey)),
             'phone' => $phone,
             'whatsapp' => $phone,
             'is_active' => true,
@@ -403,7 +405,7 @@ class StudentsAndParentsSeeder extends Seeder
 
         foreach ($alumni as [$first, $last, $gender, $gradYear]) {
             $id = (string) Str::ulid();
-            $admissionNumber = sprintf('AQM-ALM-%03d', $alumniSeq++);
+            $admissionNumber = sprintf('%s-ALM-%03d', $this->profile()->certificatePrefix(), $alumniSeq++);
             $admissionDate = Carbon::create($gradYear - 10, mt_rand(3, 8), mt_rand(1, 28));
             $dob = Carbon::create($gradYear - 16, mt_rand(1, 12), mt_rand(1, 28));
 
@@ -421,11 +423,11 @@ class StudentsAndParentsSeeder extends Seeder
                 'last_name' => $last,
                 'date_of_birth' => $dob->toDateString(),
                 'gender' => $gender,
-                'blood_group' => Pak::weightedPick(Pak::BLOOD_GROUP_WEIGHTS),
+                'blood_group' => $this->profile()->weightedPick($this->profile()->bloodGroupWeights()),
                 'religion' => 'Islam',
                 'nationality' => 'Pakistani',
-                'address' => Pak::address()['address'],
-                'city' => Pak::address()['city'],
+                'address' => $this->profile()->address()['address'],
+                'city' => $this->profile()->address()['city'],
                 'status' => 'graduated',
                 'status_changed_at' => Carbon::create($gradYear, 6, 30),
                 'school_user_id' => null,

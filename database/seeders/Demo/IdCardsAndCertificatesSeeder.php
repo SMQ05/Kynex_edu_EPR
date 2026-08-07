@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Database\Seeders\Demo;
 
+use Database\Seeders\Demo\Support\UsesDemoProfile;
+
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -21,6 +23,8 @@ use Illuminate\Support\Str;
  */
 class IdCardsAndCertificatesSeeder extends Seeder
 {
+    use UsesDemoProfile;
+
     public function __construct(
         public StaffSeeder $staff,
         public StudentsAndParentsSeeder $studentsAndParents,
@@ -68,11 +72,11 @@ class IdCardsAndCertificatesSeeder extends Seeder
                     'id' => (string) Str::ulid(),
                     'student_id' => $alumniId,
                     'template_id' => $certTemplate->id,
-                    'certificate_number' => sprintf('AQM-CERT-%d-%03d', $year, $seq++),
+                    'certificate_number' => sprintf('%s-CERT-%d-%03d', $this->profile()->certificatePrefix(), $year, $seq++),
                     'issued_date' => $year . '-06-30',
                     'issued_by' => $issuedBy,
                     'variables_used' => json_encode([
-                        'school_name' => SchoolIdentitySeeder::SCHOOL_NAME,
+                        'school_name' => SchoolIdentitySeeder::schoolName(),
                         'student_name' => $student->first_name . ' ' . $student->last_name,
                         'admission_number' => $student->admission_number,
                         'graduation_year' => $year,

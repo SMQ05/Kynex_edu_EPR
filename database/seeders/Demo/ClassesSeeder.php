@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Database\Seeders\Demo;
 
+use Database\Seeders\Demo\Support\UsesDemoProfile;
+
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -28,6 +30,8 @@ use Illuminate\Support\Str;
  */
 class ClassesSeeder extends Seeder
 {
+    use UsesDemoProfile;
+
     public string $academicYearId = '';
     public string $mainCampusId = '';
 
@@ -104,11 +108,11 @@ class ClassesSeeder extends Seeder
     {
         DB::table('classes')->delete();
 
-        for ($n = 1; $n <= 10; $n++) {
+        foreach ($this->profile()->gradeLevels() as $n => $levelName) {
             $id = (string) Str::ulid();
             DB::table('classes')->insert([
                 'id' => $id,
-                'name' => "Class {$n}",
+                'name' => $levelName,
                 'numeric_level' => $n,
                 'sort_order' => $n,
                 'description' => "Grade {$n} cohort",
@@ -144,8 +148,8 @@ class ClassesSeeder extends Seeder
 
         $rotor = 0;
         $count = 0;
-        for ($n = 1; $n <= 10; $n++) {
-            $sectionsForClass = $n <= 5 ? ['A', 'B'] : ['A'];
+        foreach (array_keys($this->profile()->gradeLevels()) as $n) {
+            $sectionsForClass = $this->profile()->sectionsForLevel($n);
             foreach ($sectionsForClass as $name) {
                 $id = (string) Str::ulid();
                 $teacherId = $teacherIds[$rotor++ % count($teacherIds)];
@@ -176,21 +180,7 @@ class ClassesSeeder extends Seeder
         DB::table('class_subjects')->delete();
         DB::table('subjects')->delete();
 
-        $rows = [
-            ['Math', 'MATH', '#ef4444'],
-            ['English', 'ENG', '#3b82f6'],
-            ['Urdu', 'URD', '#10b981'],
-            ['Science', 'SCI', '#f59e0b'],
-            ['Physics', 'PHY', '#8b5cf6'],
-            ['Chemistry', 'CHEM', '#06b6d4'],
-            ['Biology', 'BIO', '#22c55e'],
-            ['Social Studies', 'SST', '#a855f7'],
-            ['Islamiyat', 'ISL', '#14b8a6'],
-            ['Computer', 'CS', '#0ea5e9'],
-            ['Arts', 'ART', '#f43f5e'],
-            ['Physical Education', 'PE', '#84cc16'],
-            ['Quran', 'QRN', '#65a30d'],
-        ];
+        $rows = $this->profile()->subjects();
         foreach ($rows as [$name, $code, $color]) {
             $id = (string) Str::ulid();
             DB::table('subjects')->insert([
@@ -217,7 +207,7 @@ class ClassesSeeder extends Seeder
     protected function seedClassSubjects(): void
     {
         $count = 0;
-        foreach (self::CLASS_SUBJECTS as $classNumber => $subjects) {
+        foreach ($this->profile()->classSubjects() as $classNumber => $subjects) {
             $classId = $this->classIdByNumber[$classNumber] ?? null;
             if (! $classId) {
                 continue;
@@ -228,7 +218,7 @@ class ClassesSeeder extends Seeder
                     $this->command?->warn("    ⚠ Subject '{$subjectName}' missing for Class {$classNumber}");
                     continue;
                 }
-                $teacherLabel = self::SUBJECT_TEACHER_LABEL[$subjectName] ?? null;
+                $teacherLabel = $this->profile()->subjectTeacherLabels()[$subjectName] ?? null;
                 $teacherId = $teacherLabel ? ($this->staff->userIdByLabel[$teacherLabel] ?? null) : null;
 
                 DB::table('class_subjects')->insert([

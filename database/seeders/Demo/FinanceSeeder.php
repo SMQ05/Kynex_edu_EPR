@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Database\Seeders\Demo;
 
-use Database\Seeders\Demo\Support\Pak;
+use Database\Seeders\Demo\Support\UsesDemoProfile;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -21,6 +21,8 @@ use Illuminate\Support\Str;
  */
 class FinanceSeeder extends Seeder
 {
+    use UsesDemoProfile;
+
     /** category name => id */
     public array $catIdByName = [];
     public string $headId = '';
@@ -38,10 +40,13 @@ class FinanceSeeder extends Seeder
             ?? $this->staff->userIdByLabel['admin'];
 
         $this->seedCategories();
-        $this->seedBudget();
         $this->seedRecurringExpenses();
         $this->seedPeriodicExpenses();
         $this->seedPayrolls();
+        // Budgets go LAST: each one's spent_amount_paisas is rolled up from
+        // the expenses above, so seeding it earlier (as this used to) left
+        // every category showing zero spend against its plan.
+        $this->seedBudget();
     }
 
     protected function seedCategories(): void
@@ -80,87 +85,90 @@ class FinanceSeeder extends Seeder
 
     protected function seedBudget(): void
     {
-        // budgets schema: minimal — id, category_id?, amount_paisas, period dates.
-        // The tenant migrations don't expose schema in detail here, so we
-        // skip if columns differ. Best-effort: insert a single annual row.
-        $columns = collect(DB::select("
-            SELECT column_name FROM information_schema.columns
-            WHERE table_schema = current_schema() AND table_name = 'budgets'
-        "))->pluck('column_name')->all();
+        // One budget per expense category, for the current academic year.
+        //
+        // The previous version probed for columns named 'name',
+        // 'amount_paisas', 'start_date', 'end_date', 'period' and
+        // 'description' — none of which exist on this table. It therefore
+        // always built a row missing the NOT NULL 'title' and every run
+        // ended in "⚠ budgets insert skipped". The real columns are
+        // title / budgeted_amount_paisas / spent_amount_paisas / notes.
+        //
+        // Budgeted is derived from what was actually spent, with a small
+        // per-category variance so a budget-vs-actual report shows a mix of
+        // under- and over-spend instead of everything landing exactly on plan.
+        $yearId = (string) DB::table('academic_years')->where('is_current', true)->value('id');
+        if ($yearId === '') {
+            $this->command?->warn('  ⚠ budgets skipped: no current academic year.');
 
-        $row = [
-            'id' => (string) Str::ulid(),
-            'created_at' => now(),
-            'updated_at' => now(),
-        ];
-        if (in_array('name', $columns, true)) {
-            $row['name'] = 'Academic Year 2025-2026 Operating Budget';
-        }
-        if (in_array('amount_paisas', $columns, true)) {
-            $row['amount_paisas'] = 50_000_000_00; // 50,000,000 PKR
-        } elseif (in_array('total_amount_paisas', $columns, true)) {
-            $row['total_amount_paisas'] = 50_000_000_00;
-        }
-        if (in_array('start_date', $columns, true)) {
-            $row['start_date'] = '2025-09-01';
-        }
-        if (in_array('end_date', $columns, true)) {
-            $row['end_date'] = '2026-06-30';
-        }
-        if (in_array('period', $columns, true)) {
-            $row['period'] = 'annual';
-        }
-        if (in_array('description', $columns, true)) {
-            $row['description'] = 'Annual operating budget covering salaries, utilities, supplies and capex.';
-        }
-        if (in_array('category_id', $columns, true)) {
-            // Schema enforces NOT NULL — pin the budget to the Salaries
-            // category so it's an actual line-item, not a "general" pool.
-            $row['category_id'] = $this->catIdByName['Salaries'] ?? array_values($this->catIdByName)[0] ?? null;
-        }
-        if (in_array('campus_id', $columns, true)) {
-            $row['campus_id'] = (string) DB::table('campuses')
-                ->where('is_main_campus', true)
-                ->value('id');
-        }
-        if (in_array('academic_year_id', $columns, true)) {
-            $row['academic_year_id'] = (string) DB::table('academic_years')->where('is_current', true)->value('id');
-        }
-        if (in_array('created_by', $columns, true)) {
-            $row['created_by'] = $this->headId;
+            return;
         }
 
-        try {
-            DB::table('budgets')->insert($row);
-            $this->command?->line('  ✓ budgets row seeded (1)');
-        } catch (\Throwable $e) {
-            $this->command?->warn('  ⚠ budgets insert skipped: ' . $e->getMessage());
+        $spentByCategory = DB::table('expenses')
+            ->whereNull('deleted_at')
+            ->selectRaw('category_id, COALESCE(SUM(amount_paisas), 0) AS spent')
+            ->groupBy('category_id')
+            ->pluck('spent', 'category_id');
+
+        $inserted = 0;
+        $overBudget = 0;
+        foreach ($this->catIdByName as $categoryName => $categoryId) {
+            $spent = (int) ($spentByCategory[$categoryId] ?? 0);
+
+            // Categories with no activity still get a nominal plan so the
+            // report shows the full chart of accounts, not just active lines.
+            $budgeted = $spent > 0
+                ? (int) round($spent * (mt_rand(88, 122) / 100))
+                : 50_000_00;
+
+            if ($budgeted < $spent) {
+                $overBudget++;
+            }
+
+            $budgetId = (string) Str::ulid();
+            DB::table('budgets')->insert([
+                'id' => $budgetId,
+                'academic_year_id' => $yearId,
+                'category_id' => $categoryId,
+                'title' => $categoryName . ' — Annual Plan',
+                'budgeted_amount_paisas' => $budgeted,
+                'spent_amount_paisas' => $spent,
+                'notes' => 'Annual operating budget for ' . $categoryName . '.',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+            // Point this category's expenses at their budget so the join
+            // actually resolves. expenses.budget_id was left null before.
+            DB::table('expenses')
+                ->where('category_id', $categoryId)
+                ->whereNull('budget_id')
+                ->update(['budget_id' => $budgetId]);
+
+            $inserted++;
         }
+
+        $this->command?->line(
+            '  ✓ budgets seeded (' . $inserted . ' categories, ' . $overBudget . ' over plan)'
+        );
     }
 
     protected function seedRecurringExpenses(): void
     {
         $months = ['2026-02', '2026-03', '2026-04', '2026-05'];
-        $recurring = [
-            ['Utilities', 'Electricity bill', 80_000, 100_000],
-            ['Utilities', 'Water bill', 8_000, 12_000],
-            ['Utilities', 'Sui Gas bill', 6_000, 10_000],
-            ['Internet & IT', 'Fiber internet (PTCL)', 12_000, 14_000],
-            ['Rent', 'Building rent (Main Campus)', 250_000, 250_000],
-        ];
+        $recurring = $this->profile()->recurringExpenses();
 
         $count = 0;
         foreach ($months as $month) {
             $monthCarbon = Carbon::createFromFormat('Y-m', $month)->startOfMonth();
-            foreach ($recurring as [$cat, $title, $minPkr, $maxPkr]) {
-                $amountPkr = mt_rand($minPkr, $maxPkr);
+            foreach ($recurring as [$cat, $title, $minMajor, $maxMajor]) {
+                $amountMajor = mt_rand($minMajor, $maxMajor);
                 $this->insertExpense([
                     'category' => $cat,
                     'title' => "{$title} ({$month})",
                     'description' => null,
-                    'amount_paisas' => $amountPkr * 100,
+                    'amount_paisas' => $amountMajor * 100,
                     'expense_date' => $monthCarbon->copy()->day(mt_rand(5, 25))->toDateString(),
-                    'payment_method' => Pak::weightedPick(Pak::PAYMENT_METHODS),
+                    'payment_method' => $this->profile()->weightedPick($this->profile()->paymentMethods()),
                     'reference_number' => 'INV-' . strtoupper(Str::random(8)),
                 ]);
                 $count++;
@@ -171,30 +179,17 @@ class FinanceSeeder extends Seeder
 
     protected function seedPeriodicExpenses(): void
     {
-        $periodic = [
-            ['Stationery', 'Notebooks and copies bulk purchase', 25_000, 45_000, '2026-02-15'],
-            ['Stationery', 'Whiteboard markers refresh', 8_000, 12_000, '2026-04-04'],
-            ['Stationery', 'Printer paper bulk', 15_000, 22_000, '2026-03-08'],
-            ['Lab Supplies', 'Chemistry lab chemicals restock', 35_000, 55_000, '2026-03-12'],
-            ['Lab Supplies', 'Biology lab specimens', 18_000, 28_000, '2026-04-05'],
-            ['Sports Equipment', 'New cricket and football kit', 45_000, 75_000, '2026-02-20'],
-            ['Library Books', 'Books for new academic year', 60_000, 90_000, '2026-02-08'],
-            ['Repairs & Maintenance', 'Roof leak fix, Block C', 32_000, 48_000, '2026-03-22'],
-            ['Repairs & Maintenance', 'AC servicing — staff room', 12_000, 18_000, '2026-04-12'],
-            ['Professional Development', 'Teacher training workshop', 35_000, 50_000, '2026-04-18'],
-            ['Exam Printing', 'First Term exam papers', 25_000, 40_000, '2026-02-05'],
-            ['Exam Printing', 'Mid Term exam papers', 25_000, 40_000, '2026-04-10'],
-        ];
+        $periodic = $this->profile()->periodicExpenses();
 
-        foreach ($periodic as [$cat, $title, $minPkr, $maxPkr, $date]) {
-            $amount = mt_rand($minPkr, $maxPkr) * 100;
+        foreach ($periodic as [$cat, $title, $minMajor, $maxMajor, $date]) {
+            $amount = mt_rand($minMajor, $maxMajor) * 100;
             $this->insertExpense([
                 'category' => $cat,
                 'title' => $title,
                 'description' => null,
                 'amount_paisas' => $amount,
                 'expense_date' => $date,
-                'payment_method' => Pak::weightedPick(Pak::PAYMENT_METHODS),
+                'payment_method' => $this->profile()->weightedPick($this->profile()->paymentMethods()),
                 'reference_number' => 'EXP-' . strtoupper(Str::random(8)),
             ]);
         }

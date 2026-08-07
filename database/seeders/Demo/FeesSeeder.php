@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Database\Seeders\Demo;
 
-use Database\Seeders\Demo\Support\Pak;
+use Database\Seeders\Demo\Support\UsesDemoProfile;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -20,6 +20,8 @@ use Illuminate\Support\Str;
  */
 class FeesSeeder extends Seeder
 {
+    use UsesDemoProfile;
+
     public string $academicYearId = '';
     public string $mainCampusId = '';
 
@@ -219,7 +221,7 @@ class FeesSeeder extends Seeder
                 'receipt_number' => sprintf('RCP-2026-%05d', $receiptSeq++),
                 'total_amount_paisas' => $amount,
                 'payment_date' => $admissionDate,
-                'payment_method' => Pak::weightedPick(Pak::PAYMENT_METHODS),
+                'payment_method' => $this->profile()->weightedPick($this->profile()->paymentMethods()),
                 'collected_by' => $this->accountantUserId,
                 'notes' => 'Admission payment',
                 'created_at' => now(),
@@ -332,7 +334,7 @@ class FeesSeeder extends Seeder
                         'receipt_number' => sprintf('RCP-2026-%05d', $receiptSeq++),
                         'total_amount_paisas' => $totalPaid,
                         'payment_date' => $payDate->toDateString(),
-                        'payment_method' => Pak::weightedPick(Pak::PAYMENT_METHODS),
+                        'payment_method' => $this->profile()->weightedPick($this->profile()->paymentMethods()),
                         'collected_by' => $this->accountantUserId,
                         'notes' => "Monthly fees for {$month}",
                         'created_at' => now(),

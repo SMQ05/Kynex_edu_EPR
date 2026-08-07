@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Database\Seeders\Demo;
 
+use Database\Seeders\Demo\Support\UsesDemoProfile;
+
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -19,10 +21,12 @@ use Illuminate\Support\Str;
  *  - exam_marks per (student, exam_schedule) with realistic distribution
  *  - exam_results aggregated per (student, exam) with grade + class rank
  *
- * Subject coverage uses ClassesSeeder::CLASS_SUBJECTS.
+ * Subject coverage uses $this->profile()->classSubjects().
  */
 class ExamsAndResultsSeeder extends Seeder
 {
+    use UsesDemoProfile;
+
     public string $academicYearId = '';
 
     public function __construct(
@@ -44,16 +48,8 @@ class ExamsAndResultsSeeder extends Seeder
     protected function seedGradeRules(): void
     {
         DB::table('grade_rules')->delete();
-        $rules = [
-            ['A+', 90, 100, 4.0],
-            ['A', 80, 89.99, 3.7],
-            ['B+', 70, 79.99, 3.3],
-            ['B', 60, 69.99, 3.0],
-            ['C', 50, 59.99, 2.5],
-            ['D', 40, 49.99, 2.0],
-            ['F', 0, 39.99, 0.0],
-        ];
-        foreach ($rules as [$g, $min, $max, $point]) {
+        $rules = $this->profile()->gradeRules();
+        foreach ($rules as [$g, $min, $max, $point, $remark]) {
             DB::table('grade_rules')->insert([
                 'id' => (string) Str::ulid(),
                 'name' => "Grade {$g}",
@@ -61,13 +57,13 @@ class ExamsAndResultsSeeder extends Seeder
                 'min_percentage' => $min,
                 'max_percentage' => $max,
                 'grade_point' => $point,
-                'description' => null,
+                'description' => $remark,
                 'is_active' => true,
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
         }
-        $this->command?->line('  ✓ grade_rules seeded (7 — Pakistani A+ to F)');
+        $this->command?->line('  ✓ grade_rules seeded (' . count($rules) . ' — ' . $rules[0][0] . ' to ' . end($rules)[0] . ')');
     }
 
     /**
@@ -126,7 +122,7 @@ class ExamsAndResultsSeeder extends Seeder
         foreach ($exams as $examName => $examId) {
             $startDate = $examName === 'First Term' ? '2026-02-10' : '2026-04-15';
 
-            foreach (ClassesSeeder::CLASS_SUBJECTS as $classNumber => $subjects) {
+            foreach ($this->profile()->classSubjects() as $classNumber => $subjects) {
                 $classId = $this->classes->classIdByNumber[$classNumber];
                 $dateCursor = Carbon::parse($startDate);
 

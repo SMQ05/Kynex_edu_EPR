@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace Database\Seeders\Demo;
 
+use Database\Seeders\Demo\Support\DemoProfile;
+
 use App\Models\Tenant;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Stancl\Tenancy\Facades\Tenancy;
 
 /**
@@ -24,11 +27,36 @@ use Stancl\Tenancy\Facades\Tenancy;
  */
 class SchoolIdentitySeeder extends Seeder
 {
-    public const SCHOOL_NAME = 'AQM Public School';
-    public const SCHOOL_TAGLINE = 'Excellence in Education — Lahore, Pakistan';
-    public const SCHOOL_ADDRESS = 'Plot 142, Block C, Johar Town, Lahore, Punjab 54600, Pakistan';
-    public const SCHOOL_PHONE = '+92-42-1234-5678';
-    public const SCHOOL_EMAIL = 'info@aqmdigital.com';
+    /**
+     * School identity now comes from the active DemoProfile so the same
+     * seeder can stand up either the Pakistani AQM school or the US
+     * Lincoln Heights school. These accessors replace what used to be
+     * const SCHOOL_NAME / _TAGLINE / _ADDRESS / _PHONE / _EMAIL.
+     */
+    public static function schoolName(): string
+    {
+        return DemoProfile::current()->school()['name'];
+    }
+
+    public static function schoolTagline(): string
+    {
+        return DemoProfile::current()->school()['tagline'];
+    }
+
+    public static function schoolAddress(): string
+    {
+        return DemoProfile::current()->school()['address'];
+    }
+
+    public static function schoolPhone(): string
+    {
+        return DemoProfile::current()->school()['phone'];
+    }
+
+    public static function schoolEmail(): string
+    {
+        return DemoProfile::current()->school()['email'];
+    }
     public const SCHOOL_WHATSAPP = '+923001234567';
     public const SCHOOL_FACEBOOK = 'https://facebook.com/aqmpublicschool';
 
@@ -69,10 +97,10 @@ class SchoolIdentitySeeder extends Seeder
                 ->table('tenants')
                 ->where('id', $tenant->id)
                 ->update([
-                    'school_name' => self::SCHOOL_NAME,
+                    'school_name' => self::schoolName(),
                     'updated_at' => now(),
                 ]);
-            $this->command?->line("  ✓ Central tenants.school_name → '" . self::SCHOOL_NAME . "'");
+            $this->command?->line("  ✓ Central tenants.school_name → '" . self::schoolName() . "'");
         });
     }
 
@@ -89,9 +117,45 @@ class SchoolIdentitySeeder extends Seeder
             ->orderBy('created_at')
             ->first();
 
+        // A tenant that was never hand-prepared (any fresh demo tenant) has
+        // either no campus at all or one that nobody flagged as main. The old
+        // code just warned and returned, which left StaffSeeder's
+        // $mainCampusId empty and pushed a blank campus_id into every staff,
+        // student and class row. Promote or create instead, so the suite
+        // stands up on a clean tenant. AQM already has a main campus, so this
+        // branch never fires there.
         if (! $main) {
-            $this->command?->warn('  ⚠ No main campus found; skipping consolidation.');
-            return;
+            $existing = DB::table('campuses')
+                ->whereNull('deleted_at')
+                ->orderBy('created_at')
+                ->first();
+
+            if ($existing) {
+                DB::table('campuses')->where('id', $existing->id)
+                    ->update(['is_main_campus' => true, 'updated_at' => now()]);
+                $this->command?->line('  ✓ Promoted existing campus to main campus.');
+            } else {
+                $school = DemoProfile::current()->school();
+                $newId = (string) Str::ulid();
+                DB::table('campuses')->insert([
+                    'id' => $newId,
+                    'name' => $school['name'] . ' — Main Campus',
+                    'address' => $school['address'],
+                    'city' => $school['city'],
+                    'phone' => $school['phone'],
+                    'email' => $school['email'],
+                    'is_main_campus' => true,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+                $this->command?->line('  ✓ Created main campus (tenant had none).');
+            }
+
+            $main = DB::table('campuses')
+                ->where('is_main_campus', true)
+                ->whereNull('deleted_at')
+                ->orderBy('created_at')
+                ->first();
         }
 
         $secondaries = DB::table('campuses')
@@ -150,11 +214,11 @@ class SchoolIdentitySeeder extends Seeder
         DB::table('campuses')
             ->where('id', $mainId)
             ->update([
-                'name' => self::SCHOOL_NAME . ' — Main Campus',
-                'address' => self::SCHOOL_ADDRESS,
-                'city' => 'Lahore',
-                'phone' => self::SCHOOL_PHONE,
-                'email' => self::SCHOOL_EMAIL,
+                'name' => self::schoolName() . ' — Main Campus',
+                'address' => self::schoolAddress(),
+                'city' => DemoProfile::current()->school()['city'],
+                'phone' => self::schoolPhone(),
+                'email' => self::schoolEmail(),
                 'is_active' => true,
                 'updated_at' => now(),
             ]);
@@ -166,11 +230,11 @@ class SchoolIdentitySeeder extends Seeder
         $existing = DB::table('cms_settings')->orderBy('created_at')->first();
 
         $payload = [
-            'school_name' => self::SCHOOL_NAME,
-            'tagline' => self::SCHOOL_TAGLINE,
-            'address' => self::SCHOOL_ADDRESS,
-            'phone' => self::SCHOOL_PHONE,
-            'email' => self::SCHOOL_EMAIL,
+            'school_name' => self::schoolName(),
+            'tagline' => self::schoolTagline(),
+            'address' => self::schoolAddress(),
+            'phone' => self::schoolPhone(),
+            'email' => self::schoolEmail(),
             'whatsapp' => self::SCHOOL_WHATSAPP,
             'facebook_url' => self::SCHOOL_FACEBOOK,
             'twitter_url' => 'https://x.com/aqmpublicschool',
@@ -178,13 +242,13 @@ class SchoolIdentitySeeder extends Seeder
             'youtube_url' => 'https://youtube.com/@aqmpublicschool',
             'primary_color' => '#1a56db',
             'admission_open' => true,
-            'admission_form_url' => 'https://aqmdigital.com/apply',
+            'admission_form_url' => DemoProfile::current()->school()['admission_form_url'],
             'updated_at' => now(),
         ];
 
         if ($existing) {
             DB::table('cms_settings')->where('id', $existing->id)->update($payload);
-            $this->command?->line("  ✓ cms_settings updated (school_name='" . self::SCHOOL_NAME . "')");
+            $this->command?->line("  ✓ cms_settings updated (school_name='" . self::schoolName() . "')");
         } else {
             $payload['id'] = (string) \Illuminate\Support\Str::ulid();
             $payload['created_at'] = now();

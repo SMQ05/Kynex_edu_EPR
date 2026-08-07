@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Database\Seeders\Demo;
 
-use Database\Seeders\Demo\Support\Pak;
+use Database\Seeders\Demo\Support\UsesDemoProfile;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -26,6 +26,8 @@ use Illuminate\Support\Str;
  */
 class StaffSeeder extends Seeder
 {
+    use UsesDemoProfile;
+
     /** Stable IDs of existing rows we keep — see plan §3. */
     public const ADMIN_USER_ID = '01kqjbfxf4kz91newwvvw3vxnp'; // Qamar Abbas → renamed
     public const HEAD_USER_ID = '01kqjbh722esjneea2czw0xf18';  // Haji Yaseen → renamed
@@ -100,19 +102,7 @@ class StaffSeeder extends Seeder
         DB::table('staff_profiles')->whereNotNull('designation_id')->update(['designation_id' => null]);
         DB::table('designations')->delete();
 
-        $rows = [
-            'Principal' => 'Administration',
-            'Vice Principal' => 'Administration',
-            'Office Manager' => 'Administration',
-            'Accountant' => 'Finance',
-            'Senior Teacher' => 'Academics',
-            'Teacher' => 'Academics',
-            'Quran Teacher' => 'Academics',
-            'Librarian' => 'Library & Resources',
-            'Clerk' => 'Support',
-            'Gatekeeper' => 'Support',
-            'Driver' => 'Support',
-        ];
+        $rows = $this->profile()->designations();
 
         foreach ($rows as $name => $deptName) {
             $id = (string) Str::ulid();
@@ -132,13 +122,7 @@ class StaffSeeder extends Seeder
     protected function seedSalaryComponents(): void
     {
         DB::table('salary_components')->delete();
-        $components = [
-            ['Basic Salary', 'earning', 'fixed', 0, false],
-            ['House Rent Allowance', 'allowance', 'percentage', 30, false],
-            ['Conveyance Allowance', 'allowance', 'fixed', 300_000, false], // 3,000 PKR in paisas
-            ['Medical Allowance', 'allowance', 'fixed', 200_000, false],
-            ['Provident Fund', 'deduction', 'percentage', 5, false],
-        ];
+        $components = $this->profile()->salaryComponents();
         foreach ($components as [$name, $type, $calc, $val, $tax]) {
             DB::table('salary_components')->insert([
                 'id' => (string) Str::ulid(),
@@ -180,108 +164,127 @@ class StaffSeeder extends Seeder
     }
 
     /**
-     * Preserved users: rename Qamar Abbas → keep ID, set new display name &
-     * email; rename Haji Yaseen → Principal AQM. Both get fresh demo
-     * passwords, fresh staff_profiles, and proper role + designation links.
+     * Seed the two standing leadership accounts (admin + head of school).
+     *
+     * Originally this method did a bare UPDATE on two hardcoded ULIDs
+     * (ADMIN_USER_ID / HEAD_USER_ID) that exist only in the live AQM tenant.
+     * On any other tenant that UPDATE matched zero rows, so the demo silently
+     * came up with no admin and no principal at all — the two accounts you
+     * most need in order to log in and look at it.
+     *
+     * It now upserts: reuse the preserved ULID where it genuinely exists
+     * (so AQM keeps its stable IDs and history), otherwise fall back to an
+     * existing row with the same email, otherwise insert a fresh row.
      */
     protected function updatePreservedUsers(string $appKey): void
     {
-        // ── Admin / Office Manager ───────────────────────────────────
-        $adminEmail = 'admin@aqmdigital.com';
-        DB::table('school_users')->where('id', self::ADMIN_USER_ID)->update([
-            'name' => 'Qamar Abbas',
-            'email' => $adminEmail,
-            'phone' => Pak::phone(),
-            'whatsapp' => Pak::phone(),
-            'password' => Hash::make(Pak::demoPassword('admin', $adminEmail, $appKey)),
-            'is_active' => true,
-            'active_role' => 'SCHOOL_ADMIN',
-            'campus_id' => $this->mainCampusId,
-            'email_verified_at' => now(),
-            'updated_at' => now(),
-        ]);
-        $this->upsertStaffProfile(self::ADMIN_USER_ID, [
-            'employee_id' => 'EMP-001',
-            'designation_name' => 'Office Manager',
-            'qualification' => 'MBA (Administration)',
-            'joining_year' => 2018,
-            'salary_paisas' => 90_000_00,
-        ]);
-        $this->syncSingleRole(self::ADMIN_USER_ID, 'SCHOOL_ADMIN');
-        $this->userIdByLabel['admin'] = self::ADMIN_USER_ID;
-        $this->command?->line('  ✓ Preserved admin updated → ' . $adminEmail);
+        $leadership = $this->profile()->leadership();
+        $domain = $this->profile()->emailDomain();
 
-        // ── Principal (Head) ─────────────────────────────────────────
-        $principalEmail = 'principal@aqmdigital.com';
-        DB::table('school_users')->where('id', self::HEAD_USER_ID)->update([
-            'name' => 'Khalid Mahmood',
-            'email' => $principalEmail,
-            'phone' => Pak::phone(),
-            'whatsapp' => Pak::phone(),
-            'password' => Hash::make(Pak::demoPassword('principal', $principalEmail, $appKey)),
+        $this->upsertLeader(
+            preservedId: self::ADMIN_USER_ID,
+            email: 'admin@' . $domain,
+            authRole: 'SCHOOL_ADMIN',
+            passwordKey: 'admin',
+            label: 'admin',
+            meta: $leadership['admin'],
+            appKey: $appKey,
+        );
+
+        $this->upsertLeader(
+            preservedId: self::HEAD_USER_ID,
+            email: 'principal@' . $domain,
+            authRole: 'INSTITUTE_HEAD',
+            passwordKey: 'principal',
+            label: 'principal',
+            meta: $leadership['principal'],
+            appKey: $appKey,
+        );
+    }
+
+    /**
+     * Create-or-update one leadership account and its staff profile.
+     *
+     * @param  array{name:string,designation:string,qualification:string,employee_id:string,salary:int}  $meta
+     */
+    protected function upsertLeader(
+        string $preservedId,
+        string $email,
+        string $authRole,
+        string $passwordKey,
+        string $label,
+        array $meta,
+        string $appKey,
+    ): void {
+        // Prefer the preserved ULID, then any row already using this email,
+        // then mint a new id.
+        $userId = DB::table('school_users')->where('id', $preservedId)->value('id')
+            ?: DB::table('school_users')->where('email', $email)->value('id')
+            ?: (string) Str::ulid();
+
+        $attributes = [
+            'name' => $meta['name'],
+            'email' => $email,
+            'phone' => $this->profile()->phone(),
+            'whatsapp' => $this->profile()->phone(),
+            'password' => Hash::make($this->profile()->demoPassword($passwordKey, $email, $appKey)),
             'is_active' => true,
-            'active_role' => 'INSTITUTE_HEAD',
+            'active_role' => $authRole,
             'campus_id' => $this->mainCampusId,
             'email_verified_at' => now(),
             'updated_at' => now(),
-        ]);
-        $this->upsertStaffProfile(self::HEAD_USER_ID, [
-            'employee_id' => 'EMP-002',
-            'designation_name' => 'Principal',
-            'qualification' => 'MA Education, M.Phil',
+        ];
+
+        $exists = DB::table('school_users')->where('id', $userId)->exists();
+        if ($exists) {
+            DB::table('school_users')->where('id', $userId)->update($attributes);
+            $verb = 'updated';
+        } else {
+            DB::table('school_users')->insert($attributes + [
+                'id' => $userId,
+                'created_at' => now(),
+            ]);
+            $verb = 'created';
+        }
+
+        $this->upsertStaffProfile($userId, [
+            'employee_id' => $meta['employee_id'],
+            'designation_name' => $meta['designation'],
+            'qualification' => $meta['qualification'],
             'joining_year' => 2018,
-            'salary_paisas' => 150_000_00,
+            'salary_paisas' => $meta['salary'],
         ]);
-        $this->syncSingleRole(self::HEAD_USER_ID, 'INSTITUTE_HEAD');
-        $this->userIdByLabel['principal'] = self::HEAD_USER_ID;
-        $this->command?->line('  ✓ Preserved head updated → ' . $principalEmail);
+        $this->syncSingleRole($userId, $authRole);
+        $this->userIdByLabel[$label] = $userId;
+
+        $this->command?->line("  ✓ {$meta['designation']} {$verb} → {$email}");
     }
 
     protected function seedNewStaff(string $appKey): void
     {
-        $issued = ['admin@aqmdigital.com' => true, 'principal@aqmdigital.com' => true];
+        $domain = $this->profile()->emailDomain();
+        $issued = ['admin@' . $domain => true, 'principal@' . $domain => true];
         $empSeq = 3; // EMP-001 admin, EMP-002 principal already taken
 
-        $newStaff = [
-            // [authRole, designation, label, qualification, salaryPaisas, hardName]
-            ['REGISTRAR', 'Vice Principal', 'vice-principal', 'MSc Education, B.Ed', 110_000_00, 'Saima Naveed'],
-            ['ACCOUNTANT', 'Accountant', 'accountant', 'B.Com, ACCA Part-Qualified', 70_000_00, 'Imran Sheikh'],
-
-            ['TEACHER', 'Senior Teacher', 'teacher_math', 'MSc Mathematics, B.Ed', 65_000_00, 'Naveed Ahmed', 'Math'],
-            ['TEACHER', 'Senior Teacher', 'teacher_english', 'MA English, B.Ed', 62_000_00, 'Sadia Khan', 'English'],
-            ['TEACHER', 'Teacher', 'teacher_urdu', 'MA Urdu, B.Ed', 55_000_00, 'Bushra Iqbal', 'Urdu'],
-            ['TEACHER', 'Teacher', 'teacher_science', 'MSc Biology, B.Ed', 58_000_00, 'Asad Mahmood', 'Science'],
-            ['TEACHER', 'Teacher', 'teacher_social', 'MA History, B.Ed', 52_000_00, 'Tariq Hussain', 'Social Studies'],
-            ['TEACHER', 'Teacher', 'teacher_islamiyat', 'MA Islamic Studies', 50_000_00, 'Hafiz Bilal', 'Islamiyat'],
-            ['TEACHER', 'Teacher', 'teacher_computer', 'BS Computer Science', 60_000_00, 'Hamza Aziz', 'Computer'],
-            ['TEACHER', 'Teacher', 'teacher_arts', 'BFA Fine Arts', 48_000_00, 'Mahnoor Riaz', 'Arts'],
-            ['TEACHER', 'Teacher', 'teacher_pe', 'BSc Sports Sciences', 50_000_00, 'Faisal Akram', 'Physical Education'],
-            ['TEACHER', 'Quran Teacher', 'teacher_quran', 'Hafiz-e-Quran, MA Islamic Studies', 50_000_00, 'Qari Owais', 'Quran'],
-
-            ['ATTENDANCE_CLERK', 'Clerk', 'clerk', 'BA, IT Diploma', 35_000_00, 'Salman Tariq'],
-            ['LIBRARIAN', 'Librarian', 'librarian', 'BLIS (Library & Information Sciences)', 40_000_00, 'Aqsa Saeed'],
-            // Gatekeeper and driver have NO auth role (no portal access).
-            [null, 'Gatekeeper', 'gatekeeper', 'Matric', 28_000_00, 'Akram Hussain'],
-            [null, 'Driver', 'driver', 'Matric, LTV License', 30_000_00, 'Babar Iqbal'],
-        ];
+        $newStaff = $this->profile()->staffRoster();
 
         foreach ($newStaff as $row) {
             [$authRole, $designation, $label, $qualification, $salaryPaisas, $name] = array_pad($row, 6, null);
             $subject = $row[6] ?? null; // teacher's subject domain — only TEACHER rows have it
 
             [$first, $last] = $this->splitName($name);
-            $emailHandle = Pak::emailHandle($first, $last);
-            $email = Pak::uniqueEmail($emailHandle, $issued);
+            $emailHandle = $this->profile()->emailHandle($first, $last);
+            $email = $this->profile()->uniqueEmail($emailHandle, $issued);
 
             $userId = (string) Str::ulid();
-            $passwordKey = Pak::roleKeyFor((string) ($authRole ?? 'STAFF'));
+            $passwordKey = $this->profile()->roleKeyFor((string) ($authRole ?? 'STAFF'));
             DB::table('school_users')->insert([
                 'id' => $userId,
                 'name' => $name,
                 'email' => $email,
-                'password' => Hash::make(Pak::demoPassword($passwordKey, $email, $appKey)),
-                'phone' => Pak::phone(),
-                'whatsapp' => Pak::phone(),
+                'password' => Hash::make($this->profile()->demoPassword($passwordKey, $email, $appKey)),
+                'phone' => $this->profile()->phone(),
+                'whatsapp' => $this->profile()->phone(),
                 'is_active' => true,
                 'active_role' => $authRole,
                 'campus_id' => $this->mainCampusId,
@@ -332,13 +335,13 @@ class StaffSeeder extends Seeder
             'employment_type' => 'permanent',
             'qualification' => $attrs['qualification'],
             'experience_years' => $experience,
-            'emergency_contact_name' => Pak::pick(Pak::SURNAMES) . ' ' . Pak::pick(Pak::MALE_FIRST_NAMES),
-            'emergency_contact_phone' => Pak::phone(),
-            'bank_name' => Pak::pick(['HBL', 'UBL', 'MCB', 'Allied Bank', 'Meezan Bank', 'Bank Alfalah']),
-            'bank_account' => 'PK' . str_pad((string) mt_rand(0, 99), 2, '0', STR_PAD_LEFT) . str_pad((string) mt_rand(1, 9_999_999), 16, '0', STR_PAD_LEFT),
+            'emergency_contact_name' => $this->profile()->pick($this->profile()->surnames()) . ' ' . $this->profile()->pick($this->profile()->maleFirstNames()),
+            'emergency_contact_phone' => $this->profile()->phone(),
+            'bank_name' => $this->profile()->pick($this->profile()->banks()),
+            'bank_account' => $this->profile()->bankAccountNumber(),
             'basic_salary_paisas' => $attrs['salary_paisas'],
             'campus_id' => $this->mainCampusId,
-            'personal_whatsapp' => Pak::phone(),
+            'personal_whatsapp' => $this->profile()->phone(),
             'updated_at' => now(),
         ];
 

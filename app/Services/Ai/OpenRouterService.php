@@ -25,14 +25,24 @@ class OpenRouterService
 {
     private const BASE_URL = 'https://openrouter.ai/api/v1';
 
-    /** Cost per 1M tokens for common models (input, output) in USD cents. */
+    /**
+     * Cost per 1M tokens for common models (input, output) in USD cents.
+     *
+     * NOTE: the two google/gemini-* ids previously listed here
+     * (gemini-flash-1.5, gemini-2.0-flash-001) have been retired by
+     * OpenRouter and 404 if requested — verified against
+     * GET /api/v1/models. They are removed so nothing can select them.
+     * A model missing from this table still works; it just falls back to
+     * the conservative default rate below, which under-counts spend for
+     * expensive models — so keep any model offered to tenants listed here.
+     */
     private const MODEL_COSTS = [
-        'google/gemini-2.0-flash-001' => ['input' => 0.075, 'output' => 0.30],
-        'google/gemini-flash-1.5'     => ['input' => 0.075, 'output' => 0.30],
-        'openai/gpt-4o-mini'          => ['input' => 0.15,  'output' => 0.60],
-        'openai/gpt-4o'               => ['input' => 2.50,  'output' => 10.0],
-        'anthropic/claude-sonnet-4'   => ['input' => 3.00,  'output' => 15.0],
-        'deepseek/deepseek-chat'      => ['input' => 0.10,  'output' => 0.40],
+        'openai/gpt-4o-mini'            => ['input' => 0.15, 'output' => 0.60],
+        'openai/gpt-4o'                 => ['input' => 2.50, 'output' => 10.0],
+        'anthropic/claude-haiku-4.5'    => ['input' => 1.00, 'output' => 5.00],
+        'anthropic/claude-sonnet-4'     => ['input' => 3.00, 'output' => 15.0],
+        'anthropic/claude-sonnet-4.5'   => ['input' => 3.00, 'output' => 15.0],
+        'deepseek/deepseek-chat'        => ['input' => 0.10, 'output' => 0.40],
     ];
 
     private ?PendingRequest $http = null;
@@ -59,10 +69,19 @@ class OpenRouterService
         $this->ensureEnabled();
         $this->ensureWithinBudget();
 
-        $model     = $this->tenant->ai_model ?? 'google/gemini-flash-1.5';
+        // Fall back to the configured platform default rather than a
+        // hardcoded id. The previous hardcoded 'google/gemini-flash-1.5'
+        // has been retired by OpenRouter and now 404s, so any tenant that
+        // never picked a model got a failed request instead of an answer.
+        $model     = $this->tenant->ai_model
+            ?: config('platform_apis.ai.default_model', 'openai/gpt-4o-mini');
+        // These read platform_apis.ai.*, not services.openrouter.* — there is
+        // no services.openrouter config block, so the old keys always resolved
+        // to their inline defaults. That silently capped every answer at 1000
+        // tokens instead of the configured 4096.
         $apiKey    = $this->tenant->ai_openrouter_api_key
-            ?: config('services.openrouter.api_key', env('OPENROUTER_API_KEY'));
-        $maxTokens = (int) config('services.openrouter.max_tokens', 1000);
+            ?: config('platform_apis.ai.api_key') ?: env('OPENROUTER_API_KEY');
+        $maxTokens = (int) config('platform_apis.ai.max_tokens', 4096);
 
         $fullUserMessage = $context !== ''
             ? $context."\n\n".$userMessage
