@@ -208,11 +208,20 @@ class SchoolUser extends Authenticatable implements FilamentUser
      */
     public function canAccessPanel(Panel $panel): bool
     {
-        if ($this->active_role === 'STUDENT') {
+        if ($this->is_active !== true) {
             return false;
         }
 
-        if ($this->is_active !== true) {
+        // Students belong in the student portal and nowhere else. This used to
+        // be a blanket `return false` for STUDENT, which locked them out of
+        // every panel — including their own, once one existed.
+        if ($this->active_role === 'STUDENT') {
+            return $panel->getId() === 'student';
+        }
+
+        // Conversely, nobody but a student uses the student portal. Staff and
+        // guardians have richer views of the same data in their own panels.
+        if ($panel->getId() === 'student') {
             return false;
         }
 

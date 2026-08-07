@@ -5,6 +5,7 @@ use App\Providers\EventServiceProvider;
 use App\Providers\Filament\ParentPanelProvider;
 use App\Providers\Filament\SaasAdminPanelProvider;
 use App\Providers\Filament\SchoolAdminPanelProvider;
+use App\Providers\Filament\StudentPanelProvider;
 
 return [
     AppServiceProvider::class,
@@ -12,4 +13,5 @@ return [
     SaasAdminPanelProvider::class,
     SchoolAdminPanelProvider::class,
     ParentPanelProvider::class,
+    StudentPanelProvider::class,
 ];

@@ -272,6 +272,13 @@ class SchoolPortalController extends Controller
                 // when accessed via the central domain (e.g. 127.0.0.1 in local dev)
                 $request->session()->put('tenant_id', $tenant->id);
 
+                // Resolve the destination panel BEFORE ending tenancy. Role
+                // lookups read the tenant's roles / model_has_roles tables, so
+                // doing this after tenancy()->end() throws and silently falls
+                // back to /admin — which sent every student and guardian to a
+                // panel they cannot access.
+                $path = $this->panelPathFor($user);
+
                 tenancy()->end();
 
                 // Redirect to the school admin panel. Prefer the host the user
@@ -289,9 +296,12 @@ class SchoolPortalController extends Controller
                         ->where('domain_type', 'custom')
                         ->where('is_verified', true)
                         ->first();
-                $adminUrl = $domain ? 'https://'.$domain->domain.'/admin' : config('app.url').'/admin';
+                // $path was resolved above, while tenancy was still active.
+                $target = $domain
+                    ? 'https://'.$domain->domain.$path
+                    : rtrim((string) config('app.url'), '/').$path;
 
-                return redirect()->away($adminUrl);
+                return redirect()->away($target);
             }
 
             tenancy()->end();
@@ -307,6 +317,46 @@ class SchoolPortalController extends Controller
             }
             return null;
         }
+    }
+
+    /**
+     * The panel path this user should land on after signing in.
+     *
+     * Students and guardians have their own panels and are refused by
+     * SchoolUser::canAccessPanel() anywhere else, so sending everyone to
+     * /admin (as this controller used to) meant an immediate bounce back to
+     * the login screen for them. Staff keep /admin.
+     *
+     * Checked most-restrictive first: an account that somehow holds both
+     * STUDENT and a staff role is treated as staff.
+     */
+    protected function panelPathFor(SchoolUser $user): string
+    {
+        $staffRoles = [
+            'SCHOOL_ADMIN', 'INSTITUTE_HEAD', 'MULTI_INSTITUTE_HEAD', 'REGISTRAR',
+            'TEACHER', 'ACCOUNTANT', 'BURSAR', 'HR_MANAGER', 'EXAM_ADMIN',
+            'LIBRARIAN', 'NURSE', 'COUNSELOR', 'RECEPTIONIST', 'ATTENDANCE_CLERK',
+            'HOSTEL_WARDEN', 'TRANSPORT_MANAGER', 'CAFETERIA_MANAGER',
+        ];
+
+        try {
+            if ($user->hasAnyRole($staffRoles)) {
+                return '/admin';
+            }
+
+            if ($user->hasRole('STUDENT')) {
+                return '/student';
+            }
+
+            if ($user->hasRole('PARENT')) {
+                return '/parent';
+            }
+        } catch (\Throwable) {
+            // Role tables unavailable — fall through to the admin panel, which
+            // is what every account did before this method existed.
+        }
+
+        return '/admin';
     }
 
     public function logout(Request $request): RedirectResponse
@@ -482,7 +532,11 @@ class SchoolPortalController extends Controller
 
     public function dashboard(): RedirectResponse
     {
-        return redirect('/admin');
+        // Same role-aware routing as the post-login redirect: this used to
+        // hardcode /admin, bouncing students and guardians out again.
+        $user = Auth::guard('school_users')->user();
+
+        return redirect($user ? $this->panelPathFor($user) : '/admin');
     }
 
     // ────────────────────────────────────────────────────────────────
