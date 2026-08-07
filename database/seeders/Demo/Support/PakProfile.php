@@ -402,6 +402,19 @@ final class PakProfile extends DemoProfile
         ];
     }
 
+    /**
+     * No lecture catalogue for the AQM profile.
+     *
+     * Deliberately empty rather than filled with plausible-looking video ids:
+     * every id in a catalogue has to be verified to resolve, and none have been
+     * checked for this school. An empty list seeds no lectures, which is honest;
+     * invented ids would seed broken embeds.
+     */
+    public function lectures(): array
+    {
+        return [];
+    }
+
     public function alumni(): array
     {
         return [

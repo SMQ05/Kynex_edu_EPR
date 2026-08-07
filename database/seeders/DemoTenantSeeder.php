@@ -11,6 +11,7 @@ use Database\Seeders\Demo\ExamsAndResultsSeeder;
 use Database\Seeders\Demo\FeesSeeder;
 use Database\Seeders\Demo\FinanceSeeder;
 use Database\Seeders\Demo\IdCardsAndCertificatesSeeder;
+use Database\Seeders\Demo\LecturesAndAssignmentsSeeder;
 use Database\Seeders\Demo\NotificationsSeeder;
 use Database\Seeders\Demo\SchoolIdentitySeeder;
 use Database\Seeders\Demo\StaffSeeder;
@@ -368,6 +369,12 @@ class DemoTenantSeeder extends Seeder
         $exams = new ExamsAndResultsSeeder($staff, $classes, $studentsAndParents);
         $exams->setCommand($this->command);
         $exams->run();
+
+        // Lectures, homework lifecycle and AI tutor history. Runs after
+        // students and exams so it can attach to real cohorts.
+        $lectures = new LecturesAndAssignmentsSeeder($staff, $classes, $studentsAndParents);
+        $lectures->setCommand($this->command);
+        $lectures->run();
 
         $finance = new FinanceSeeder($staff);
         $finance->setCommand($this->command);

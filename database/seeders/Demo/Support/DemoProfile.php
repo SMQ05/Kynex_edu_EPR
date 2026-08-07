@@ -338,6 +338,28 @@ abstract class DemoProfile
      */
     abstract public function feeRoles(): array;
 
+    /**
+     * Lecture catalogue for the study_materials table.
+     *
+     * Each entry: [grade level, subject name, lecture title, YouTube video id,
+     * lesson notes].
+     *
+     * The video id is a LINK ONLY — nothing is downloaded or re-hosted, which
+     * is both the lawful way to use someone else's video and how a real school
+     * shares one. Every id in the US catalogue was checked against YouTube's
+     * oEmbed endpoint before being committed, so there are no dead embeds in a
+     * live demo.
+     *
+     * The notes are the school's own words, written to be a faithful summary of
+     * the topic rather than a transcript of the video. They matter more than
+     * they look: MyLectures feeds them to the AI tutor as its grounding, and
+     * the tutor is instructed to defer to the teacher when a question falls
+     * outside them. Thin notes therefore produce a cautious, unhelpful tutor.
+     *
+     * @return array<int,array{0:int,1:string,2:string,3:string,4:string}>
+     */
+    abstract public function lectures(): array;
+
     abstract public function alumni(): array;
 
     /**

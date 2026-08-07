@@ -83,6 +83,63 @@
     .dark .sp-bar { background: #374151; }
     .sp-bar__fill { height: 100%; border-radius: 9999px; background: #0d9488; }
 
+    /* ── Selectable list (lecture library) ──────────────────────── */
+    /* Every class this list needs is defined here: items-center, gap-*,
+       text-left, rounded-lg, px-*, space-y-*, overflow-y-auto and the
+       max-h-[...] arbitrary value are ALL absent from Filament's compiled
+       stylesheet, which is why the markup rendered centred and unspaced. */
+    .sp-scroll { max-height: 32rem; overflow-y: auto; }
+    .sp-list        { display: flex; flex-direction: column; gap: .25rem; }
+    .sp-list__item  { display: block; width: 100%; text-align: left;
+                      padding: .5rem .75rem; border-radius: .5rem;
+                      border: 1px solid transparent; background: transparent;
+                      cursor: pointer; transition: background .12s ease; }
+    .sp-list__item:hover { background: #f9fafb; }
+    .dark .sp-list__item:hover { background: #1f2937; }
+    .sp-list__item--on   { background: #f0fdfa; border-color: #14b8a6; }
+    .dark .sp-list__item--on { background: rgba(19,78,74,.35); border-color: #14b8a6; }
+    .sp-list__title { font-size: .875rem; font-weight: 500; color: #111827;
+                      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .dark .sp-list__title { color: #f9fafb; }
+    .sp-list__meta  { display: flex; align-items: center; gap: .375rem;
+                      margin-top: .125rem; font-size: .75rem; color: #6b7280; }
+    .dark .sp-list__meta { color: #9ca3af; }
+
+    /* ── Notes + chat ───────────────────────────────────────────── */
+    .sp-notes  { white-space: pre-line; font-size: .875rem; line-height: 1.6;
+                 color: #374151; }
+    .dark .sp-notes { color: #d1d5db; }
+    .sp-notes__h { font-size: .875rem; font-weight: 600; margin: 1rem 0 .375rem;
+                   color: #111827; }
+    .dark .sp-notes__h { color: #f9fafb; }
+
+    .sp-chat        { display: flex; flex-direction: column; gap: .75rem;
+                      max-height: 24rem; overflow-y: auto; margin-bottom: 1rem; }
+    .sp-chat__row   { display: flex; }
+    .sp-chat__row--me  { justify-content: flex-end; }
+    .sp-chat__bubble   { max-width: 85%; padding: .5rem .75rem; font-size: .875rem;
+                         border-radius: 1rem; white-space: pre-line; line-height: 1.5; }
+    .sp-chat__bubble--me { background: #0d9488; color: #fff; border-bottom-right-radius: .25rem; }
+    .sp-chat__bubble--ai { background: #f3f4f6; color: #1f2937; border-bottom-left-radius: .25rem; }
+    .dark .sp-chat__bubble--ai { background: #1f2937; color: #e5e7eb; }
+
+    .sp-ask       { display: flex; gap: .5rem; align-items: flex-end; }
+    .sp-ask__box  { flex: 1 1 auto; min-width: 0; width: 100%;
+                    padding: .5rem .625rem; font-size: .875rem; line-height: 1.4;
+                    border: 1px solid #d1d5db; border-radius: .5rem;
+                    background: #fff; color: #111827; resize: vertical; }
+    .dark .sp-ask__box { border-color: #374151; background: #111827; color: #f9fafb; }
+    .sp-ask__box:focus { outline: 2px solid #14b8a6; outline-offset: -1px; }
+
+    .sp-note-box { padding: .75rem; border-radius: .5rem; font-size: .875rem;
+                   background: #fffbeb; color: #92400e; }
+    .dark .sp-note-box { background: rgba(120,53,15,.35); color: #fde68a; }
+
+    /* ── Video frame ────────────────────────────────────────────── */
+    .sp-video { position: relative; width: 100%; aspect-ratio: 16 / 9;
+                border-radius: .5rem; overflow: hidden; background: #000; }
+    .sp-video iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+
     /* ── ID card ────────────────────────────────────────────────── */
     .sp-card {
         max-width: 26rem; border-radius: 1rem; overflow: hidden;

@@ -6,6 +6,7 @@
     editing the ?lecture= parameter.
 --}}
 <x-filament-panels::page>
+@include('filament.student-portal.partials.styles')
 {{--
     NOTE ON LAYOUT: this page uses inline CSS grid rather than Tailwind's
     grid-cols-* utilities. Those utilities are NOT present in Filament's
@@ -27,25 +28,21 @@
                 <x-slot name="heading">Library</x-slot>
                 <x-slot name="description">{{ $this->lectures->count() }} published</x-slot>
 
-                <div class="-mx-2 max-h-[32rem] space-y-1 overflow-y-auto">
+                <div class="sp-scroll"><div class="sp-list">
                     @forelse ($this->lectures as $item)
                         <button
                             type="button"
                             wire:click="selectLecture('{{ $item->id }}')"
-                            @class([
-                                'w-full rounded-lg px-3 py-2 text-left transition',
-                                'bg-primary-50 ring-1 ring-primary-500 dark:bg-primary-900/30' => $lecture && $lecture->id === $item->id,
-                                'hover:bg-gray-50 dark:hover:bg-gray-800' => ! ($lecture && $lecture->id === $item->id),
-                            ])
+class="sp-list__item {{ $lecture && $lecture->id === $item->id ? 'sp-list__item--on' : '' }}"
                         >
-                            <div class="truncate text-sm font-medium text-gray-900 dark:text-white">
+                            <div class="sp-list__title">
                                 {{ $item->title }}
                             </div>
-                            <div class="mt-0.5 flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+                            <div class="sp-list__meta">
                                 <span>{{ $item->subject?->name ?? 'General' }}</span>
-                                @if ($item->source_type === 'external_url' || $item->external_url)
+                                @if ($item->source_type === 'link' || $item->external_url)
                                     <span aria-hidden="true">·</span>
-                                    <span class="inline-flex items-center gap-0.5">
+                                    <span style="display:inline-flex;align-items:center;gap:.15rem;">
                                         <x-filament::icon icon="heroicon-m-play-circle" class="h-3 w-3" />
                                         Video
                                     </span>
@@ -53,11 +50,11 @@
                             </div>
                         </button>
                     @empty
-                        <p class="px-3 py-6 text-center text-sm text-gray-500 dark:text-gray-400">
+                        <p class="sp-empty">
                             No lectures published yet.
                         </p>
                     @endforelse
-                </div>
+                </div></div>
             </x-filament::section>
         </div>
 
@@ -80,11 +77,10 @@
                     </x-slot>
 
                     @if ($embed)
-                        <div class="overflow-hidden rounded-lg bg-black" style="aspect-ratio: 16 / 9;">
+                        <div class="sp-video">
                             <iframe
                                 src="{{ $embed }}"
                                 title="{{ $lecture->title }}"
-                                class="h-full w-full"
                                 loading="lazy"
                                 referrerpolicy="strict-origin-when-cross-origin"
                                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -99,8 +95,8 @@
 
                     @if (filled($lecture->description))
                         <div class="mt-4">
-                            <h4 class="mb-1 text-sm font-semibold text-gray-900 dark:text-white">Lesson notes</h4>
-                            <div class="prose prose-sm max-w-none whitespace-pre-line text-gray-700 dark:prose-invert dark:text-gray-300">{{ $lecture->description }}</div>
+                            <h4 class="sp-notes__h">Lesson notes</h4>
+                            <div class="sp-notes">{{ $lecture->description }}</div>
                         </div>
                     @endif
                 </x-filament::section>
@@ -118,22 +114,22 @@
                     </x-slot>
 
                     @if (! $this->aiAvailable())
-                        <div class="rounded-lg bg-amber-50 p-3 text-sm text-amber-800 dark:bg-amber-900/30 dark:text-amber-200">
+                        <div class="sp-note-box">
                             {{ $this->aiUnavailableReason() ?? 'AI is currently unavailable.' }}
                         </div>
                     @else
                         @if ($this->messages->isNotEmpty())
-                            <div class="mb-4 max-h-96 space-y-3 overflow-y-auto">
+                            <div class="sp-chat">
                                 @foreach ($this->messages as $message)
                                     @if ($message->role === 'user')
-                                        <div class="flex justify-end">
-                                            <div class="max-w-[85%] rounded-2xl rounded-br-sm bg-primary-600 px-3 py-2 text-sm text-white">
+                                        <div class="sp-chat__row sp-chat__row--me">
+                                            <div class="sp-chat__bubble sp-chat__bubble--me">
                                                 {{ $message->content }}
                                             </div>
                                         </div>
                                     @else
-                                        <div class="flex justify-start">
-                                            <div class="max-w-[85%] whitespace-pre-line rounded-2xl rounded-bl-sm bg-gray-100 px-3 py-2 text-sm text-gray-800 dark:bg-gray-800 dark:text-gray-200">
+                                        <div class="sp-chat__row">
+                                            <div class="sp-chat__bubble sp-chat__bubble--ai">
                                                 {{ $message->content }}
                                             </div>
                                         </div>
@@ -142,16 +138,14 @@
                             </div>
                         @endif
 
-                        <form wire:submit="ask" class="flex items-end gap-2">
-                            <div class="flex-1">
-                                <textarea
-                                    wire:model="question"
-                                    rows="2"
-                                    placeholder="e.g. Can you explain the second part again more simply?"
-                                    class="block w-full rounded-lg border-gray-300 text-sm shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-                                    @disabled($this->thinking)
-                                ></textarea>
-                            </div>
+                        <form wire:submit="ask" class="sp-ask">
+                            <textarea
+                                wire:model="question"
+                                rows="2"
+                                placeholder="e.g. Can you explain the second part again more simply?"
+                                class="sp-ask__box"
+                                @disabled($this->thinking)
+                            ></textarea>
                             <x-filament::button
                                 type="submit"
                                 icon="heroicon-m-paper-airplane"
