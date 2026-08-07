@@ -5,12 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0f172a">
 <title>{{ $attempt->test->name }} — {{ $tenant->school_name ?? '' }}</title>
-<link rel="preconnect" href="https://fonts.bunny.net">
-<link href="https://fonts.bunny.net/css?family=inter:400,500,600,700,800,900" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com"></script>
 <meta name="csrf-token" content="{{ csrf_token() }}">
 <style>
-    body { font-family: 'Inter','Segoe UI',system-ui,Arial,sans-serif; -webkit-font-smoothing: antialiased; }
+    body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif; -webkit-font-smoothing: antialiased; }
 </style>
 </head>
 <body class="bg-slate-100 min-h-screen text-slate-900">

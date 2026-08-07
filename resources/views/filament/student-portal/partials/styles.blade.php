@@ -140,6 +140,19 @@
                 border-radius: .5rem; overflow: hidden; background: #000; }
     .sp-video iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
 
+    /* Local click-to-play poster: no YouTube request until pressed. */
+    .sp-video__poster {
+        position: absolute; inset: 0; width: 100%; height: 100%;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        gap: .5rem; border: 0; cursor: pointer; color: #fff;
+        background: linear-gradient(135deg, #0f3d2e 0%, #0d9488 100%);
+        transition: filter .15s ease;
+    }
+    .sp-video__poster:hover { filter: brightness(1.08); }
+    .sp-video__play  { font-size: 2.25rem; line-height: 1; }
+    .sp-video__label { font-size: .9375rem; font-weight: 600; }
+    .sp-video__hint  { font-size: .75rem; opacity: .8; }
+
     /* ── ID card ────────────────────────────────────────────────── */
     .sp-card {
         max-width: 26rem; border-radius: 1rem; overflow: hidden;

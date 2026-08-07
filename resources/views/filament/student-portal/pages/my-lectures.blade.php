@@ -77,15 +77,43 @@ class="sp-list__item {{ $lecture && $lecture->id === $item->id ? 'sp-list__item-
                     </x-slot>
 
                     @if ($embed)
-                        <div class="sp-video">
-                            <iframe
-                                src="{{ $embed }}"
-                                title="{{ $lecture->title }}"
-                                loading="lazy"
-                                referrerpolicy="strict-origin-when-cross-origin"
-                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                allowfullscreen
-                            ></iframe>
+                        {{--
+                            Click-to-play, on purpose.
+
+                            Embedding the player directly cost 5.8s on this page:
+                            the iframe pulls in YouTube's whole runtime — measured
+                            at 12 external requests totalling ~13.6s across
+                            youtube-nocookie, gstatic, ytimg and ggpht — and the
+                            browser blocks on it before the page settles.
+
+                            The poster below is entirely local, so the page renders
+                            immediately and nothing is requested from YouTube (and
+                            no viewing data leaves the school) until the student
+                            actually presses play. Then the real iframe is swapped
+                            in with autoplay so it is still a single click.
+                        --}}
+                        <div class="sp-video" x-data="{ playing: false }">
+                            <template x-if="playing">
+                                <iframe
+                                    src="{{ $embed }}&autoplay=1"
+                                    title="{{ $lecture->title }}"
+                                    referrerpolicy="strict-origin-when-cross-origin"
+                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                    allowfullscreen
+                                ></iframe>
+                            </template>
+
+                            <button
+                                type="button"
+                                x-show="! playing"
+                                x-on:click="playing = true"
+                                class="sp-video__poster"
+                                aria-label="Play lecture: {{ $lecture->title }}"
+                            >
+                                <span class="sp-video__play" aria-hidden="true">&#9654;</span>
+                                <span class="sp-video__label">Play lecture</span>
+                                <span class="sp-video__hint">Loads from YouTube when you press play</span>
+                            </button>
                         </div>
                     @elseif ($lecture->external_url)
                         <x-filament::link :href="$lecture->external_url" target="_blank" rel="noopener">

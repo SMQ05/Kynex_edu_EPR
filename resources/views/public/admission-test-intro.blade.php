@@ -5,12 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#1e1b4b">
 <title>Online Admission Test — {{ $tenant->school_name ?? 'School' }}</title>
-<link rel="preconnect" href="https://fonts.bunny.net">
-<link href="https://fonts.bunny.net/css?family=inter:400,500,600,700,800,900" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com"></script>
 <style>
     :root { --grad-hero: linear-gradient(135deg,#1e1b4b,#1e3a8a,#2563eb,#0ea5e9); }
-    body { font-family: 'Inter','Segoe UI',system-ui,Arial,sans-serif; -webkit-font-smoothing: antialiased; }
+    body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif; -webkit-font-smoothing: antialiased; }
     .btn-grad { background: linear-gradient(135deg,#4f46e5 0%,#2563eb 55%,#06b6d4 100%); box-shadow: 0 16px 40px -12px rgba(37,99,235,.45); transition: transform .15s, box-shadow .2s, filter .2s; }
     .btn-grad:hover { transform: translateY(-2px); box-shadow: 0 20px 48px -12px rgba(37,99,235,.6); filter: brightness(1.04); }
     @media (prefers-reduced-motion: reduce) { .btn-grad { transition: none; } }

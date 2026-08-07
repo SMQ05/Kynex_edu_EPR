@@ -52,6 +52,7 @@ class StudentPanelProvider extends PanelProvider
                 'warning' => Color::Amber,
             ])
             ->darkMode()
+            ->defaultAvatarProvider(\App\Filament\LocalInitialsAvatarProvider::class)
             ->discoverPages(
                 in: app_path('Filament/StudentPortal/Pages'),
                 for: 'App\\Filament\\StudentPortal\\Pages',

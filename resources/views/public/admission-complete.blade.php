@@ -5,15 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#1e1b4b">
 <title>Complete Your Admission Profile — {{ $tenant?->school_name ?? 'School' }}</title>
-<link rel="preconnect" href="https://fonts.bunny.net">
-<link href="https://fonts.bunny.net/css?family=inter:400,500,600,700,800,900" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com"></script>
 <style>
     :root {
         --grad-brand: linear-gradient(135deg,#4f46e5 0%,#2563eb 55%,#06b6d4 100%);
         --grad-hero: linear-gradient(135deg,#1e1b4b,#1e3a8a,#2563eb,#0ea5e9);
     }
-    body { font-family: 'Inter','Segoe UI',system-ui,Arial,sans-serif; -webkit-font-smoothing: antialiased; }
+    body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif; -webkit-font-smoothing: antialiased; }
     .field-input {
         display: block; width: 100%;
         border-radius: 0.75rem; border: 0;

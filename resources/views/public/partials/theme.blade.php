@@ -4,8 +4,6 @@
   marketing landing, auth pages and verification pages all share one
   bold, mobile-first visual language. Pair with partials/scripts.blade.php.
 --}}
-<link rel="preconnect" href="https://fonts.bunny.net">
-<link href="https://fonts.bunny.net/css?family=inter:300,400,500,600,700,800,900" rel="stylesheet">
 <style>
   *, *::before, *::after { box-sizing: border-box; }
 
@@ -34,7 +32,7 @@
 
   html { scroll-behavior:smooth; -webkit-text-size-adjust:100%; }
   body {
-    margin:0; font-family:'Inter','Segoe UI',system-ui,Arial,sans-serif;
+    margin:0; font-family: Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
     color:var(--ink); background:var(--white);
     font-size:16px; line-height:1.65; -webkit-font-smoothing:antialiased;
     overflow-x:hidden;

@@ -6,8 +6,6 @@
 <meta name="theme-color" content="#1e1b4b">
 <meta name="csrf-token" content="{{ csrf_token() }}">
 <title>Admission Application — {{ $tenant->school_name }}</title>
-<link rel="preconnect" href="https://fonts.bunny.net">
-<link href="https://fonts.bunny.net/css?family=inter:400,500,600,700,800,900" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com"></script>
 <style>
     :root {
@@ -15,7 +13,7 @@
         --grad-hero: linear-gradient(135deg,#1e1b4b,#1e3a8a,#2563eb,#0ea5e9);
     }
     html { -webkit-text-size-adjust: 100%; }
-    body { font-family: 'Inter','Segoe UI',system-ui,Arial,sans-serif; -webkit-font-smoothing: antialiased; }
+    body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif; -webkit-font-smoothing: antialiased; }
 
     .field-input {
         display: block; width: 100%;

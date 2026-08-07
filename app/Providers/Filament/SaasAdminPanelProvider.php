@@ -37,6 +37,7 @@ class SaasAdminPanelProvider extends PanelProvider
                     ->postAction(fn () => route('filament.saas-admin.auth.logout')),
             ])
             ->darkMode()
+            ->defaultAvatarProvider(\App\Filament\LocalInitialsAvatarProvider::class)
             ->colors([
                 'primary' => '#2563EB',
                 'danger'  => Color::Red,

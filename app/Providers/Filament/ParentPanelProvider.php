@@ -46,6 +46,7 @@ class ParentPanelProvider extends PanelProvider
                 'warning' => Color::Amber,
             ])
             ->darkMode()
+            ->defaultAvatarProvider(\App\Filament\LocalInitialsAvatarProvider::class)
             ->discoverResources(
                 in: app_path('Filament/ParentPortal/Resources'),
                 for: 'App\\Filament\\ParentPortal\\Resources',

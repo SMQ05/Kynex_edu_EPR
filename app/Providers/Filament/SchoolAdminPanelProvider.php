@@ -55,6 +55,7 @@ class SchoolAdminPanelProvider extends PanelProvider
                 'gray'    => Color::Slate,
             ])
             ->darkMode()
+            ->defaultAvatarProvider(\App\Filament\LocalInitialsAvatarProvider::class)
             ->discoverResources(
                 in: app_path('Filament/SchoolAdmin/Resources'),
                 for: 'App\\Filament\\SchoolAdmin\\Resources',
