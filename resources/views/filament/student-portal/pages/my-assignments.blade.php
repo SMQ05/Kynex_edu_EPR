@@ -5,7 +5,7 @@
     student's own class and section in the page class.
 --}}
 <x-filament-panels::page>
-@include('filament.student-portal.partials.styles')
+@include('filament.portal.styles')
 
     @php $counts = $this->counts; @endphp
 

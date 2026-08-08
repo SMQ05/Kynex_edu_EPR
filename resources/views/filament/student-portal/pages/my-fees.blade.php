@@ -4,7 +4,7 @@
     the definition of "balance" lives in one place.
 --}}
 <x-filament-panels::page>
-@include('filament.student-portal.partials.styles')
+@include('filament.portal.styles')
 
     @php
         $t = $this->totals;

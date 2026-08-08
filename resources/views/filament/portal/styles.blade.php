@@ -1,22 +1,45 @@
 {{--
-    Shared styling for the student portal.
+    Shared styling for the student and parent portals.
 
     WHY THIS FILE EXISTS: Filament's compiled stylesheet ships layout and
-    typography utilities but NOT the Tailwind colour scale or grid columns.
-    Verified against public/css/filament/filament/app.css:
+    typography utilities but almost none of the rest. Measured against
+    public/css/filament/filament/app.css, 678 of the 699 class names used across
+    this project's Filament views are absent — the whole colour scale, grid
+    columns, ring, spacing and hover variants. Classes like
+    "bg-amber-50 ring-1 text-gray-500" therefore render as nothing, which is not
+    a visible error, just a page that quietly looks broken. That is exactly what
+    the parent dashboard did before it was rewritten to use this sheet.
 
-        present  text-3xl  font-bold  text-sm  flex  truncate
-        MISSING  text-gray-500  text-primary-600  text-green-600
-                 text-red-600  grid  grid-cols-*
+    The real fix is a Filament custom theme built with Vite, which regenerates
+    that stylesheet from these views. It needs node_modules in the image, so it
+    is a Dockerfile change and an image rebuild. Until then, everything these
+    portals need is defined here once.
 
-    So `class="grid grid-cols-4 text-gray-500"` silently renders as an
-    unstyled block — which is not a visible failure, just a page that quietly
-    looks wrong. Everything this portal needs is therefore defined here once
-    and pulled in per page. `.dark` is the class Filament sets on <html>.
+    The accent colour is a CSS variable, so each panel matches its own Filament
+    palette without a second copy of this file. Pass accent = indigo for the
+    parent portal; omit it for the student portal's teal.
 
-    Include with: @include('filament.student-portal.partials.styles')
+    CAUTION: do not put a Blade comment terminator anywhere inside this comment,
+    including in prose or examples. Blade comments do not nest, so the first one
+    ends the comment and everything after becomes live code. Doing so once made
+    this partial include itself and exhaust PHP's memory, taking every page that
+    used it to a 500.
 --}}
+@php
+    $accents = [
+        'teal'   => ['600' => '#0d9488', '400' => '#2dd4bf', '50' => '#f0fdfa', 'ring' => '#14b8a6', 'deep' => '#0f3d2e'],
+        'indigo' => ['600' => '#4f46e5', '400' => '#a5b4fc', '50' => '#eef2ff', 'ring' => '#6366f1', 'deep' => '#312e81'],
+    ];
+    $a = $accents[$accent ?? 'teal'] ?? $accents['teal'];
+@endphp
 <style>
+    :root {
+        --portal-accent:       {{ $a['600'] }};
+        --portal-accent-light: {{ $a['400'] }};
+        --portal-accent-bg:    {{ $a['50'] }};
+        --portal-accent-ring:  {{ $a['ring'] }};
+        --portal-accent-deep:  {{ $a['deep'] }};
+    }
     /* ── Layout ─────────────────────────────────────────────────── */
     .sp-grid-stats { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
     .sp-grid-two   { display: grid; gap: 1.5rem; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); }
@@ -31,7 +54,7 @@
     .dark .sp-stat__hint  { color: #6b7280; }
 
     /* ── Semantic colours ───────────────────────────────────────── */
-    .sp-teal { color: #0d9488; }  .dark .sp-teal { color: #2dd4bf; }
+    .sp-teal { color: var(--portal-accent); }  .dark .sp-teal { color: var(--portal-accent-light); }
     .sp-good { color: #16a34a; }  .dark .sp-good { color: #4ade80; }
     .sp-warn { color: #d97706; }  .dark .sp-warn { color: #fbbf24; }
     .sp-bad  { color: #dc2626; }  .dark .sp-bad  { color: #f87171; }
@@ -81,7 +104,7 @@
     /* ── Progress bar (attendance, fee paid ratio) ──────────────── */
     .sp-bar      { height: .5rem; border-radius: 9999px; background: #e5e7eb; overflow: hidden; }
     .dark .sp-bar { background: #374151; }
-    .sp-bar__fill { height: 100%; border-radius: 9999px; background: #0d9488; }
+    .sp-bar__fill { height: 100%; border-radius: 9999px; background: var(--portal-accent); }
 
     /* ── Selectable list (lecture library) ──────────────────────── */
     /* Every class this list needs is defined here: items-center, gap-*,
@@ -96,7 +119,7 @@
                       cursor: pointer; transition: background .12s ease; }
     .sp-list__item:hover { background: #f9fafb; }
     .dark .sp-list__item:hover { background: #1f2937; }
-    .sp-list__item--on   { background: #f0fdfa; border-color: #14b8a6; }
+    .sp-list__item--on   { background: var(--portal-accent-bg); border-color: var(--portal-accent-ring); }
     .dark .sp-list__item--on { background: rgba(19,78,74,.35); border-color: #14b8a6; }
     .sp-list__title { font-size: .875rem; font-weight: 500; color: #111827;
                       overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -119,7 +142,7 @@
     .sp-chat__row--me  { justify-content: flex-end; }
     .sp-chat__bubble   { max-width: 85%; padding: .5rem .75rem; font-size: .875rem;
                          border-radius: 1rem; white-space: pre-line; line-height: 1.5; }
-    .sp-chat__bubble--me { background: #0d9488; color: #fff; border-bottom-right-radius: .25rem; }
+    .sp-chat__bubble--me { background: var(--portal-accent); color: #fff; border-bottom-right-radius: .25rem; }
     .sp-chat__bubble--ai { background: #f3f4f6; color: #1f2937; border-bottom-left-radius: .25rem; }
     .dark .sp-chat__bubble--ai { background: #1f2937; color: #e5e7eb; }
 
@@ -129,7 +152,7 @@
                     border: 1px solid #d1d5db; border-radius: .5rem;
                     background: #fff; color: #111827; resize: vertical; }
     .dark .sp-ask__box { border-color: #374151; background: #111827; color: #f9fafb; }
-    .sp-ask__box:focus { outline: 2px solid #14b8a6; outline-offset: -1px; }
+    .sp-ask__box:focus { outline: 2px solid var(--portal-accent-ring); outline-offset: -1px; }
 
     .sp-note-box { padding: .75rem; border-radius: .5rem; font-size: .875rem;
                    background: #fffbeb; color: #92400e; }
@@ -145,7 +168,7 @@
         position: absolute; inset: 0; width: 100%; height: 100%;
         display: flex; flex-direction: column; align-items: center; justify-content: center;
         gap: .5rem; border: 0; cursor: pointer; color: #fff;
-        background: linear-gradient(135deg, #0f3d2e 0%, #0d9488 100%);
+        background: linear-gradient(135deg, var(--portal-accent-deep) 0%, var(--portal-accent) 100%);
         transition: filter .15s ease;
     }
     .sp-video__poster:hover { filter: brightness(1.08); }
@@ -156,7 +179,7 @@
     /* ── ID card ────────────────────────────────────────────────── */
     .sp-card {
         max-width: 26rem; border-radius: 1rem; overflow: hidden;
-        background: linear-gradient(135deg, #0f3d2e 0%, #0d9488 100%);
+        background: linear-gradient(135deg, var(--portal-accent-deep) 0%, var(--portal-accent) 100%);
         color: #fff; box-shadow: 0 10px 25px -5px rgba(0,0,0,.3);
     }
     .sp-card__head { padding: 1rem 1.25rem; border-bottom: 1px solid rgba(255,255,255,.2); }

@@ -3,7 +3,7 @@
     the per-subject marks that produced it. All scoped to the signed-in student.
 --}}
 <x-filament-panels::page>
-@include('filament.student-portal.partials.styles')
+@include('filament.portal.styles')
 
     @php $att = $this->attendance; @endphp
 

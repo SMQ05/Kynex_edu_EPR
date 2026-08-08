@@ -120,4 +120,56 @@ class Dashboard extends Page
             'recentHomeworkMarks'  => $recentHomeworkMarks,
         ];
     }
+
+    /** Initials for the child's avatar tile. */
+    public function initialsFor(Student $student): string
+    {
+        $a = mb_substr((string) $student->first_name, 0, 1);
+        $b = mb_substr((string) $student->last_name, 0, 1);
+
+        return mb_strtoupper($a . $b) ?: '?';
+    }
+
+    /**
+     * Outstanding fee position for one child.
+     *
+     * Uses StudentFee's own net_payable_paisas / balance_paisas accessors so the
+     * definition of "balance" stays in the model rather than being re-derived
+     * here and in the student portal separately.
+     *
+     * @return array{due:int,overdue:int,lines:int,nextDue:?\Illuminate\Support\Carbon}
+     */
+    public function feeSummaryFor(Student $student): array
+    {
+        $fees = \App\Models\Tenant\StudentFee::where('student_id', $student->id)
+            ->whereIn('status', ['pending', 'partial'])
+            ->orderBy('due_date')
+            ->get();
+
+        $due = 0;
+        $overdue = 0;
+        $today = now()->startOfDay();
+        $nextDue = null;
+
+        foreach ($fees as $fee) {
+            $balance = max(0, $fee->balance_paisas);
+            if ($balance <= 0) {
+                continue;
+            }
+            $due += $balance;
+
+            if ($fee->due_date && $today->greaterThan($fee->due_date)) {
+                $overdue += $balance;
+            } elseif ($nextDue === null && $fee->due_date) {
+                $nextDue = $fee->due_date;
+            }
+        }
+
+        return [
+            'due' => $due,
+            'overdue' => $overdue,
+            'lines' => $fees->filter(fn ($f) => $f->balance_paisas > 0)->count(),
+            'nextDue' => $nextDue,
+        ];
+    }
 }

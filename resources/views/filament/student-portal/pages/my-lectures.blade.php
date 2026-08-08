@@ -6,7 +6,7 @@
     editing the ?lecture= parameter.
 --}}
 <x-filament-panels::page>
-@include('filament.student-portal.partials.styles')
+@include('filament.portal.styles')
 {{--
     NOTE ON LAYOUT: this page uses inline CSS grid rather than Tailwind's
     grid-cols-* utilities. Those utilities are NOT present in Filament's

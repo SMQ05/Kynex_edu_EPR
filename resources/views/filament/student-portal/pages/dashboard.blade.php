@@ -6,7 +6,7 @@
     the request, so a student cannot widen the scope from the URL.
 --}}
 <x-filament-panels::page>
-@include('filament.student-portal.partials.styles')
+@include('filament.portal.styles')
 
     @php
         $stats = $this->stats;

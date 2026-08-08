@@ -6,7 +6,7 @@
     same result.
 --}}
 <x-filament-panels::page>
-@include('filament.student-portal.partials.styles')
+@include('filament.portal.styles')
 
     @php
         $student = $this->student();
