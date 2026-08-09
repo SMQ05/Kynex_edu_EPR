@@ -21,6 +21,7 @@ class ExamQuestion extends Model
 
     protected $fillable = [
         'question_group_id',
+        'study_material_id',
         'subject_id',
         'type',
         'difficulty',

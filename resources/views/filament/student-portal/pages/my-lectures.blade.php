@@ -129,6 +129,174 @@ class="sp-list__item {{ $lecture && $lecture->id === $item->id ? 'sp-list__item-
                     @endif
                 </x-filament::section>
 
+                @php($cards = $this->flashcards)
+                @php($quiz = $this->practiceQuestions)
+
+                @if ($cards->isNotEmpty())
+                    <x-filament::section>
+                        <x-slot name="heading">
+                            <span class="inline-flex items-center gap-1.5">
+                                <x-filament::icon icon="heroicon-m-rectangle-stack" class="h-4 w-4 text-primary-500" />
+                                Revision cards
+                            </span>
+                        </x-slot>
+                        <x-slot name="description">
+                            Tap a card to reveal the answer. {{ $cards->count() }} cards for this lecture.
+                        </x-slot>
+
+                        <div
+                            class="sp-cards"
+                            x-data="{
+                                i: 0,
+                                shown: false,
+                                seen: [],
+                                total: {{ $cards->count() }},
+                                cards: @js($cards->map(fn ($c) => ['front' => $c->front, 'back' => $c->back])->values()),
+                                reveal() {
+                                    this.shown = true;
+                                    if (! this.seen.includes(this.i)) this.seen.push(this.i);
+                                },
+                                go(step) {
+                                    this.i = (this.i + step + this.total) % this.total;
+                                    this.shown = false;
+                                },
+                            }"
+                        >
+                            <button
+                                type="button"
+                                class="sp-card"
+                                :class="shown && 'sp-card--flipped'"
+                                x-on:click="shown ? go(1) : reveal()"
+                                x-bind:aria-label="shown ? 'Next card' : 'Reveal answer'"
+                            >
+                                <span class="sp-card__side" x-text="shown ? 'Answer' : 'Question'"></span>
+                                <span class="sp-card__text" x-text="cards[i][shown ? 'back' : 'front']"></span>
+                                <span class="sp-card__hint" x-text="shown ? 'Tap for the next card' : 'Tap to reveal'"></span>
+                            </button>
+
+                            <div class="sp-cards__bar">
+                                <button type="button" class="sp-cards__nav" x-on:click="go(-1)" aria-label="Previous card">&#8592;</button>
+                                <div class="sp-cards__dots" aria-hidden="true">
+                                    <template x-for="(c, n) in cards" :key="n">
+                                        <span class="sp-cards__dot" :class="{ 'sp-cards__dot--on': n === i, 'sp-cards__dot--seen': seen.includes(n) }"></span>
+                                    </template>
+                                </div>
+                                <button type="button" class="sp-cards__nav" x-on:click="go(1)" aria-label="Next card">&#8594;</button>
+                            </div>
+
+                            <p class="sp-cards__count">
+                                Card <span x-text="i + 1"></span> of <span x-text="total"></span>
+                                &middot; <span x-text="seen.length"></span> revealed
+                            </p>
+                        </div>
+                    </x-filament::section>
+                @endif
+
+                @if ($quiz->isNotEmpty())
+                    @php($checked = $this->quizChecked)
+                    @php($score = $checked ? $this->quizScore() : 0)
+                    <x-filament::section>
+                        <x-slot name="heading">
+                            <span class="inline-flex items-center gap-1.5">
+                                <x-filament::icon icon="heroicon-m-academic-cap" class="h-4 w-4 text-primary-500" />
+                                Practice quiz
+                            </span>
+                        </x-slot>
+                        <x-slot name="description">
+                            {{ $quiz->count() }} questions. Practice only &mdash; retry as often as you like, nothing here
+                            affects your grades.
+                        </x-slot>
+
+                        @if ($checked)
+                            @php($pct = (int) round($score / $quiz->count() * 100))
+                            <div class="sp-quiz__result {{ $pct >= 100 ? 'sp-quiz__result--ace' : ($pct >= 60 ? 'sp-quiz__result--ok' : 'sp-quiz__result--low') }}">
+                                <div class="sp-quiz__score">{{ $score }}<span>/{{ $quiz->count() }}</span></div>
+                                <div>
+                                    <div class="sp-quiz__verdict">
+                                        @if ($pct === 100)
+                                            Perfect &mdash; you have this one.
+                                        @elseif ($pct >= 60)
+                                            Good work. Review the ones you missed below.
+                                        @else
+                                            Worth another look &mdash; read the explanations, then try again.
+                                        @endif
+                                    </div>
+                                    @if ($this->bestAttempt && $this->bestAttempt->score > $score)
+                                        <div class="sp-quiz__best">Your best on this lecture: {{ $this->bestAttempt->score }}/{{ $this->bestAttempt->total }}</div>
+                                    @endif
+                                </div>
+                            </div>
+                        @endif
+
+                        <div
+                            class="sp-quiz"
+                            x-data="{ answered: 0, total: {{ $quiz->count() }} }"
+                            x-init="answered = $el.querySelectorAll('.sp-opt input:checked').length"
+                            x-on:change="answered = $el.querySelectorAll('.sp-opt input:checked').length"
+                        >
+                            @foreach ($quiz as $n => $q)
+                                @php($given = $this->answers[$q->id] ?? null)
+                                @php($right = $this->isCorrect($q))
+                                <div class="sp-quiz__q {{ $checked ? ($right ? 'sp-quiz__q--right' : 'sp-quiz__q--wrong') : '' }}">
+                                    <p class="sp-quiz__text">
+                                        <span class="sp-quiz__n">{{ $n + 1 }}</span>
+                                        {{ $q->question_text }}
+                                    </p>
+
+                                    <div class="sp-quiz__opts">
+                                        @foreach ($this->optionsFor($q) as $option)
+                                            @php($isAnswer = mb_strtolower(trim($option)) === mb_strtolower(trim((string) $q->correct_answer)))
+                                            <label class="sp-opt
+                                                {{ $given === $option ? 'sp-opt--picked' : '' }}
+                                                {{ $checked && $isAnswer ? 'sp-opt--answer' : '' }}
+                                                {{ $checked && $given === $option && ! $isAnswer ? 'sp-opt--miss' : '' }}">
+                                                <input
+                                                    type="radio"
+                                                    wire:model="answers.{{ $q->id }}"
+                                                    value="{{ $option }}"
+                                                    @disabled($checked)
+                                                >
+                                                <span>{{ $option }}</span>
+                                                @if ($checked && $isAnswer)
+                                                    <x-filament::icon icon="heroicon-m-check-circle" class="sp-opt__mark" />
+                                                @elseif ($checked && $given === $option)
+                                                    <x-filament::icon icon="heroicon-m-x-circle" class="sp-opt__mark" />
+                                                @endif
+                                            </label>
+                                        @endforeach
+                                    </div>
+
+                                    @if ($checked && filled($q->explanation))
+                                        <p class="sp-quiz__why">
+                                            <strong>{{ $right ? 'Correct.' : 'Why:' }}</strong> {{ $q->explanation }}
+                                        </p>
+                                    @endif
+                                </div>
+                            @endforeach
+
+                            <div class="sp-quiz__actions">
+                                @if ($checked)
+                                    <x-filament::button wire:click="resetQuiz" icon="heroicon-m-arrow-path" color="gray">
+                                        Try again
+                                    </x-filament::button>
+                                @else
+                                    <x-filament::button
+                                        wire:click="checkQuiz"
+                                        wire:loading.attr="disabled"
+                                        icon="heroicon-m-check"
+                                        x-bind:disabled="answered < total"
+                                    >
+                                        Check my answers
+                                    </x-filament::button>
+                                    <span class="sp-quiz__progress">
+                                        <span x-text="answered"></span> of {{ $quiz->count() }} answered
+                                    </span>
+                                @endif
+                            </div>
+                        </div>
+                    </x-filament::section>
+                @endif
+
                 {{-- ── AI tutor ────────────────────────────────────── --}}
                 <x-filament::section>
                     <x-slot name="heading">

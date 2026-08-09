@@ -84,4 +84,30 @@ class StudyMaterial extends Model
     {
         return $query->where('is_published', true);
     }
+
+    /** Revision cards for this lecture, in teaching order. */
+    public function flashcards(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(LectureFlashcard::class, 'study_material_id')
+            ->where('is_active', true)
+            ->orderBy('sort_order');
+    }
+
+    /**
+     * Practice questions for this lecture.
+     *
+     * These live in exam_questions rather than a parallel table, so a teacher
+     * can promote one into a real exam without retyping it.
+     */
+    public function practiceQuestions(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(ExamQuestion::class, 'study_material_id')
+            ->where('is_active', true)
+            ->orderBy('created_at');
+    }
+
+    public function quizAttempts(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(LectureQuizAttempt::class, 'study_material_id');
+    }
 }

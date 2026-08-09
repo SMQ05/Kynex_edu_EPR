@@ -752,6 +752,481 @@ final class UsaProfile extends DemoProfile
         ];
     }
 
+    /**
+     * Practice quizzes and flashcards, keyed by lecture video id.
+     *
+     * Written to test understanding rather than recall where possible: several
+     * items present a common misconception as a distractor, because the
+     * explanation is where the learning happens on a self-marking quiz.
+     */
+    public function lecturePractice(): array
+    {
+        return [
+            // ── Biology: Photosynthesis — how plants build sugar (G9) ──
+            '8rbr3lRLNmY' => [
+                'quiz' => [
+                    ['mcq', 'Where does the carbon in a plant\'s glucose originally come from?',
+                        ['The soil', 'Water taken up by the roots', 'Carbon dioxide in the air', 'Chlorophyll'],
+                        'Carbon dioxide in the air',
+                        'A common misconception is that plants build mass from soil. The carbon comes from CO2 taken in through the stomata.'],
+                    ['true_false', 'Oxygen released during photosynthesis comes from carbon dioxide.',
+                        null, 'false',
+                        'It comes from splitting water. The oxygen in CO2 ends up in the glucose, not in the released gas.'],
+                    ['mcq', 'Why do most leaves look green?',
+                        ['Chlorophyll absorbs green light', 'Chlorophyll reflects green light', 'Green light has the most energy', 'Leaves emit green light'],
+                        'Chlorophyll reflects green light',
+                        'Chlorophyll absorbs strongly in the blue and red bands. The green it does not absorb is reflected, which is what we see.'],
+                ],
+                'flashcards' => [
+                    ['Photosynthesis — one sentence', 'The process by which a plant uses light energy to convert carbon dioxide and water into glucose, releasing oxygen.'],
+                    ['Inputs and outputs', 'In: carbon dioxide, water, light. Out: glucose and oxygen.'],
+                    ['Stomata', 'Tiny pores on a leaf that let carbon dioxide in and water vapour out.'],
+                    ['Chloroplast', 'The organelle where photosynthesis happens; it contains chlorophyll.'],
+                ],
+            ],
+
+            // ── Biology: the light reactions (G9) ──────────────────────
+            'GR2GA7chA_c' => [
+                'quiz' => [
+                    ['mcq', 'What are the products of the light-dependent reactions?',
+                        ['Glucose and oxygen', 'ATP, NADPH and oxygen', 'Carbon dioxide and water', 'Starch and ATP'],
+                        'ATP, NADPH and oxygen',
+                        'The light reactions make the energy carriers, not the sugar. Glucose is assembled later, in the Calvin cycle.'],
+                    ['true_false', 'The electrons chlorophyll loses are replaced by splitting water.',
+                        null, 'true',
+                        'Water is split to resupply chlorophyll, and the oxygen released is the by-product of that step.'],
+                    ['mcq', 'Where in the chloroplast do the light reactions occur?',
+                        ['Stroma', 'Thylakoid membrane', 'Cell wall', 'Nucleus'],
+                        'Thylakoid membrane',
+                        'Light reactions happen in the thylakoid membrane; the Calvin cycle happens in the surrounding stroma.'],
+                ],
+                'flashcards' => [
+                    ['ATP and NADPH', 'The two energy-carrying molecules made by the light reactions and spent by the Calvin cycle.'],
+                    ['Why water is split', 'To replace the electrons chlorophyll loses when light excites them. Oxygen is the by-product.'],
+                    ['Thylakoid vs stroma', 'Thylakoid membrane: light reactions. Stroma: Calvin cycle.'],
+                    ['The most common mix-up', 'The light reactions make the fuel; the Calvin cycle makes the sugar.'],
+                ],
+            ],
+
+            // ── Science: photosynthesis in ecosystems (G7) ─────────────
+            '_1U6uMmUJZU' => [
+                'quiz' => [
+                    ['mcq', 'What is a producer?',
+                        ['An animal that eats plants', 'An organism that makes its own food from sunlight', 'An organism that breaks down dead matter', 'The top predator in a food chain'],
+                        'An organism that makes its own food from sunlight',
+                        'Plants, algae and some bacteria are producers. Everything else is a consumer.'],
+                    ['true_false', 'Energy cycles round an ecosystem the same way matter does.',
+                        null, 'false',
+                        'Matter cycles, but energy flows one way — in as sunlight, out as heat. That is why food chains are short.'],
+                    ['mcq', 'Why are there usually far fewer top predators than plants?',
+                        ['Predators reproduce slowly', 'Most energy is lost as heat at each step', 'Plants are easier to count', 'Predators need less energy'],
+                        'Most energy is lost as heat at each step',
+                        'Only a small fraction of energy passes to the next level, so each step supports fewer organisms.'],
+                ],
+                'flashcards' => [
+                    ['Producer', 'An organism that makes its own food from sunlight — the entry point for energy into an ecosystem.'],
+                    ['Consumer', 'An organism that gets energy by eating producers or other consumers.'],
+                    ['Energy vs matter', 'Energy flows one way and is lost as heat. Matter cycles and is reused.'],
+                    ['Respiration vs photosynthesis', 'Near-opposites: one stores energy in sugar and releases oxygen, the other releases that energy and uses oxygen.'],
+                ],
+            ],
+
+            // ── Biology: breaking down the stages (G12) ────────────────
+            'Wt5EMpUt-_g' => [
+                'quiz' => [
+                    ['mcq', 'What drives ATP synthesis in the light reactions?',
+                        ['Direct absorption of light by ATP synthase', 'A hydrogen ion gradient across the thylakoid membrane', 'The splitting of glucose', 'Carbon fixation'],
+                        'A hydrogen ion gradient across the thylakoid membrane',
+                        'Electron transport pumps hydrogen ions across the membrane; their flow back through the enzyme drives ATP synthesis.'],
+                    ['mcq', 'In the Calvin cycle, what happens to most of the molecules produced?',
+                        ['They all leave as glucose', 'Most regenerate the starting five-carbon sugar', 'They are converted to oxygen', 'They are stored in the thylakoid'],
+                        'Most regenerate the starting five-carbon sugar',
+                        'Only some product leaves as usable sugar; the rest must regenerate the acceptor molecule so the cycle can continue.'],
+                    ['true_false', '"Light-independent" means the Calvin cycle can run indefinitely without light.',
+                        null, 'false',
+                        'It does not use light directly, but it consumes ATP and NADPH from the light reactions, so it stalls once those run out.'],
+                ],
+                'flashcards' => [
+                    ['Calvin cycle, in one line', 'Uses ATP and NADPH to fix carbon dioxide into sugar, in the stroma.'],
+                    ['Why "light-independent" is misleading', 'It needs no light directly, but depends entirely on the products of a stage that does.'],
+                    ['Three things that cap the rate', 'Available light, available carbon dioxide, and temperature affecting enzymes.'],
+                    ['Carbon fixation', 'Attaching CO2 to a five-carbon sugar — the first step of the Calvin cycle.'],
+                ],
+            ],
+
+            // ── Mathematics: variables, expressions, equations (G8) ────
+            'vDqOoI-4Z6M' => [
+                'quiz' => [
+                    ['mcq', 'Which of these is an expression, not an equation?',
+                        ['3x + 5 = 20', 'x = 4', '3x + 5', '2x - 1 = x + 3'],
+                        '3x + 5',
+                        'An equation contains an equals sign and states two things are equal. An expression does not.'],
+                    ['mcq', 'What does it mean to SOLVE an equation?',
+                        ['Simplify it as far as possible', 'Find the value(s) of the variable that make it true', 'Substitute a number and calculate', 'Rewrite it with fewer terms'],
+                        'Find the value(s) of the variable that make it true',
+                        'You evaluate an expression; you solve an equation. Blurring the two causes trouble later.'],
+                    ['true_false', 'In the balance-scale model, an operation applied to one side must also be applied to the other.',
+                        null, 'true',
+                        'That is exactly what keeps the equation true — otherwise the balance breaks.'],
+                ],
+                'flashcards' => [
+                    ['Variable', 'A letter standing in for a number that is unknown or can change.'],
+                    ['Expression', 'Numbers, variables and operations with no equals sign, e.g. 3x + 5.'],
+                    ['Equation', 'A statement that two expressions are equal, e.g. 3x + 5 = 20.'],
+                    ['Evaluate vs solve', 'Evaluate an expression (number in, number out). Solve an equation (find the variable).'],
+                ],
+            ],
+
+            // ── Mathematics: solving linear equations (G8) ─────────────
+            'bAerID24QJ0' => [
+                'quiz' => [
+                    ['mcq', 'Solve: 4x - 7 = 21',
+                        ['x = 3.5', 'x = 7', 'x = 14', 'x = 3'],
+                        'x = 7',
+                        'Add 7 to both sides to get 4x = 28, then divide by 4 to get x = 7.'],
+                    ['mcq', 'What is the first step in solving 3x + 5 = 20?',
+                        ['Divide both sides by 3', 'Subtract 5 from both sides', 'Multiply both sides by 3', 'Add 5 to both sides'],
+                        'Subtract 5 from both sides',
+                        'Undo operations in reverse order: remove the constant first, then the coefficient.'],
+                    ['true_false', 'Substituting your answer back into the original equation is a reliable way to check it.',
+                        null, 'true',
+                        'It costs seconds and catches most arithmetic slips.'],
+                ],
+                'flashcards' => [
+                    ['Linear equation', 'An equation where the variable appears only to the first power.'],
+                    ['The goal when solving', 'Isolate the variable by undoing operations in reverse order.'],
+                    ['Checking an answer', 'Substitute it back into the ORIGINAL equation and confirm both sides match.'],
+                    ['Three common errors', 'Applying an operation to only one side; losing a negative sign; dividing only part of a side.'],
+                ],
+            ],
+
+            // ── Mathematics: variables on both sides (G9) ──────────────
+            'f15zA0PhSek' => [
+                'quiz' => [
+                    ['mcq', 'Solve: 5x + 3 = 2x + 18',
+                        ['x = 3', 'x = 5', 'x = 7', 'x = 21'],
+                        'x = 5',
+                        'Subtract 2x to get 3x + 3 = 18, subtract 3 to get 3x = 15, divide by 3.'],
+                    ['mcq', 'After simplifying, you are left with 7 = 7. What does that mean?',
+                        ['No solution', 'x = 7', 'Every number is a solution', 'You made a mistake'],
+                        'Every number is a solution',
+                        'A statement that is always true means the equation holds for any value of the variable.'],
+                    ['mcq', 'After simplifying, you are left with 7 = 4. What does that mean?',
+                        ['x = 3', 'There is no solution', 'Every number is a solution', 'x = 0'],
+                        'There is no solution',
+                        'A statement that is never true means no value of the variable can satisfy the equation.'],
+                ],
+                'flashcards' => [
+                    ['Strategy', 'Collect variable terms on one side, constants on the other, then solve as usual.'],
+                    ['Which side to collect on', 'Move the smaller coefficient — it avoids negatives and reduces mistakes.'],
+                    ['Identity', 'Variables cancel and you are left with something TRUE: every number is a solution.'],
+                    ['No solution', 'Variables cancel and you are left with something FALSE: no value works.'],
+                ],
+            ],
+
+            // ── Mathematics: completing the square (G11) ───────────────
+            'KouDAzYl_bc' => [
+                'quiz' => [
+                    ['mcq', 'To complete the square on x² + 6x, what must you add?',
+                        ['3', '6', '9', '36'],
+                        '9',
+                        'Take half the coefficient of x (which is 3) and square it, giving 9.'],
+                    ['mcq', 'Solve x² + 6x + 5 = 0 by completing the square.',
+                        ['x = -1 or x = -5', 'x = 1 or x = 5', 'x = -3 only', 'x = 2 or x = -8'],
+                        'x = -1 or x = -5',
+                        'x² + 6x = -5, add 9 to both sides: (x+3)² = 4, so x + 3 = ±2.'],
+                    ['true_false', 'Completing the square works even when a quadratic cannot be factored neatly.',
+                        null, 'true',
+                        'That is its main advantage, and it is where the quadratic formula comes from.'],
+                ],
+                'flashcards' => [
+                    ['The rule', 'x² + bx becomes a perfect square by adding (b/2)².'],
+                    ['Keeping the equation true', 'Whatever you add to one side, add to the other (or subtract it again on the same side).'],
+                    ['Why it matters', 'It always works, it derives the quadratic formula, and it converts to vertex form.'],
+                    ['Vertex form', 'a(x - h)² + k, where (h, k) is the vertex — what completing the square produces.'],
+                ],
+            ],
+
+            // ── Mathematics: solving by graphing (G12) ─────────────────
+            '573yqfOoMwE' => [
+                'quiz' => [
+                    ['mcq', 'To solve f(x) = g(x) graphically, what do you look for?',
+                        ['Where each graph crosses the x-axis', 'Where the two graphs intersect', 'The highest point of each graph', 'Where both graphs are increasing'],
+                        'Where the two graphs intersect',
+                        'At an intersection the two expressions have the same value, so that x is a solution.'],
+                    ['mcq', 'The graphs never intersect. What does that tell you?',
+                        ['There is exactly one solution', 'There are infinitely many solutions', 'There is no real solution', 'You graphed them wrongly'],
+                        'There is no real solution',
+                        'No intersection is a genuine answer, not a failure — the equation has no real solution.'],
+                    ['true_false', 'Graphing generally gives exact solutions.',
+                        null, 'false',
+                        'It gives good approximations and tells you how many solutions exist. Use algebra when an exact value is required.'],
+                ],
+                'flashcards' => [
+                    ['The core idea', 'Solutions of f(x) = g(x) are the x-values where the two graphs meet.'],
+                    ['When graphing is most useful', 'When an equation cannot be solved neatly by algebra.'],
+                    ['Reading the number of solutions', 'Two intersections = two solutions; one = one; none = no real solution.'],
+                    ['The limitation', 'Approximate, not exact. Use it to check algebra, not replace it.'],
+                ],
+            ],
+
+            // ── Mathematics: rational equations (G12) ──────────────────
+            '3RdNPrNUi4s' => [
+                'quiz' => [
+                    ['mcq', 'What makes rational equations different from other equations?',
+                        ['They have no solutions', 'A variable appears in a denominator', 'They are always quadratic', 'They cannot be graphed'],
+                        'A variable appears in a denominator',
+                        'That is what creates restricted values and the possibility of extraneous solutions.'],
+                    ['mcq', 'Why can an extraneous solution appear?',
+                        ['Because of rounding', 'Because multiplying by an expression containing the variable can introduce values the original forbids', 'Because the equation is quadratic', 'Because the denominator was ignored'],
+                        'Because multiplying by an expression containing the variable can introduce values the original forbids',
+                        'The cleared equation has no restriction; the original is undefined where a denominator is zero.'],
+                    ['true_false', 'Checking your answers is optional when solving rational equations.',
+                        null, 'false',
+                        'It is part of the method — an unchecked extraneous solution is simply a wrong answer.'],
+                ],
+                'flashcards' => [
+                    ['Method', 'Multiply every term by the least common denominator to clear fractions, then solve.'],
+                    ['Extraneous solution', 'A value that satisfies the cleared equation but not the original — usually because it makes a denominator zero.'],
+                    ['Before you solve', 'Note which values make any denominator zero. Those can never be answers.'],
+                    ['After you solve', 'Discard any answer on that restricted list, then check the rest.'],
+                ],
+            ],
+            // ── Physics: Newton's first law (G10) ──────────────────────
+            '5-ZFOhHQS68' => [
+                'quiz' => [
+                    ['mcq', 'A puck slides across smooth ice and gradually slows. Why?',
+                        ['Its inertia runs out', 'A small friction force acts on it', 'It loses mass', 'Nothing acts on it; motion naturally decays'],
+                        'A small friction force acts on it',
+                        'Motion does not decay on its own. Something unseen — friction, air resistance — must act to change it.'],
+                    ['mcq', 'A book rests on a table. Which statement is correct?',
+                        ['No forces act on it', 'Gravity acts but the table exerts no force', 'Gravity and the table\'s push cancel, giving zero net force', 'Only the table\'s push acts'],
+                        'Gravity and the table\'s push cancel, giving zero net force',
+                        'Forces can act without changing motion, provided they cancel.'],
+                    ['true_false', 'A heavier object has more inertia than a lighter one.',
+                        null, 'true',
+                        'Mass is the measure of inertia — a loaded trolley is harder to start and to stop.'],
+                ],
+                'flashcards' => [
+                    ["Newton's first law", 'An object stays at rest, or moves at constant velocity, unless a net force acts on it.'],
+                    ['Inertia', 'The tendency of an object to resist a change in its motion. Mass measures it.'],
+                    ['Net force', 'The overall force after all forces are combined. Zero net force means no change in motion.'],
+                    ['Why everyday experience misleads', 'Friction and air resistance are invisible, so motion appears to decay by itself.'],
+                ],
+            ],
+
+            // ── Physics: Newton's third law (G10) ──────────────────────
+            'UD-nc50M-I0' => [
+                'quiz' => [
+                    ['mcq', 'A third-law force pair always acts on:',
+                        ['The same object', 'Two different objects', 'Whichever object is heavier', 'Nothing — they cancel'],
+                        'Two different objects',
+                        'That is precisely why they never cancel each other out.'],
+                    ['mcq', 'You push off a wall on a skateboard and move. Why does the wall not move?',
+                        ['It pushes back harder', 'It is attached to a building of enormous mass', 'No force acts on the wall', 'Friction stops it'],
+                        'It is attached to a building of enormous mass',
+                        'Equal force, vastly greater mass, so negligible acceleration.'],
+                    ['true_false', 'A rocket needs air to push against in order to accelerate.',
+                        null, 'false',
+                        'It pushes exhaust gas one way and the gas pushes it the other. No medium is required.'],
+                ],
+                'flashcards' => [
+                    ["Newton's third law", 'If A exerts a force on B, B exerts an equal and opposite force on A.'],
+                    ['Why the pair never cancels', 'The two forces act on different objects. Cancelling only happens within one object.'],
+                    ['The test to apply', 'Name both objects for every force. Same object = not a third-law pair.'],
+                    ['Rocket in vacuum', 'Pushes exhaust gas backwards; the gas pushes the rocket forwards. No air needed.'],
+                ],
+            ],
+
+            // ── Physics: third law in practice (G12) ───────────────────
+            'VfpKzwrhmqQ' => [
+                'quiz' => [
+                    ['mcq', 'A book on a table: gravity pulls down, the table pushes up. Are these a third-law pair?',
+                        ['Yes, they are equal and opposite', 'No — they both act on the book', 'Yes, because nothing moves', 'Only if the book is stationary'],
+                        'No — they both act on the book',
+                        'Equal and opposite is not enough. A third-law pair must act on two different objects.'],
+                    ['mcq', 'What is the third-law partner to the Earth pulling down on a book?',
+                        ['The table pushing up on the book', 'The book pulling up on the Earth', 'Air pressure on the book', 'There is no partner'],
+                        'The book pulling up on the Earth',
+                        'The partner always involves the same two objects with the roles reversed.'],
+                    ['mcq', 'In a tug of war, both teams pull on each other equally. What decides the winner?',
+                        ['Which team pulls harder on the rope', 'Which team pushes harder against the ground', 'The length of the rope', 'Nobody can win'],
+                        'Which team pushes harder against the ground',
+                        'The rope forces are equal. The external force that moves the system comes from friction with the ground.'],
+                ],
+                'flashcards' => [
+                    ['The identification test', 'For every force, name both objects. If two forces act on the SAME object they are not a third-law pair.'],
+                    ['Walking', 'You push backwards on the ground; the ground pushes you forwards. No friction, no walking.'],
+                    ['Horse and cart', 'The pair acts on different objects, so they do not cancel. The horse pushing the ground moves the system.'],
+                    ['Common error', 'Calling gravity and the normal force a third-law pair. They act on the same object.'],
+                ],
+            ],
+
+            // ── Science: Newton's first law, middle school (G6) ────────
+            'Q0T2zjmvvA0' => [
+                'quiz' => [
+                    ['mcq', 'Why do you lurch forward when a bus brakes suddenly?',
+                        ['The bus pushes you forward', 'Your body was moving and nothing stopped it yet', 'Gravity increases', 'The seat pushes you'],
+                        'Your body was moving and nothing stopped it yet',
+                        'This is inertia, and it is exactly why seatbelts exist.'],
+                    ['true_false', 'A ball on a flat floor will start rolling by itself.',
+                        null, 'false',
+                        'Something must push it. At rest stays at rest until a force acts.'],
+                    ['mcq', 'Which is harder to stop once moving?',
+                        ['An empty shopping trolley', 'A full shopping trolley', 'Both the same', 'Depends on the colour'],
+                        'A full shopping trolley',
+                        'More mass means more inertia, so more force is needed to change its motion.'],
+                ],
+                'flashcards' => [
+                    ['The first law, simply', 'Things keep doing what they are already doing unless something makes them change.'],
+                    ['Inertia', 'Resistance to a change in motion. Heavier objects have more of it.'],
+                    ['Why a rolling ball stops', 'Friction and air push against it — not because motion runs out.'],
+                    ['Seatbelts', 'You keep moving when the vehicle stops. The belt supplies the force that stops you.'],
+                ],
+            ],
+
+            // ── U.S. History: taxes and the road to revolution (G8) ────
+            'Eytc9ZaNWyc' => [
+                'quiz' => [
+                    ['mcq', 'Why did Parliament start taxing the colonies more heavily in the 1760s?',
+                        ['To fund a new navy', 'To pay down debt from the Seven Years\' War', 'To punish colonial smuggling', 'To pay for the Constitution'],
+                        'To pay down debt from the Seven Years\' War',
+                        'Britain finished the war deeply in debt and with more territory to defend.'],
+                    ['mcq', 'What did "no taxation without representation" actually object to?',
+                        ['The amount of the taxes', 'Parliament\'s right to tax colonies with no members there', 'Taxes on tea specifically', 'All forms of taxation'],
+                        'Parliament\'s right to tax colonies with no members there',
+                        'The dispute was constitutional — about who held the authority — more than about the sums.'],
+                    ['true_false', 'Tighter enforcement of trade rules turned a commercial irritation into a rights grievance.',
+                        null, 'true',
+                        'Searches under general warrants made it a question of liberties, not just of money.'],
+                ],
+                'flashcards' => [
+                    ['The financial background', 'Britain won the Seven Years\' War but finished heavily in debt, with more territory to defend.'],
+                    ['The colonial objection', 'Not the amount, but the authority: no colonial members sat in Parliament.'],
+                    ['Why smuggling mattered', 'Tighter enforcement, including general warrants, turned trade rules into a question of rights.'],
+                    ['The escalation', 'Boycotts, the Boston Massacre, the destruction of tea, then Britain\'s punitive response.'],
+                ],
+            ],
+
+            // ── U.S. History: who won the revolution (G8) ──────────────
+            '3EiSymRrKI4' => [
+                'quiz' => [
+                    ['mcq', 'Which outside power was decisive to American victory?',
+                        ['Spain', 'France', 'The Dutch Republic', 'Prussia'],
+                        'France',
+                        'French money, troops and naval power were central to the outcome.'],
+                    ['mcq', 'What happened to slavery after the Revolution?',
+                        ['It was abolished immediately', 'It survived and later expanded', 'It was confined to one state', 'It ended in the 1790s'],
+                        'It survived and later expanded',
+                        'Revolutionary language about liberty did not translate into emancipation.'],
+                    ['mcq', 'Why did many Native nations lose from American independence?',
+                        ['They fought only for the colonists', 'Independence removed British restraint on westward settlement', 'They were not involved', 'Their land was formally protected'],
+                        'Independence removed British restraint on westward settlement',
+                        'British policy had limited settlement westward; independence removed that check.'],
+                ],
+                'flashcards' => [
+                    ['The military outcome', 'Independence secured, with decisive French support. Britain lost the war but not its empire.'],
+                    ['Who gained', 'Propertied white men gained self-government and office.'],
+                    ['Who did not', 'Enslaved people, Native nations, Loyalists, and women saw little or negative change.'],
+                    ['The historian\'s question', 'Asking who benefited separates a change of rulers from a change in social power.'],
+                ],
+            ],
+
+            // ── U.S. History: Constitution and federalism (G12) ────────
+            'bO7FQsCcbD8' => [
+                'quiz' => [
+                    ['mcq', 'Which weakness of the Articles most directly caused financial failure?',
+                        ['No national army', 'No power to tax directly', 'No bill of rights', 'A single-house Congress'],
+                        'No power to tax directly',
+                        'Congress depended on state requisitions the states frequently ignored.'],
+                    ['mcq', 'What is federalism?',
+                        ['Rule by a single central government', 'Power divided between national and state governments', 'Government by the courts', 'Direct democracy'],
+                        'Power divided between national and state governments',
+                        'The boundary between the two has been contested throughout American history.'],
+                    ['true_false', 'The Bill of Rights was part of the Constitution as originally ratified.',
+                        null, 'false',
+                        'It was added by amendment, largely as the price of Anti-Federalist support.'],
+                ],
+                'flashcards' => [
+                    ['Articles of Confederation', 'The first framework. Deliberately weak centre: no direct taxation, no executive, no federal judiciary.'],
+                    ['Why it failed', 'Could not pay war debts, could not settle interstate trade disputes, struggled to maintain order.'],
+                    ['The great compromise', 'A bicameral legislature balancing large and small states.'],
+                    ['Federalists vs Anti-Federalists', 'Federalists wanted a stronger union; Anti-Federalists feared concentrated power and won the Bill of Rights.'],
+                ],
+            ],
+
+            // ── U.S. History: Seven Years War (G6) ─────────────────────
+            '5vKGU3aEGss' => [
+                'quiz' => [
+                    ['mcq', 'What did Britain gain from the Seven Years\' War?',
+                        ['Large North American territory, and heavy debt', 'Independence', 'Control of Spain', 'Nothing at all'],
+                        'Large North American territory, and heavy debt',
+                        'The debt is what later drove attempts to tax the colonies.'],
+                    ['mcq', 'What was one unintended effect of colonists fighting alongside British regulars?',
+                        ['They became more loyal to Britain', 'They grew less impressed by them and worked across colonial lines', 'They stopped trading', 'They adopted British law'],
+                        'They grew less impressed by them and worked across colonial lines',
+                        'Both effects mattered when the colonies later organised together.'],
+                    ['true_false', 'The Great Awakening encouraged people to question inherited authority.',
+                        null, 'true',
+                        'It emphasised personal conviction over established hierarchy, and crossed colonial boundaries.'],
+                ],
+                'flashcards' => [
+                    ['Seven Years\' War outcome', 'Britain won and gained territory, but finished deeply in debt.'],
+                    ['The Great Awakening', 'A wave of religious revival emphasising personal conviction over inherited authority.'],
+                    ['Why they are taught together', 'Both encouraged colonists to question authority and to see themselves as connected.'],
+                    ['An important caution', 'Neither caused the Revolution. They made a shared colonial identity possible.'],
+                ],
+            ],
+
+            // ── Computer Science: algorithms (G11) ─────────────────────
+            'rL8X2mlNHPM' => [
+                'quiz' => [
+                    ['mcq', 'Which is NOT a requirement for something to be an algorithm?',
+                        ['It must terminate', 'Each step must be unambiguous', 'It must run on a computer', 'It must be correct for every valid input'],
+                        'It must run on a computer',
+                        'A recipe is an algorithm. The medium is irrelevant.'],
+                    ['mcq', 'Searching a sorted list of one million items: roughly how many steps does binary search need?',
+                        ['About one million', 'About one thousand', 'About twenty', 'About one hundred thousand'],
+                        'About twenty',
+                        'Each step halves the range, so the cost grows with the logarithm of the size.'],
+                    ['true_false', 'Choosing a better algorithm usually beats buying a faster computer.',
+                        null, 'true',
+                        'A better growth rate outpaces hardware gains as input size increases.'],
+                ],
+                'flashcards' => [
+                    ['Algorithm', 'A finite, unambiguous sequence of steps that solves a problem for every valid input.'],
+                    ['Why we measure growth, not seconds', 'Seconds depend on the machine. Growth rate describes the algorithm itself.'],
+                    ['Big-O notation', 'A description of how running time grows as the input grows.'],
+                    ['Linear vs binary search', 'Linear: time proportional to n. Binary (sorted only): proportional to log n.'],
+                ],
+            ],
+
+            // ── Computer Science: data structures (G11) ────────────────
+            'DuDz6B4cqVc' => [
+                'quiz' => [
+                    ['mcq', 'Which structure gives immediate access to the nth item?',
+                        ['Linked list', 'Array', 'Stack', 'Queue'],
+                        'Array',
+                        'Items sit in consecutive memory, so the position can be computed directly.'],
+                    ['mcq', 'Undo history is naturally modelled by which structure?',
+                        ['Queue', 'Stack', 'Array', 'Tree'],
+                        'Stack',
+                        'Last in, first out — the most recent action is the first undone.'],
+                    ['mcq', 'What is the main cost of inserting into the middle of an array?',
+                        ['It is impossible', 'Everything after it must shift', 'The array must be sorted first', 'It loses the index'],
+                        'Everything after it must shift',
+                        'That is exactly the case a linked list handles cheaply, once you are in position.'],
+                ],
+                'flashcards' => [
+                    ['Array', 'Consecutive memory. Fast access by index; costly insertion in the middle.'],
+                    ['Linked list', 'Each item points to the next. Cheap insertion in place; must walk from the start to reach an item.'],
+                    ['Stack vs queue', 'Stack: last in, first out (undo). Queue: first in, first out (print jobs).'],
+                    ['The central idea', 'There is no best structure — only the best fit for the operations you perform most.'],
+                ],
+            ],
+        ];
+    }
+
     public function alumni(): array
     {
         return [

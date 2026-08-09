@@ -382,6 +382,25 @@ abstract class DemoProfile
      */
     abstract public function onlineExams(): array;
 
+    /**
+     * Per-lecture practice material, keyed by the lecture's video id.
+     *
+     *   [videoId => ['quiz' => [...], 'flashcards' => [[front, back], ...]]]
+     *
+     * Quiz entries are [type, question, options|null, correctAnswer, explanation]
+     * and are stored in exam_questions against study_material_id, so a teacher
+     * can promote one into a real exam. Every practice question carries a
+     * correct answer and an explanation — unlike the online exam bank, which
+     * deliberately includes open-response items for the AI grader. Practice is
+     * self-marking, so an item with nothing to check against would just stall.
+     *
+     * Keyed by video id rather than array position so lectures() can be
+     * reordered or extended without silently repointing the questions.
+     *
+     * @return array<string,array{quiz:array<int,array{0:string,1:string,2:?array,3:string,4:string}>,flashcards:array<int,array{0:string,1:string}>}>
+     */
+    abstract public function lecturePractice(): array;
+
     abstract public function alumni(): array;
 
     /**

@@ -7,6 +7,9 @@ namespace App\Filament\StudentPortal\Pages;
 use App\Filament\StudentPortal\Concerns\ResolvesCurrentStudent;
 use App\Models\Tenant\AiConversation;
 use App\Models\Tenant\AiMessage;
+use App\Models\Tenant\ExamQuestion;
+use App\Models\Tenant\LectureFlashcard;
+use App\Models\Tenant\LectureQuizAttempt;
 use App\Models\Tenant\StudyMaterial;
 use App\Services\Ai\AiAssistant;
 use App\Services\Ai\AiAvailability;
@@ -43,6 +46,11 @@ class MyLectures extends Page
 
     /** The question box. */
     public string $question = '';
+
+    // ── Practice quiz state ─────────────────────────────────────────
+    /** questionId => the option the student picked */
+    public array $answers = [];
+    public bool $quizChecked = false;
 
     public bool $thinking = false;
 
@@ -112,7 +120,9 @@ class MyLectures extends Page
     {
         $this->lectureId = $id;
         $this->question = '';
-        unset($this->lecture, $this->embedUrl, $this->messages);
+        $this->resetQuiz();
+        unset($this->lecture, $this->embedUrl, $this->messages,
+              $this->practiceQuestions, $this->flashcards, $this->bestAttempt);
     }
 
     /** Persisted chat for this student + lecture pair. */
@@ -280,5 +290,116 @@ class MyLectures extends Page
             'role_when_created' => 'STUDENT',
             'title' => $title,
         ]);
+    }
+
+    // ── Practice quiz ───────────────────────────────────────────────
+
+    /** Self-marking practice questions for the open lecture. */
+    #[Computed]
+    public function practiceQuestions(): Collection
+    {
+        $lecture = $this->lecture;
+
+        return $lecture
+            ? ExamQuestion::where('study_material_id', $lecture->id)
+                ->where('is_active', true)
+                ->orderBy('created_at')
+                ->get()
+            : collect();
+    }
+
+    /**
+     * Mark the quiz.
+     *
+     * Deliberately self-marking with unlimited retries and no effect on any
+     * grade. The moment a practice score counts for something, students stop
+     * using it to find out what they do not know.
+     */
+    public function checkQuiz(): void
+    {
+        if ($this->practiceQuestions->isEmpty()) {
+            return;
+        }
+
+        $this->quizChecked = true;
+
+        $score = $this->quizScore();
+        $lecture = $this->lecture;
+
+        if ($lecture && $this->studentId() !== '__no_student__') {
+            LectureQuizAttempt::create([
+                'study_material_id' => $lecture->id,
+                'student_id' => $this->studentId(),
+                'score' => $score,
+                'total' => $this->practiceQuestions->count(),
+                'completed_at' => now(),
+            ]);
+        }
+    }
+
+    public function resetQuiz(): void
+    {
+        $this->answers = [];
+        $this->quizChecked = false;
+    }
+
+    /** How many answers are correct right now. */
+    public function quizScore(): int
+    {
+        $score = 0;
+        foreach ($this->practiceQuestions as $q) {
+            if ($this->isCorrect($q)) {
+                $score++;
+            }
+        }
+
+        return $score;
+    }
+
+    public function isCorrect(ExamQuestion $question): bool
+    {
+        $given = $this->answers[$question->id] ?? null;
+
+        return $given !== null
+            && mb_strtolower(trim((string) $given)) === mb_strtolower(trim((string) $question->correct_answer));
+    }
+
+    /** Options to render: real options for MCQ, true/false otherwise. */
+    public function optionsFor(ExamQuestion $question): array
+    {
+        if (is_array($question->options) && $question->options !== []) {
+            return $question->options;
+        }
+
+        return ['true', 'false'];
+    }
+
+    /** Best previous score, so improvement is visible. */
+    #[Computed]
+    public function bestAttempt(): ?LectureQuizAttempt
+    {
+        $lecture = $this->lecture;
+
+        return $lecture
+            ? LectureQuizAttempt::where('study_material_id', $lecture->id)
+                ->where('student_id', $this->studentId())
+                ->orderByDesc('score')
+                ->first()
+            : null;
+    }
+
+    // ── Flashcards ──────────────────────────────────────────────────
+
+    #[Computed]
+    public function flashcards(): Collection
+    {
+        $lecture = $this->lecture;
+
+        return $lecture
+            ? LectureFlashcard::where('study_material_id', $lecture->id)
+                ->where('is_active', true)
+                ->orderBy('sort_order')
+                ->get()
+            : collect();
     }
 }

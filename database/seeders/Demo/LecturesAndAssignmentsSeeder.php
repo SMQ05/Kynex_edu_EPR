@@ -48,6 +48,7 @@ class LecturesAndAssignmentsSeeder extends Seeder
     public function run(): void
     {
         $this->seedLectures();
+        $this->seedPractice();
         $this->seedAssignments();
         $this->seedAiHistory();
     }
@@ -107,6 +108,7 @@ class LecturesAndAssignmentsSeeder extends Seeder
 
             $this->seededLectures[] = [
                 'id' => $id,
+                'video_id' => $videoId,
                 'class_id' => $classId,
                 'subject_id' => $subjectId,
                 'teacher_id' => $teacherId,
@@ -130,6 +132,82 @@ class LecturesAndAssignmentsSeeder extends Seeder
         return ($label ? ($this->staff->userIdByLabel[$label] ?? null) : null)
             ?? $this->staff->userIdByLabel['teacher_math']
             ?? null;
+    }
+
+    // ── 1b. Per-lecture practice quizzes and flashcards ────────────
+
+    /**
+     * Seed self-marking practice questions and revision cards per lecture.
+     *
+     * Questions go into exam_questions against study_material_id rather than a
+     * parallel table, so a teacher can promote one into a real exam. Unlike the
+     * online exam bank, every practice question carries a correct answer and an
+     * explanation — practice marks itself, so an open-response item would just
+     * stall the student with nothing to check against.
+     */
+    protected function seedPractice(): void
+    {
+        DB::table('lecture_quiz_attempts')->delete();
+        DB::table('lecture_flashcards')->delete();
+        DB::table('exam_questions')->whereNotNull('study_material_id')->delete();
+
+        $bank = $this->profile()->lecturePractice();
+        if ($bank === [] || $this->seededLectures === []) {
+            $this->command?->line('  ✓ lecture practice skipped (none authored)');
+
+            return;
+        }
+
+        $questions = 0;
+        $cards = 0;
+        $covered = 0;
+
+        foreach ($this->seededLectures as $lecture) {
+            $spec = $bank[$lecture['video_id']] ?? null;
+            if ($spec === null) {
+                continue;
+            }
+            $covered++;
+
+            foreach ($spec['quiz'] as [$type, $text, $options, $correct, $explanation]) {
+                DB::table('exam_questions')->insert([
+                    'id' => (string) Str::ulid(),
+                    'question_group_id' => null,
+                    'study_material_id' => $lecture['id'],
+                    'subject_id' => $lecture['subject_id'],
+                    'type' => $type,
+                    'difficulty' => 'easy',
+                    'question_text' => $text,
+                    'options' => $options !== null ? json_encode($options, JSON_UNESCAPED_UNICODE) : null,
+                    'correct_answer' => $correct,
+                    'explanation' => $explanation,
+                    'marks' => 1,
+                    'is_active' => true,
+                    'created_by' => $lecture['teacher_id'],
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+                $questions++;
+            }
+
+            foreach ($spec['flashcards'] as $i => [$front, $back]) {
+                DB::table('lecture_flashcards')->insert([
+                    'id' => (string) Str::ulid(),
+                    'study_material_id' => $lecture['id'],
+                    'front' => $front,
+                    'back' => $back,
+                    'sort_order' => $i,
+                    'is_active' => true,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+                $cards++;
+            }
+        }
+
+        $this->command?->line(
+            "  ✓ lecture practice seeded ({$covered} lectures, {$questions} quiz questions, {$cards} flashcards)"
+        );
     }
 
     // ── 2. Assignments across the whole lifecycle ──────────────────

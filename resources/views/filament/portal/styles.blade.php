@@ -27,8 +27,10 @@
 --}}
 @php
     $accents = [
-        'teal'   => ['600' => '#0d9488', '400' => '#2dd4bf', '50' => '#f0fdfa', 'ring' => '#14b8a6', 'deep' => '#0f3d2e'],
-        'indigo' => ['600' => '#4f46e5', '400' => '#a5b4fc', '50' => '#eef2ff', 'ring' => '#6366f1', 'deep' => '#312e81'],
+        // 'rgb' is the 600 shade as a bare triplet, so rules can build their
+        // own alphas with rgb(var(--portal-accent-rgb) / .12).
+        'teal'   => ['600' => '#0d9488', '400' => '#2dd4bf', '50' => '#f0fdfa', 'ring' => '#14b8a6', 'deep' => '#0f3d2e', 'rgb' => '13 148 136'],
+        'indigo' => ['600' => '#4f46e5', '400' => '#a5b4fc', '50' => '#eef2ff', 'ring' => '#6366f1', 'deep' => '#312e81', 'rgb' => '79 70 229'],
     ];
     $a = $accents[$accent ?? 'teal'] ?? $accents['teal'];
 @endphp
@@ -39,6 +41,7 @@
         --portal-accent-bg:    {{ $a['50'] }};
         --portal-accent-ring:  {{ $a['ring'] }};
         --portal-accent-deep:  {{ $a['deep'] }};
+        --portal-accent-rgb:   {{ $a['rgb'] }};
     }
     /* ── Layout ─────────────────────────────────────────────────── */
     .sp-grid-stats { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
@@ -197,4 +200,76 @@
     .sp-card__qr    { width: 5rem; height: 5rem; border-radius: .375rem;
                       background: #fff; padding: .25rem; flex-shrink: 0; }
     .sp-card__qr img { width: 100%; height: 100%; display: block; }
+/* ── Revision cards ─────────────────────────────────────────── */
+.sp-cards{display:flex;flex-direction:column;align-items:center;gap:.85rem}
+.sp-card{position:relative;width:100%;min-height:11rem;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:.6rem;padding:1.75rem 1.5rem;text-align:center;
+  border:1px solid rgb(var(--portal-accent-rgb)/.28);border-radius:1rem;cursor:pointer;
+  background:linear-gradient(160deg,rgb(var(--portal-accent-rgb)/.07),rgb(var(--portal-accent-rgb)/.015));
+  transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}
+.sp-card:hover{transform:translateY(-2px);box-shadow:0 12px 28px -14px rgb(var(--portal-accent-rgb)/.5);
+  border-color:rgb(var(--portal-accent-rgb)/.5)}
+.sp-card--flipped{background:linear-gradient(160deg,rgb(var(--portal-accent-rgb)/.16),rgb(var(--portal-accent-rgb)/.04));
+  border-color:rgb(var(--portal-accent-rgb)/.55)}
+.sp-card__side{font-size:.62rem;font-weight:700;letter-spacing:.09em;text-transform:uppercase;
+  color:rgb(var(--portal-accent-rgb))}
+.sp-card__text{font-size:1.02rem;line-height:1.55;font-weight:600;color:#1f2937;max-width:44rem}
+.sp-card--flipped .sp-card__text{font-weight:500}
+.sp-card__hint{font-size:.7rem;color:#9ca3af}
+.sp-cards__bar{display:flex;align-items:center;gap:.9rem}
+.sp-cards__nav{width:2rem;height:2rem;border-radius:9999px;border:1px solid #e5e7eb;background:#fff;
+  color:#6b7280;font-size:.95rem;line-height:1;cursor:pointer;transition:all .15s ease}
+.sp-cards__nav:hover{border-color:rgb(var(--portal-accent-rgb)/.5);color:rgb(var(--portal-accent-rgb))}
+.sp-cards__dots{display:flex;gap:.3rem}
+.sp-cards__dot{width:.45rem;height:.45rem;border-radius:9999px;background:#e5e7eb;transition:all .15s ease}
+.sp-cards__dot--seen{background:rgb(var(--portal-accent-rgb)/.4)}
+.sp-cards__dot--on{background:rgb(var(--portal-accent-rgb));transform:scale(1.35)}
+.sp-cards__count{font-size:.72rem;color:#9ca3af}
+
+/* ── Practice quiz ──────────────────────────────────────────── */
+.sp-quiz{display:flex;flex-direction:column;gap:.9rem}
+.sp-quiz__q{padding:.95rem 1.05rem;border:1px solid #e5e7eb;border-radius:.85rem;background:#fff;
+  transition:border-color .15s ease}
+.sp-quiz__q--right{border-color:rgb(16 185 129/.45);background:rgb(16 185 129/.04)}
+.sp-quiz__q--wrong{border-color:rgb(244 63 94/.4);background:rgb(244 63 94/.03)}
+.sp-quiz__text{display:flex;gap:.6rem;font-size:.88rem;font-weight:600;color:#1f2937;line-height:1.55}
+.sp-quiz__n{flex:none;width:1.4rem;height:1.4rem;display:inline-flex;align-items:center;justify-content:center;
+  border-radius:9999px;background:rgb(var(--portal-accent-rgb)/.12);color:rgb(var(--portal-accent-rgb));
+  font-size:.7rem;font-weight:700}
+.sp-quiz__opts{display:flex;flex-direction:column;gap:.35rem;margin:.7rem 0 0 2rem}
+.sp-opt{display:flex;align-items:center;gap:.55rem;padding:.5rem .7rem;border:1px solid #e5e7eb;
+  border-radius:.55rem;font-size:.84rem;color:#374151;cursor:pointer;transition:all .13s ease}
+.sp-opt:hover{border-color:rgb(var(--portal-accent-rgb)/.45);background:rgb(var(--portal-accent-rgb)/.04)}
+.sp-opt input{accent-color:rgb(var(--portal-accent-rgb));flex:none}
+.sp-opt span{flex:1}
+.sp-opt--picked{border-color:rgb(var(--portal-accent-rgb)/.6);background:rgb(var(--portal-accent-rgb)/.07)}
+.sp-opt--answer{border-color:rgb(16 185 129/.6);background:rgb(16 185 129/.09);color:#065f46;font-weight:600}
+.sp-opt--miss{border-color:rgb(244 63 94/.55);background:rgb(244 63 94/.07);color:#9f1239}
+.sp-opt__mark{width:1rem;height:1rem;flex:none}
+.sp-opt--answer .sp-opt__mark{color:#059669}
+.sp-opt--miss .sp-opt__mark{color:#e11d48}
+.sp-quiz__why{margin:.7rem 0 0 2rem;padding:.55rem .75rem;border-radius:.5rem;background:#f9fafb;
+  font-size:.8rem;line-height:1.6;color:#4b5563}
+.sp-quiz__why strong{color:#1f2937}
+.sp-quiz__actions{display:flex;align-items:center;gap:.85rem;margin-top:1.1rem;flex-wrap:wrap}
+.sp-quiz__progress{font-size:.78rem;color:#9ca3af}
+.sp-quiz__result{display:flex;align-items:center;gap:1rem;padding:.95rem 1.1rem;margin-bottom:1.1rem;
+  border-radius:.85rem;border:1px solid}
+.sp-quiz__result--ace{border-color:rgb(16 185 129/.4);background:rgb(16 185 129/.07)}
+.sp-quiz__result--ok{border-color:rgb(var(--portal-accent-rgb)/.35);background:rgb(var(--portal-accent-rgb)/.06)}
+.sp-quiz__result--low{border-color:rgb(245 158 11/.4);background:rgb(245 158 11/.07)}
+.sp-quiz__score{font-size:1.6rem;font-weight:700;color:#1f2937;line-height:1}
+.sp-quiz__score span{font-size:.95rem;font-weight:500;color:#9ca3af}
+.sp-quiz__verdict{font-size:.86rem;font-weight:600;color:#1f2937}
+.sp-quiz__best{font-size:.75rem;color:#6b7280;margin-top:.15rem}
+
+.dark .sp-card__text{color:#f3f4f6}
+.dark .sp-cards__nav{background:#1f2937;border-color:#374151;color:#9ca3af}
+.dark .sp-cards__dot{background:#374151}
+.dark .sp-quiz__q{background:#1f2937;border-color:#374151}
+.dark .sp-quiz__text,.dark .sp-quiz__score,.dark .sp-quiz__verdict,.dark .sp-quiz__why strong{color:#f3f4f6}
+.dark .sp-opt{border-color:#374151;color:#d1d5db}
+.dark .sp-opt--answer{color:#6ee7b7}
+.dark .sp-opt--miss{color:#fda4af}
+.dark .sp-quiz__why{background:#111827;color:#9ca3af}
 </style>

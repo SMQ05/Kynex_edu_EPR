@@ -421,6 +421,12 @@ final class PakProfile extends DemoProfile
         return [];
     }
 
+    /** No practice material authored for this school (it has no lectures). */
+    public function lecturePractice(): array
+    {
+        return [];
+    }
+
     public function alumni(): array
     {
         return [
