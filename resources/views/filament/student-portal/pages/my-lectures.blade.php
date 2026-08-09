@@ -129,6 +129,64 @@ class="sp-list__item {{ $lecture && $lecture->id === $item->id ? 'sp-list__item-
                     @endif
                 </x-filament::section>
 
+                {{-- ── AI tutor ────────────────────────────────────── --}}
+                <x-filament::section>
+                    <x-slot name="heading">
+                        <span class="inline-flex items-center gap-1.5">
+                            <x-filament::icon icon="heroicon-m-sparkles" class="h-4 w-4 text-primary-500" />
+                            Ask about this lecture
+                        </span>
+                    </x-slot>
+                    <x-slot name="description">
+                        Answers are based on this lecture's notes. If something is not covered, the tutor will say so.
+                    </x-slot>
+
+                    @if (! $this->aiAvailable())
+                        <div class="sp-note-box">
+                            {{ $this->aiUnavailableReason() ?? 'AI is currently unavailable.' }}
+                        </div>
+                    @else
+                        @if ($this->messages->isNotEmpty())
+                            <div class="sp-chat">
+                                @foreach ($this->messages as $message)
+                                    @if ($message->role === 'user')
+                                        <div class="sp-chat__row sp-chat__row--me">
+                                            <div class="sp-chat__bubble sp-chat__bubble--me">
+                                                {{ $message->content }}
+                                            </div>
+                                        </div>
+                                    @else
+                                        <div class="sp-chat__row">
+                                            <div class="sp-chat__bubble sp-chat__bubble--ai">
+                                                {{ $message->content }}
+                                            </div>
+                                        </div>
+                                    @endif
+                                @endforeach
+                            </div>
+                        @endif
+
+                        <form wire:submit="ask" class="sp-ask">
+                            <textarea
+                                wire:model="question"
+                                rows="2"
+                                placeholder="e.g. Can you explain the second part again more simply?"
+                                class="sp-ask__box"
+                                @disabled($this->thinking)
+                            ></textarea>
+                            <x-filament::button
+                                type="submit"
+                                icon="heroicon-m-paper-airplane"
+                                wire:loading.attr="disabled"
+                                wire:target="ask"
+                            >
+                                <span wire:loading.remove wire:target="ask">Ask</span>
+                                <span wire:loading wire:target="ask">Thinking…</span>
+                            </x-filament::button>
+                        </form>
+                    @endif
+                </x-filament::section>
+
                 @php($cards = $this->flashcards)
                 @php($quiz = $this->practiceQuestions)
 
@@ -296,64 +354,6 @@ class="sp-list__item {{ $lecture && $lecture->id === $item->id ? 'sp-list__item-
                         </div>
                     </x-filament::section>
                 @endif
-
-                {{-- ── AI tutor ────────────────────────────────────── --}}
-                <x-filament::section>
-                    <x-slot name="heading">
-                        <span class="inline-flex items-center gap-1.5">
-                            <x-filament::icon icon="heroicon-m-sparkles" class="h-4 w-4 text-primary-500" />
-                            Ask about this lecture
-                        </span>
-                    </x-slot>
-                    <x-slot name="description">
-                        Answers are based on this lecture's notes. If something is not covered, the tutor will say so.
-                    </x-slot>
-
-                    @if (! $this->aiAvailable())
-                        <div class="sp-note-box">
-                            {{ $this->aiUnavailableReason() ?? 'AI is currently unavailable.' }}
-                        </div>
-                    @else
-                        @if ($this->messages->isNotEmpty())
-                            <div class="sp-chat">
-                                @foreach ($this->messages as $message)
-                                    @if ($message->role === 'user')
-                                        <div class="sp-chat__row sp-chat__row--me">
-                                            <div class="sp-chat__bubble sp-chat__bubble--me">
-                                                {{ $message->content }}
-                                            </div>
-                                        </div>
-                                    @else
-                                        <div class="sp-chat__row">
-                                            <div class="sp-chat__bubble sp-chat__bubble--ai">
-                                                {{ $message->content }}
-                                            </div>
-                                        </div>
-                                    @endif
-                                @endforeach
-                            </div>
-                        @endif
-
-                        <form wire:submit="ask" class="sp-ask">
-                            <textarea
-                                wire:model="question"
-                                rows="2"
-                                placeholder="e.g. Can you explain the second part again more simply?"
-                                class="sp-ask__box"
-                                @disabled($this->thinking)
-                            ></textarea>
-                            <x-filament::button
-                                type="submit"
-                                icon="heroicon-m-paper-airplane"
-                                wire:loading.attr="disabled"
-                                wire:target="ask"
-                            >
-                                <span wire:loading.remove wire:target="ask">Ask</span>
-                                <span wire:loading wire:target="ask">Thinking…</span>
-                            </x-filament::button>
-                        </form>
-                    @endif
-                </x-filament::section>
             @endif
         </div>
     </div>
