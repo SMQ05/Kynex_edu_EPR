@@ -157,6 +157,19 @@ abstract class DemoProfile
     }
 
     /**
+     * Homework tasks by subject and grade band, used to give every class in
+     * the school real work rather than only the classes that have a recorded
+     * lecture. Empty by default — see {@see syllabusPlans()} on why filler is
+     * worse than nothing.
+     *
+     * @return array<string, array<string, list<array{0:string, 1:string}>>>
+     */
+    public function homeworkTasks(): array
+    {
+        return [];
+    }
+
+    /**
      * Canonical school identity.
      *
      * @return array{

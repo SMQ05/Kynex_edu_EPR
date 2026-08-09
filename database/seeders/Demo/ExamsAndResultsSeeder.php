@@ -29,6 +29,9 @@ class ExamsAndResultsSeeder extends Seeder
 
     public string $academicYearId = '';
 
+    /** @var array<string, array{start:string, graded:bool}> */
+    protected array $examMeta = [];
+
     public function __construct(
         public StaffSeeder $staff,
         public ClassesSeeder $classes,
@@ -95,7 +98,12 @@ class ExamsAndResultsSeeder extends Seeder
                 'First Term' => ['2026-02-10', '2026-02-20', 50, 'first_term'],
                 'Mid Term' => ['2026-04-15', '2026-04-25', 50, 'mid_term'],
             ];
+        // A term exam the school has not sat yet. Without it every child's
+        // "upcoming exams" panel is empty — the two completed exams belong to
+        // last year, and an online assessment only exists for three classes.
+        $upcomingStart = Carbon::today()->addWeeks(4)->startOfWeek();
         $ids = [];
+        $meta = [];
         foreach ($exams as $name => [$start, $end, $weight, $type]) {
             $id = (string) Str::ulid();
             DB::table('exams')->insert([
@@ -116,8 +124,37 @@ class ExamsAndResultsSeeder extends Seeder
                 'updated_at' => now(),
             ]);
             $ids[$name] = $id;
+            $meta[$name] = ['start' => $start, 'graded' => true];
         }
-        $this->command?->line('  ✓ exams seeded (2)');
+
+        $upcomingName = 'First Term';
+        $upcomingId = (string) Str::ulid();
+        DB::table('exams')->insert([
+            'id' => $upcomingId,
+            'academic_year_id' => $this->academicYearId,
+            'name' => $upcomingName,
+            'description' => 'First term examinations for the current year.',
+            'start_date' => $upcomingStart->toDateString(),
+            'end_date' => $upcomingStart->copy()->addDays(9)->toDateString(),
+            'status' => 'scheduled',
+            'publish_results' => false,
+            'created_by' => $headId,
+            'weightage_percent' => 50,
+            'weightage_label' => $upcomingName,
+            'include_in_annual_result' => true,
+            'exam_type' => 'first_term',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $ids[$upcomingName . ' ' . now()->year] = $upcomingId;
+        $meta[$upcomingName . ' ' . now()->year] = [
+            'start' => $upcomingStart->toDateString(),
+            'graded' => false,
+        ];
+
+        $this->examMeta = $meta;
+        $this->command?->line('  ✓ exams seeded (' . count($ids) . ', 1 scheduled ahead)');
+
         return $ids;
     }
 
@@ -132,7 +169,9 @@ class ExamsAndResultsSeeder extends Seeder
         $count = 0;
 
         foreach ($exams as $examName => $examId) {
-            $startDate = $examName === 'First Term' ? '2026-02-10' : '2026-04-15';
+            // Follow the exam's own start date. These were hardcoded, so moving
+            // an exam left its timetable behind on the old dates.
+            $startDate = $this->examMeta[$examName]['start'];
 
             foreach ($this->profile()->classSubjects() as $classNumber => $subjects) {
                 $classId = $this->classes->classIdByNumber[$classNumber];
@@ -216,6 +255,12 @@ class ExamsAndResultsSeeder extends Seeder
                 $r = mt_rand(1, 100);
                 $band = $r <= 10 ? 'top' : ($r <= 40 ? 'high' : ($r <= 85 ? 'mid' : ($r <= 95 ? 'low' : 'fail')));
                 foreach ($schedules as $sch) {
+                    // An exam that has not been sat has no marks. Seeding them
+                    // would publish results for a paper dated a month from now.
+                    if (! ($this->examMeta[$sch['exam_name']]['graded'] ?? true)) {
+                        continue;
+                    }
+
                     $marks = $this->generateMark($band);
                     $marksBuf[] = [
                         'id' => (string) Str::ulid(),

@@ -105,6 +105,8 @@ class StudentsAndParentsSeeder extends Seeder
         // Parent pool: keyed by family-id "<lastName>-<index>". Each entry
         // holds {father:?array, mother:?array, address:string, city:string}.
         $families = [];
+        /** @var array<string,bool> every full name already issued */
+        $usedNames = [];
         $admissionSeq = 1;
         $studentTotal = 0;
 
@@ -141,8 +143,15 @@ class StudentsAndParentsSeeder extends Seeder
 
                 // Gender distribution ~52% female / 48% male, with some noise.
                 $isFemale = mt_rand(1, 100) <= 52;
-                $firstName = $this->profile()->pick($isFemale ? $this->profile()->femaleFirstNames() : $this->profile()->maleFirstNames());
+                $pool = $isFemale ? $this->profile()->femaleFirstNames() : $this->profile()->maleFirstNames();
+
+                // Never give two students the same full name. Drawing at random
+                // from a fixed pool produced two "Abigail Lee" siblings in the
+                // same family, which reads as a broken import rather than a
+                // coincidence the moment a parent opens the portal.
+                $firstName = $this->uniqueFirstName($pool, $surname, $usedNames);
                 $name = $firstName . ' ' . $surname;
+                $usedNames[$name] = true;
 
                 $studentId = (string) Str::ulid();
                 $admissionNumber = sprintf('%s-2025-%03d', $this->profile()->certificatePrefix(), $admissionSeq++);
@@ -440,5 +449,36 @@ class StudentsAndParentsSeeder extends Seeder
             $this->alumniIds[] = $id;
         }
         $this->command?->line('  ✓ alumni seeded (5)');
+    }
+
+    /**
+     * Pick a first name that does not collide with an existing full name.
+     *
+     * Falls back to a middle initial once the pool is exhausted for a surname,
+     * which is what a real register does with two children of the same name.
+     *
+     * @param  list<string>  $pool
+     * @param  array<string,bool>  $used
+     */
+    protected function uniqueFirstName(array $pool, string $surname, array $used): string
+    {
+        $candidates = $pool;
+        shuffle($candidates);
+
+        foreach ($candidates as $candidate) {
+            if (! isset($used[$candidate . ' ' . $surname])) {
+                return $candidate;
+            }
+        }
+
+        $first = $this->profile()->pick($pool);
+
+        foreach (range('A', 'Z') as $initial) {
+            if (! isset($used["{$first} {$initial}. {$surname}"])) {
+                return "{$first} {$initial}.";
+            }
+        }
+
+        return $first;
     }
 }

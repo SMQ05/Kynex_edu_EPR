@@ -136,21 +136,55 @@
                 </div>
 
                 <div>
-                    <h4 class="pp-sub">Upcoming exams</h4>
+                    <h4 class="pp-sub">Upcoming tests</h4>
                     @forelse ($s['upcomingExams'] as $ex)
-                        @php $d = $ex->exam_date ? \Illuminate\Support\Carbon::parse($ex->exam_date) : null; @endphp
+                        @php $d = $ex['at'] ? \Illuminate\Support\Carbon::parse($ex['at']) : null; @endphp
                         <div class="sp-row">
                             <div style="min-width:0;">
-                                <div class="sp-row__title truncate">{{ $ex->subject?->name ?? 'Subject' }}</div>
-                                <div class="sp-row__meta">{{ $ex->exam?->name ?? 'Exam' }}</div>
+                                <div class="sp-row__title truncate">{{ $ex['subject'] ?? 'Subject' }}</div>
+                                <div class="sp-row__meta">
+                                    {{ $ex['title'] }}@if ($ex['detail']) · {{ $ex['detail'] }}@endif
+                                </div>
                             </div>
-                            <span class="sp-badge sp-badge--exam">{{ $d ? $d->format('M j') : 'TBC' }}</span>
+                            <div class="pp-when">
+                                <span class="sp-badge {{ $ex['kind'] === 'open now' ? 'sp-badge--live' : 'sp-badge--exam' }}">
+                                    {{ $ex['kind'] === 'open now' ? 'Open now' : ($d ? $d->format('M j') : 'TBC') }}
+                                </span>
+                                @if ($d && $ex['kind'] !== 'open now')
+                                    <span class="pp-countdown">{{ $d->isToday() ? 'today' : 'in ' . max(1, (int) ceil(now()->diffInDays($d, false))) . 'd' }}</span>
+                                @endif
+                            </div>
                         </div>
                     @empty
-                        <p class="sp-empty">No exams scheduled.</p>
+                        <p class="sp-empty">No tests scheduled.</p>
                     @endforelse
                 </div>
             </div>
+
+            {{-- Course progress against the published syllabus --}}
+            @if (! empty($s['courses']))
+                <h4 class="pp-sub" style="margin-top:1.25rem;">Course progress</h4>
+                <div class="pp-courses">
+                    @foreach ($s['courses'] as $course)
+                        <div class="pp-course">
+                            <div class="pp-course__head">
+                                <span class="pp-course__name">{{ $course['subject'] }}</span>
+                                <span class="pp-course__pct">{{ $course['pct'] }}%</span>
+                            </div>
+                            <div class="pp-bar"><span style="width: {{ max(2, $course['pct']) }}%"></span></div>
+                            <div class="pp-course__meta">
+                                {{ $course['done'] }} of {{ $course['total'] }} units taught
+                                @if ($course['lectures'] > 0)
+                                    · {{ $course['lectures'] }} {{ \Illuminate\Support\Str::plural('recording', $course['lectures']) }}
+                                @endif
+                            </div>
+                            @if ($course['current'])
+                                <div class="pp-course__now">Now: {{ $course['current'] }}</div>
+                            @endif
+                        </div>
+                    @endforeach
+                </div>
+            @endif
 
             {{-- ── Recent marks ────────────────────────────────────── --}}
             @if ($s['recentMarks']->isNotEmpty())

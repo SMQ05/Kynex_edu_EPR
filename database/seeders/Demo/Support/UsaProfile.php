@@ -1657,4 +1657,144 @@ final class UsaProfile extends DemoProfile
             ],
         ];
     }
+
+    /**
+     * Homework tasks by subject and grade band.
+     *
+     * Bands are 'elementary' (K-5), 'middle' (6-8) and 'high' (9-12). These
+     * fill in the subjects that have no recorded lecture, so that every class
+     * in the school has real work set rather than half the register showing a
+     * parent an empty portal.
+     *
+     * @return array<string, array<string, list<array{0:string, 1:string}>>>
+     */
+    public function homeworkTasks(): array
+    {
+        return [
+            'English Language Arts' => [
+                'elementary' => [
+                    ['Reading journal — three nights', 'Read for fifteen minutes each night and write one sentence about what happened. Bring the journal in on Friday.'],
+                    ['Spelling and sentences', 'Learn this week\'s ten words, then use six of them in sentences of your own.'],
+                ],
+                'middle' => [
+                    ['Character study paragraph', 'Choose one character from the current novel and write a paragraph on how they change. Quote one line as evidence.'],
+                    ['Editing practice', 'Correct the twenty errors in the passage provided and mark what kind of error each one was.'],
+                ],
+                'high' => [
+                    ['Thesis and outline', 'Draft a thesis for the comparative essay and outline three supporting paragraphs with the evidence for each.'],
+                    ['Close reading response', 'Analyse the assigned passage in 400 words, focusing on the writer\'s choices rather than the plot.'],
+                ],
+            ],
+            'Mathematics' => [
+                'elementary' => [
+                    ['Number facts practice', 'Complete the practice sheet. Show your working for the last five questions rather than only the answer.'],
+                    ['Word problems', 'Six problems. For each one, write the number sentence before you solve it.'],
+                ],
+                'middle' => [
+                    ['Problem set — this unit', 'Questions 1 to 18. Attempt every question; a wrong attempt with working is worth more than a blank.'],
+                    ['Mixed review', 'Twelve questions drawn from the last three units, to keep earlier methods fresh.'],
+                ],
+                'high' => [
+                    ['Practice set with full working', 'Complete the assigned exercises. Full working is required — the method is what is being marked.'],
+                    ['Applied problems', 'Four extended problems. State your assumptions and check whether each answer is reasonable.'],
+                ],
+            ],
+            'Science' => [
+                'elementary' => [
+                    ['Observation diary', 'Observe your plant each day for a week. Record the height and draw what you see.'],
+                    ['Label the diagram', 'Label the parts on the sheet and write one sentence on what each part does.'],
+                ],
+                'middle' => [
+                    ['Investigation write-up', 'Write up the class investigation: question, method, results table, and what you concluded.'],
+                    ['Explain the phenomenon', 'Explain the demonstration from Tuesday in your own words, using at least four key terms correctly.'],
+                ],
+                'high' => [
+                    ['Data analysis', 'Plot the supplied data, describe the trend, and identify one source of uncertainty.'],
+                    ['Concept questions', 'Answer the eight questions. Marks are for the reasoning, not the final number.'],
+                ],
+            ],
+            'Biology' => [
+                'middle' => [
+                    ['Cell diagram and functions', 'Draw and label a plant cell, then write the function of each organelle in one line.'],
+                    ['Food web task', 'Build a food web from the species list and predict what happens if one species is removed.'],
+                ],
+                'high' => [
+                    ['Mechanism explanation', 'Explain the mechanism covered this week step by step, saying what happens to the energy at each stage.'],
+                    ['Data-based question', 'Interpret the experimental results provided and evaluate whether the conclusion is supported.'],
+                ],
+            ],
+            'Physics' => [
+                'high' => [
+                    ['Free-body diagram problems', 'For each situation, draw the free-body diagram before attempting any calculation.'],
+                    ['Numerical practice', 'Six problems with units and significant figures carried through every line.'],
+                ],
+            ],
+            'U.S. History' => [
+                'elementary' => [
+                    ['Then and now', 'Choose one thing from the period we studied and write three sentences on how it differs from today.'],
+                    ['Timeline task', 'Put the six events in order and write one sentence explaining why each mattered.'],
+                ],
+                'middle' => [
+                    ['Source questions', 'Read the source and answer the four questions. Quote from the source in each answer.'],
+                    ['Cause and effect', 'Pick one event and explain two causes and two consequences of it.'],
+                ],
+                'high' => [
+                    ['Document-based response', 'Use the three documents provided to build an argument. Cite each document at least once.'],
+                    ['Argument paragraph', 'Take a position on the question set in class and defend it in one tightly-argued paragraph.'],
+                ],
+            ],
+            'Computer Science' => [
+                'middle' => [
+                    ['Algorithm in plain words', 'Write out the steps for the task set in class so precisely that a classmate could follow them exactly.'],
+                    ['Trace the program', 'Trace the program by hand and write down the value of every variable at each step.'],
+                ],
+                'high' => [
+                    ['Implement and test', 'Implement the function discussed in class and write three test cases, including one edge case.'],
+                    ['Complexity comparison', 'Compare the two approaches by counting operations, then state the Big-O of each.'],
+                ],
+            ],
+            'Spanish' => [
+                'elementary' => [
+                    ['Vocabulary practice', 'Learn the twelve new words. Draw a picture for six of them.'],
+                    ['Listen and repeat', 'Listen to the recording three times and practise saying each phrase aloud.'],
+                ],
+                'middle' => [
+                    ['Present tense practice', 'Conjugate the ten verbs, then write four sentences about your week using them.'],
+                    ['Short dialogue', 'Write a six-line dialogue ordering food in a restaurant.'],
+                ],
+                'high' => [
+                    ['Composition', 'Write 150 words on the topic set, using the past tense throughout.'],
+                    ['Reading comprehension', 'Read the article and answer the questions in Spanish, in full sentences.'],
+                ],
+            ],
+            'Visual Arts' => [
+                'elementary' => [
+                    ['Observational drawing', 'Draw one object from your home carefully, looking at it more than at your paper.'],
+                    ['Colour mixing sheet', 'Complete the colour wheel using only the three primary colours.'],
+                ],
+                'middle' => [
+                    ['Sketchbook studies', 'Three studies of the same object from different angles.'],
+                    ['Artist response', 'Choose a work by the artist we studied and write half a page on what you notice and why.'],
+                ],
+                'high' => [
+                    ['Portfolio development', 'Develop your chosen idea through at least four sketches, annotating what changes between them.'],
+                    ['Critical analysis', 'Analyse one work using the framework from class: form, process, content and context.'],
+                ],
+            ],
+            'Physical Education' => [
+                'elementary' => [
+                    ['Activity log', 'Record what active play you did each day this week and for how long.'],
+                    ['Skill practice', 'Practise the throwing and catching drill at home five times before the next lesson.'],
+                ],
+                'middle' => [
+                    ['Fitness log', 'Record your training this week, including rest days, and note how you felt after each session.'],
+                    ['Rules and tactics', 'Answer the questions on the rules of the sport and describe one tactic and when to use it.'],
+                ],
+                'high' => [
+                    ['Training programme', 'Design a two-week programme for a named goal and justify the choice of each session.'],
+                    ['Performance analysis', 'Analyse your own performance from the recorded game and identify two specific improvements.'],
+                ],
+            ],
+        ];
+    }
 }

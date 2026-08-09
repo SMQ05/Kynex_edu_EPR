@@ -10,6 +10,10 @@ use App\Models\Tenant\ExamResult;
 use App\Models\Tenant\ExamSchedule;
 use App\Models\Tenant\HomeworkAssignment;
 use App\Models\Tenant\HomeworkSubmission;
+use App\Models\Tenant\OnlineExam;
+use App\Models\Tenant\StudyMaterial;
+use App\Models\Tenant\Syllabus;
+use App\Models\Tenant\SyllabusTopic;
 use App\Models\Tenant\Student;
 use Filament\Pages\Page;
 use Illuminate\Support\Collection;
@@ -80,7 +84,9 @@ class Dashboard extends Page
             ->limit(5)
             ->get();
 
-        // Upcoming exams in the student's class
+        // Upcoming assessments. Written exams and online assessments are two
+        // different tables but one question for a parent — "what is my child
+        // being tested on next?" — so they are merged into a single list.
         $upcomingExams = ExamSchedule::query()
             ->where('class_id', $student->class_id)
             ->when($student->section_id, fn ($q) => $q->where(function ($qq) use ($student) {
@@ -89,8 +95,45 @@ class Dashboard extends Page
             ->whereDate('exam_date', '>=', now()->toDateString())
             ->with(['exam', 'subject'])
             ->orderBy('exam_date')
-            ->limit(5)
-            ->get();
+            ->limit(6)
+            ->get()
+            ->map(fn (ExamSchedule $s) => [
+                'kind' => 'written',
+                'title' => $s->exam?->name ?? 'Examination',
+                'subject' => $s->subject?->name,
+                'at' => $s->exam_date,
+                // start_time is cast to a datetime, so it stringifies as a full
+                // timestamp — formatting it is not optional here.
+                'detail' => trim(implode(' · ', array_filter([
+                    $s->start_time?->format('g:i a'),
+                    $s->room,
+                ]))),
+            ]);
+
+        $upcomingOnline = OnlineExam::query()
+            ->where('class_id', $student->class_id)
+            ->when($student->section_id, fn ($q) => $q->where(function ($qq) use ($student) {
+                $qq->whereNull('section_id')->orWhere('section_id', $student->section_id);
+            }))
+            ->whereIn('status', ['published', 'ongoing'])
+            ->where('window_closes_at', '>=', now())
+            ->with('subject')
+            ->orderBy('window_opens_at')
+            ->limit(6)
+            ->get()
+            ->map(fn (OnlineExam $e) => [
+                'kind' => $e->window_opens_at <= now() ? 'open now' : 'online',
+                'title' => $e->name,
+                'subject' => $e->subject?->name,
+                'at' => $e->window_opens_at,
+                'detail' => $e->duration_minutes ? $e->duration_minutes . ' min · ' . $e->total_marks . ' marks' : null,
+            ]);
+
+        $upcomingExams = $upcomingExams
+            ->concat($upcomingOnline)
+            ->sortBy(fn (array $row) => (string) $row['at'])
+            ->values()
+            ->take(6);
 
         // Attendance %
         $attRows = AttendanceRecord::query()
@@ -112,6 +155,7 @@ class Dashboard extends Page
             ->get();
 
         return [
+            'courses'              => $this->courseProgressFor($student),
             'latestResult'         => $latestResult,
             'recentMarks'          => $recentMarks,
             'upcomingHomework'     => $upcomingHomework,
@@ -171,5 +215,71 @@ class Dashboard extends Page
             'lines' => $fees->filter(fn ($f) => $f->balance_paisas > 0)->count(),
             'nextDue' => $nextDue,
         ];
+    }
+
+    /**
+     * How far each of the child's courses has got through its plan.
+     *
+     * This is the question a parent actually has and no other screen answers:
+     * not "what mark did they get" but "where is the class up to, and is there
+     * material my child can go back to". Units come from the published
+     * syllabus, so the figure is the school's own plan rather than an estimate.
+     *
+     * @return list<array{subject:string, done:int, total:int, pct:int, current:?string, lectures:int}>
+     */
+    public function courseProgressFor(Student $student): array
+    {
+        if (! $student->class_id) {
+            return [];
+        }
+
+        $syllabi = Syllabus::query()
+            ->where('class_id', $student->class_id)
+            ->where('status', 'published')
+            ->with('subject')
+            ->get();
+
+        if ($syllabi->isEmpty()) {
+            return [];
+        }
+
+        $topics = SyllabusTopic::query()
+            ->whereIn('syllabus_id', $syllabi->pluck('id'))
+            ->get()
+            ->groupBy('syllabus_id');
+
+        $lectureCounts = StudyMaterial::query()
+            ->where('class_id', $student->class_id)
+            ->where('is_published', true)
+            ->selectRaw('subject_id, count(*) as c')
+            ->groupBy('subject_id')
+            ->pluck('c', 'subject_id');
+
+        $out = [];
+
+        foreach ($syllabi as $syllabus) {
+            $rows = $topics->get($syllabus->id) ?? collect();
+            $total = $rows->count();
+
+            if ($total === 0) {
+                continue;
+            }
+
+            $done = $rows->where('status', 'completed')->count();
+            $current = $rows->firstWhere('status', 'in_progress');
+
+            $out[] = [
+                'subject' => $syllabus->subject?->name ?? $syllabus->title,
+                'done' => $done,
+                'total' => $total,
+                'pct' => (int) round($done / $total * 100),
+                'current' => $current?->title,
+                'lectures' => (int) ($lectureCounts[$syllabus->subject_id] ?? 0),
+            ];
+        }
+
+        usort($out, fn ($a, $b) => strcmp($a['subject'], $b['subject']));
+
+        return $out;
     }
 }

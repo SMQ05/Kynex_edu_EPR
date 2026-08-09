@@ -50,6 +50,7 @@ class LecturesAndAssignmentsSeeder extends Seeder
         $this->seedLectures();
         $this->seedPractice();
         $this->seedAssignments();
+        $this->seedRemainingSubjectHomework();
         $this->seedAiHistory();
     }
 
@@ -458,6 +459,139 @@ class LecturesAndAssignmentsSeeder extends Seeder
         };
 
         return 'AI-assisted marking, reviewed by the subject teacher. ' . $body;
+    }
+
+    // ── 2b. Homework for the rest of the timetable ─────────────────
+
+    /**
+     * Give every class/subject on the timetable some set work.
+     *
+     * The assignments above hang off lectures, which only exist for the
+     * fourteen class/subject pairs that have recorded material — grades 6 to
+     * 12, and only some of their subjects. That left Kindergarten through
+     * Grade 5 with no homework at all, so half the parents in the school
+     * opened the portal to an empty page. This fills the gaps from the
+     * timetable itself: one marked task behind and one still due, per section.
+     */
+    protected function seedRemainingSubjectHomework(): void
+    {
+        $tasks = $this->profile()->homeworkTasks();
+
+        if ($tasks === []) {
+            return;
+        }
+
+        $covered = DB::table('homework_assignments')
+            ->selectRaw("class_id || '|' || subject_id as pair")
+            ->distinct()
+            ->pluck('pair')
+            ->flip();
+
+        $rows = DB::table('class_subjects as cs')
+            ->join('classes as c', 'c.id', '=', 'cs.class_id')
+            ->join('subjects as s', 's.id', '=', 'cs.subject_id')
+            ->whereNotNull('cs.teacher_id')
+            ->select('cs.class_id', 'cs.subject_id', 'cs.teacher_id', 'c.name as class_name', 's.name as subject_name')
+            ->get();
+
+        $studentsByClassSection = [];
+        foreach ($this->studentsAndParents->studentRows as $student) {
+            $studentsByClassSection[$student['class_id']][$student['section_id']][] = $student['id'];
+        }
+
+        $created = 0;
+        $submissions = 0;
+        $n = 0;
+
+        foreach ($rows as $row) {
+            if ($covered->has($row->class_id . '|' . $row->subject_id)) {
+                continue;
+            }
+
+            $band = $this->bandFor($row->class_name);
+            $pool = $tasks[$row->subject_name][$band] ?? null;
+
+            if ($pool === null) {
+                continue;
+            }
+
+            foreach (($studentsByClassSection[$row->class_id] ?? []) as $sectionId => $students) {
+                foreach ([['graded', 0], ['open', 1]] as [$state, $which]) {
+                    [$title, $brief] = $pool[$which % count($pool)];
+                    $totalMarks = [10, 15, 20][$n % 3];
+
+                    $dueDate = $this->withinTerm($state === 'open'
+                        ? Carbon::now()->addDays(mt_rand(2, 12))
+                        : Carbon::now()->subDays(mt_rand(4, 20)));
+
+                    $assignmentId = (string) Str::ulid();
+
+                    DB::table('homework_assignments')->insert([
+                        'id' => $assignmentId,
+                        'class_id' => $row->class_id,
+                        'section_id' => $sectionId,
+                        'subject_id' => $row->subject_id,
+                        'teacher_id' => $row->teacher_id,
+                        'title' => $title,
+                        'description' => $brief,
+                        'due_date' => $dueDate->toDateString(),
+                        'attachment_path' => null,
+                        'type' => 'homework',
+                        'total_marks' => $totalMarks,
+                        'created_at' => $this->withinTerm($dueDate->copy()->subDays(7)),
+                        'updated_at' => now(),
+                    ]);
+                    $created++;
+                    $n++;
+
+                    if ($state === 'open') {
+                        continue;
+                    }
+
+                    $rotated = $students;
+                    if (count($rotated) > 1) {
+                        $offset = $n % count($rotated);
+                        $rotated = array_merge(array_slice($rotated, $offset), array_slice($rotated, 0, $offset));
+                    }
+
+                    foreach (array_slice($rotated, 0, max(1, (int) round(count($rotated) * 0.9))) as $studentId) {
+                        $submittedAt = $dueDate->copy()->subDays(mt_rand(0, 2))->setTime(mt_rand(16, 21), mt_rand(0, 59));
+                        $marks = (int) round($totalMarks * (mt_rand(60, 100) / 100));
+
+                        DB::table('homework_submissions')->insert([
+                            'id' => (string) Str::ulid(),
+                            'homework_id' => $assignmentId,
+                            'student_id' => $studentId,
+                            'submission_text' => 'Submitted: ' . $title . '.',
+                            'attachment_path' => null,
+                            'submitted_at' => $submittedAt,
+                            'total_marks' => $totalMarks,
+                            'marks_obtained' => $marks,
+                            'grade' => $this->letterFor($marks / $totalMarks * 100),
+                            'graded_at' => $submittedAt->copy()->addDays(mt_rand(1, 4)),
+                            'graded_by' => $row->teacher_id,
+                            'created_at' => $submittedAt,
+                            'updated_at' => now(),
+                        ]);
+                        $submissions++;
+                    }
+                }
+            }
+        }
+
+        $this->command?->line("  ✓ timetable homework seeded ({$created} assignments, {$submissions} marked submissions)");
+    }
+
+    /** Which authored band a class name falls into. */
+    protected function bandFor(string $className): string
+    {
+        $grade = (int) (preg_replace('/\D+/', '', $className) ?: 0);
+
+        return match (true) {
+            $grade >= 9 => 'high',
+            $grade >= 6 => 'middle',
+            default => 'elementary',
+        };
     }
 
     // ── 3. AI tutor history ────────────────────────────────────────

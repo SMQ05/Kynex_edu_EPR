@@ -272,4 +272,23 @@
 .dark .sp-opt--answer{color:#6ee7b7}
 .dark .sp-opt--miss{color:#fda4af}
 .dark .sp-quiz__why{background:#111827;color:#9ca3af}
+/* ── Parent: course progress and assessment timing ──────────── */
+.pp-courses{display:grid;gap:.7rem;grid-template-columns:repeat(auto-fit,minmax(230px,1fr))}
+.pp-course{padding:.7rem .8rem;border:1px solid #e5e7eb;border-radius:.7rem;background:#fff}
+.pp-course__head{display:flex;align-items:baseline;justify-content:space-between;gap:.5rem}
+.pp-course__name{font-size:.83rem;font-weight:600;color:#1f2937}
+.pp-course__pct{font-size:.78rem;font-weight:700;color:rgb(var(--portal-accent-rgb))}
+.pp-bar{height:.35rem;margin:.45rem 0 .4rem;border-radius:9999px;background:#f1f5f9;overflow:hidden}
+.pp-bar span{display:block;height:100%;border-radius:9999px;background:rgb(var(--portal-accent-rgb))}
+.pp-course__meta{font-size:.71rem;color:#9ca3af}
+.pp-course__now{margin-top:.3rem;font-size:.73rem;color:#4b5563}
+.pp-course__now::before{content:'';display:inline-block;width:.4rem;height:.4rem;margin-right:.35rem;
+  border-radius:9999px;background:rgb(var(--portal-accent-rgb));vertical-align:middle}
+.pp-when{display:flex;flex-direction:column;align-items:flex-end;gap:.15rem;flex:none}
+.pp-countdown{font-size:.66rem;color:#9ca3af}
+.sp-badge--live{background:rgb(16 185 129/.13);color:#047857;font-weight:700}
+.dark .pp-course{background:#1f2937;border-color:#374151}
+.dark .pp-course__name{color:#f3f4f6}
+.dark .pp-bar{background:#374151}
+.dark .pp-course__now{color:#d1d5db}
 </style>
