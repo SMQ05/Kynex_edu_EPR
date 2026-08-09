@@ -291,4 +291,60 @@
 .dark .pp-course__name{color:#f3f4f6}
 .dark .pp-bar{background:#374151}
 .dark .pp-course__now{color:#d1d5db}
+/* ── Student: course map ────────────────────────────────────── */
+.sp-focus{display:grid;gap:.9rem;grid-template-columns:repeat(auto-fit,minmax(210px,1fr))}
+.sp-focus__item{display:flex;align-items:center;gap:.8rem}
+.sp-focus__ring{--v:50;position:relative;width:3.1rem;height:3.1rem;flex:none;border-radius:9999px;
+  background:conic-gradient(rgb(var(--portal-accent-rgb)) calc(var(--v)*1%), #eef2f7 0);
+  display:grid;place-items:center}
+.sp-focus__ring::after{content:'';position:absolute;inset:.32rem;border-radius:9999px;background:#fff}
+.sp-focus__ring span{position:relative;z-index:1;font-size:.78rem;font-weight:700;color:#1f2937}
+.sp-focus__ring small{font-size:.55rem;font-weight:600}
+.sp-focus__subject{font-size:.86rem;font-weight:600;color:#1f2937}
+.sp-focus__meta{font-size:.72rem;color:#9ca3af}
+
+.sp-course__top{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem}
+.sp-course__subject{font-size:1rem;font-weight:700;color:#1f2937}
+.sp-course__title{font-size:.79rem;color:#6b7280;margin-top:.1rem}
+.sp-course__teacher{font-size:.72rem;color:#9ca3af;margin-top:.15rem}
+.sp-course__right{display:flex;align-items:center;gap:1rem;flex:none}
+.sp-course__standing{text-align:right}
+.sp-course__standingv{display:block;font-size:.95rem;font-weight:700;color:#1f2937}
+.sp-course__standingl{display:block;font-size:.63rem;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em}
+.sp-course__pct{font-size:1.35rem;font-weight:700;color:rgb(var(--portal-accent-rgb))}
+.sp-course__meta{margin-top:.35rem;font-size:.76rem;color:#6b7280}
+.sp-course__toggle{margin-top:.7rem;font-size:.78rem;font-weight:600;color:rgb(var(--portal-accent-rgb));
+  background:none;border:0;padding:0;cursor:pointer}
+.sp-course__toggle:hover{text-decoration:underline}
+
+.sp-units{list-style:none;margin:1rem 0 0;padding:0;position:relative}
+.sp-units::before{content:'';position:absolute;left:.42rem;top:.55rem;bottom:.55rem;width:1px;background:#e5e7eb}
+.sp-unit{position:relative;display:flex;gap:.85rem;padding:.55rem 0}
+.sp-unit__mark{position:relative;z-index:1;flex:none;width:.85rem;height:.85rem;margin-top:.28rem;
+  border-radius:9999px;background:#fff;border:2px solid #d1d5db}
+.sp-unit--completed .sp-unit__mark{background:rgb(var(--portal-accent-rgb));border-color:rgb(var(--portal-accent-rgb))}
+.sp-unit--in_progress .sp-unit__mark{border-color:rgb(var(--portal-accent-rgb));
+  box-shadow:0 0 0 3px rgb(var(--portal-accent-rgb)/.18)}
+.sp-unit__body{min-width:0;flex:1}
+.sp-unit__head{display:flex;align-items:baseline;justify-content:space-between;gap:.6rem}
+.sp-unit__title{font-size:.85rem;font-weight:600;color:#1f2937}
+.sp-unit--planned .sp-unit__title{font-weight:500;color:#6b7280}
+.sp-unit__tag{flex:none;font-size:.65rem;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em}
+.sp-unit--in_progress .sp-unit__tag{color:rgb(var(--portal-accent-rgb))}
+.sp-unit__desc{margin-top:.2rem;font-size:.76rem;line-height:1.55;color:#6b7280}
+.sp-unit__mat{display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;margin-top:.45rem;padding:.4rem .55rem;
+  border:1px solid rgb(var(--portal-accent-rgb)/.25);border-radius:.5rem;text-decoration:none;
+  background:rgb(var(--portal-accent-rgb)/.04);transition:all .14s ease}
+.sp-unit__mat:hover{border-color:rgb(var(--portal-accent-rgb)/.55);background:rgb(var(--portal-accent-rgb)/.09)}
+.sp-unit__mat svg{color:rgb(var(--portal-accent-rgb));flex:none}
+.sp-unit__matname{font-size:.79rem;font-weight:600;color:#1f2937}
+.sp-chip{font-size:.65rem;padding:.1rem .4rem;border-radius:9999px;background:rgb(var(--portal-accent-rgb)/.12);
+  color:rgb(var(--portal-accent-rgb));font-weight:600}
+.sp-chip--best{background:rgb(16 185 129/.14);color:#047857}
+
+.dark .sp-focus__ring::after{background:#1f2937}
+.dark .sp-focus__ring span,.dark .sp-focus__subject,.dark .sp-course__subject,
+.dark .sp-course__standingv,.dark .sp-unit__title,.dark .sp-unit__matname{color:#f3f4f6}
+.dark .sp-units::before{background:#374151}
+.dark .sp-unit__mark{background:#1f2937;border-color:#4b5563}
 </style>
