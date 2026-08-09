@@ -300,6 +300,14 @@ class SchoolIdentitySeeder extends Seeder
 
     protected function renameAcademicYear(): void
     {
+        $years = DemoProfile::current()->academicYears();
+
+        if ($years !== []) {
+            $this->syncAcademicYears($years);
+
+            return;
+        }
+
         $current = DB::table('academic_years')
             ->where('is_current', true)
             ->orderBy('created_at')
@@ -320,5 +328,59 @@ class SchoolIdentitySeeder extends Seeder
                 'updated_at' => now(),
             ]);
         $this->command?->line("  ✓ academic_years renamed → '{$name}'");
+    }
+
+    /**
+     * Put the profile's calendar in place.
+     *
+     * The row the base seeder created is reused for the current year rather
+     * than deleted and replaced: classes, fee structures and exams already
+     * point at its id by foreign key, and swapping the id would orphan all of
+     * them. Earlier years are inserted alongside it so the school has history.
+     *
+     * @param  list<array{name:string, start:string, end:string, is_current:bool}>  $years
+     */
+    protected function syncAcademicYears(array $years): void
+    {
+        $existing = DB::table('academic_years')
+            ->where('is_current', true)
+            ->orderBy('created_at')
+            ->first()
+            ?? DB::table('academic_years')->orderBy('created_at')->first();
+
+        $names = [];
+
+        foreach ($years as $year) {
+            $row = [
+                'name' => $year['name'],
+                'start_date' => $year['start'],
+                'end_date' => $year['end'],
+                'is_current' => $year['is_current'],
+                'updated_at' => now(),
+            ];
+
+            $match = DB::table('academic_years')->where('name', $year['name'])->first();
+
+            if ($match) {
+                DB::table('academic_years')->where('id', $match->id)->update($row);
+            } elseif ($year['is_current'] && $existing) {
+                DB::table('academic_years')->where('id', $existing->id)->update($row);
+            } else {
+                DB::table('academic_years')->insert($row + [
+                    'id' => (string) \Illuminate\Support\Str::ulid(),
+                    'created_at' => now(),
+                ]);
+            }
+
+            $names[] = $year['name'] . ($year['is_current'] ? ' (current)' : '');
+        }
+
+        // Anything the base seeder left behind that the profile does not
+        // define must not keep claiming to be the current year.
+        DB::table('academic_years')
+            ->whereNotIn('name', array_column($years, 'name'))
+            ->update(['is_current' => false, 'updated_at' => now()]);
+
+        $this->command?->line('  ✓ academic_years synced (' . implode(', ', $names) . ')');
     }
 }

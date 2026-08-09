@@ -134,6 +134,26 @@ class LecturesAndAssignmentsSeeder extends Seeder
             ?? null;
     }
 
+    /**
+     * Clamp a date to the current academic year.
+     *
+     * Dates are generated relative to today, but today can sit near the start
+     * of a year, which would otherwise push "already graded" work back into
+     * the previous summer.
+     */
+    protected function withinTerm(Carbon $date): Carbon
+    {
+        $start = $this->classes->yearStartDate;
+
+        if ($start === '') {
+            return $date;
+        }
+
+        $floor = Carbon::parse($start);
+
+        return $date->lessThan($floor) ? $floor->copy()->addDays(mt_rand(1, 4)) : $date;
+    }
+
     // ── 1b. Per-lecture practice quizzes and flashcards ────────────
 
     /**
@@ -252,11 +272,15 @@ class LecturesAndAssignmentsSeeder extends Seeder
             $state = ['graded', 'ai_graded', 'awaiting', 'open'][$i % 4];
             $totalMarks = [20, 25, 30][$i % 3];
 
-            $dueDate = match ($state) {
+            // Past work is pulled forward so it cannot land before the first
+            // day of term. Homework dated during the summer break, or inside a
+            // year that has not started, is the kind of detail that makes a
+            // demo fall apart the moment somebody reads the dates.
+            $dueDate = $this->withinTerm(match ($state) {
                 'open' => Carbon::now()->addDays(mt_rand(3, 16)),
                 'awaiting' => Carbon::now()->subDays(mt_rand(2, 6)),
                 default => Carbon::now()->subDays(mt_rand(9, 30)),
-            };
+            });
 
             foreach ($sections as $sectionId => $students) {
             $assignmentId = (string) Str::ulid();
@@ -272,7 +296,7 @@ class LecturesAndAssignmentsSeeder extends Seeder
                 'attachment_path' => null,
                 'type' => 'homework',
                 'total_marks' => $totalMarks,
-                'created_at' => $dueDate->copy()->subDays(10),
+                'created_at' => $this->withinTerm($dueDate->copy()->subDays(10)),
                 'updated_at' => now(),
             ]);
             $assignments++;

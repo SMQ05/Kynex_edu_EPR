@@ -115,7 +115,7 @@ class OnlineExamsSeeder extends Seeder
 
             // ── The exam ───────────────────────────────────────────
             [$opensAt, $closesAt, $status] = match ($spec['state']) {
-                'graded' => [Carbon::now()->subDays(12)->setTime(9, 0), Carbon::now()->subDays(11)->setTime(17, 0), 'closed'],
+                'graded' => [$this->withinTerm(Carbon::now()->subDays(12))->setTime(9, 0), $this->withinTerm(Carbon::now()->subDays(11))->setTime(17, 0), 'closed'],
                 'open' => [Carbon::now()->subHours(2), Carbon::now()->addDays(5)->setTime(23, 59), 'published'],
                 default => [Carbon::now()->addDays(9)->setTime(9, 0), Carbon::now()->addDays(10)->setTime(17, 0), 'published'],
             };
@@ -146,7 +146,7 @@ class OnlineExamsSeeder extends Seeder
                 'window_opens_at' => $opensAt,
                 'window_closes_at' => $closesAt,
                 'created_by' => $teacherId,
-                'created_at' => $opensAt->copy()->subDays(6),
+                'created_at' => $this->withinTerm($opensAt->copy()->subDays(6)),
                 'updated_at' => now(),
             ]);
             $examCount++;
@@ -336,5 +336,24 @@ class OnlineExamsSeeder extends Seeder
         };
 
         return "AI-graded ({$awarded}/{$outOf}), reviewed by the subject teacher. " . $body;
+    }
+
+    /**
+     * Clamp a date to the current academic year — see the identical helper in
+     * LecturesAndAssignmentsSeeder. A sat-and-graded assessment dated before
+     * the first day of term is the giveaway that demo dates are arithmetic
+     * around today rather than a real calendar.
+     */
+    protected function withinTerm(Carbon $date): Carbon
+    {
+        $start = $this->classes->yearStartDate;
+
+        if ($start === '') {
+            return $date;
+        }
+
+        $floor = Carbon::parse($start);
+
+        return $date->lessThan($floor) ? $floor->copy()->addDays(mt_rand(1, 3)) : $date;
     }
 }

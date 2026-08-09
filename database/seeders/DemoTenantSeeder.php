@@ -17,6 +17,7 @@ use Database\Seeders\Demo\NotificationsSeeder;
 use Database\Seeders\Demo\SchoolIdentitySeeder;
 use Database\Seeders\Demo\StaffSeeder;
 use Database\Seeders\Demo\StudentsAndParentsSeeder;
+use Database\Seeders\Demo\SyllabusSeeder;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 
@@ -382,6 +383,12 @@ class DemoTenantSeeder extends Seeder
         $lectures = new LecturesAndAssignmentsSeeder($staff, $classes, $studentsAndParents);
         $lectures->setCommand($this->command);
         $lectures->run();
+
+        // The curriculum spine. Runs after lectures so each planned topic can
+        // pick up the material already published against it.
+        $syllabus = new SyllabusSeeder($staff, $classes);
+        $syllabus->setCommand($this->command);
+        $syllabus->run();
 
         $finance = new FinanceSeeder($staff);
         $finance->setCommand($this->command);

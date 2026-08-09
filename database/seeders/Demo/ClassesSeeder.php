@@ -33,6 +33,12 @@ class ClassesSeeder extends Seeder
     use UsesDemoProfile;
 
     public string $academicYearId = '';
+
+    /** The year before the current one, when the profile defines history. */
+    public string $previousAcademicYearId = '';
+
+    /** First day of the current year — the floor for any seeded date. */
+    public string $yearStartDate = '';
     public string $mainCampusId = '';
 
     /** @var array<int, string> classNumber => class.id */
@@ -97,6 +103,16 @@ class ClassesSeeder extends Seeder
         if (! $this->academicYearId) {
             throw new \RuntimeException('No current academic_year row exists.');
         }
+
+        $this->yearStartDate = (string) DB::table('academic_years')
+            ->where('id', $this->academicYearId)
+            ->value('start_date');
+
+        $this->previousAcademicYearId = (string) DB::table('academic_years')
+            ->where('is_current', false)
+            ->where('end_date', '<=', $this->yearStartDate)
+            ->orderByDesc('end_date')
+            ->value('id');
 
         $this->seedClasses();
         $this->seedSections();

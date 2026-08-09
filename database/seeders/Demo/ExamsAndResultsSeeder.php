@@ -79,18 +79,30 @@ class ExamsAndResultsSeeder extends Seeder
         $headId = $this->staff->userIdByLabel['principal']
             ?? $this->staff->userIdByLabel['admin'];
 
-        $exams = [
-            'First Term' => ['2026-02-10', '2026-02-20', 50, 'first_term'],
-            'Mid Term' => ['2026-04-15', '2026-04-25', 50, 'mid_term'],
-        ];
+        // These are completed, published exams with full results behind them.
+        // When the profile defines a previous academic year they belong to it,
+        // not to the year that is only a fortnight old — a report card dated
+        // inside a term that has barely started reads as broken data.
+        $priorYearId = $this->classes->previousAcademicYearId;
+        $examYearId = $priorYearId ?: $this->academicYearId;
+
+        $exams = $priorYearId !== ''
+            ? [
+                'First Term' => ['2025-10-13', '2025-10-23', 50, 'first_term'],
+                'Mid Term' => ['2026-02-09', '2026-02-19', 50, 'mid_term'],
+            ]
+            : [
+                'First Term' => ['2026-02-10', '2026-02-20', 50, 'first_term'],
+                'Mid Term' => ['2026-04-15', '2026-04-25', 50, 'mid_term'],
+            ];
         $ids = [];
         foreach ($exams as $name => [$start, $end, $weight, $type]) {
             $id = (string) Str::ulid();
             DB::table('exams')->insert([
                 'id' => $id,
-                'academic_year_id' => $this->academicYearId,
+                'academic_year_id' => $examYearId,
                 'name' => $name,
-                'description' => "{$name} examinations 2025-2026",
+                'description' => "{$name} examinations",
                 'start_date' => $start,
                 'end_date' => $end,
                 'status' => 'completed',

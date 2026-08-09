@@ -122,6 +122,41 @@ abstract class DemoProfile
     abstract public function emailDomain(): string;
 
     /**
+     * The school's academic calendar.
+     *
+     * Returned oldest-first; exactly one entry carries is_current. A profile
+     * may return an empty array, in which case the seeder leaves whatever the
+     * base tenant seeder created alone and only normalises its name — that is
+     * the behaviour every profile had before this method existed.
+     *
+     * Defining the calendar here matters because a school year is a locale
+     * decision, not a global one: an August-to-June year and an April-to-March
+     * year put "this term" in completely different months, and a syllabus plan
+     * is meaningless if its week numbers are counted from the wrong start.
+     *
+     * @return list<array{name:string, start:string, end:string, is_current:bool}>
+     */
+    public function academicYears(): array
+    {
+        return [];
+    }
+
+    /**
+     * Week-by-week term plans, keyed "Grade N|Subject".
+     *
+     * Empty by default: a profile that does not author a curriculum simply
+     * has no syllabi, which is preferable to generating plausible-looking
+     * topic titles from the subject name. Filler curriculum is worse than
+     * none — it reads as real content until somebody opens it.
+     *
+     * @return array<string, array{title:string, description:string, topics:list<array{title:string, description:string, objective:string, match?:string}>}>
+     */
+    public function syllabusPlans(): array
+    {
+        return [];
+    }
+
+    /**
      * Canonical school identity.
      *
      * @return array{

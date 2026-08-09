@@ -753,6 +753,24 @@ final class UsaProfile extends DemoProfile
     }
 
     /**
+     * A year-round Texas calendar: early-July start, mid-June end.
+     *
+     * Year-round schooling with short intersessions is common in Texas, and
+     * it is the framing that makes this demo honest. The alternative — a
+     * conventional August start — would put today in the opening days of the
+     * year, where every syllabus is 0% covered, no work has been marked and
+     * the whole progress story has nothing to show. Here the school is around
+     * six weeks in: two units taught, one running, the rest ahead.
+     */
+    public function academicYears(): array
+    {
+        return [
+            ['name' => '2025-2026', 'start' => '2025-07-07', 'end' => '2026-06-12', 'is_current' => false],
+            ['name' => '2026-2027', 'start' => '2026-07-06', 'end' => '2027-06-11', 'is_current' => true],
+        ];
+    }
+
+    /**
      * Practice quizzes and flashcards, keyed by lecture video id.
      *
      * Written to test understanding rather than recall where possible: several
@@ -1355,6 +1373,288 @@ final class UsaProfile extends DemoProfile
             'currency_code' => 'USD',
             'currency_symbol' => '$',
             'timezone' => 'America/Chicago',
+        ];
+    }
+
+    /**
+     * Term plans for every class and subject that has taught material.
+     *
+     * Keyed "Grade N|Subject". Each topic is one week of the plan; the seeder
+     * counts weeks from the first day of the academic year, so the plan lines
+     * up with the real calendar rather than with an abstract "week 1".
+     *
+     * 'match' attaches an existing lecture to the topic when its title
+     * contains that phrase, which is what lets a student see where a video
+     * sits in the course and a teacher see which weeks still have no material.
+     *
+     * @return array<string, array{title:string, description:string, topics:list<array{title:string, description:string, objective:string, match?:string}>}>
+     */
+    public function syllabusPlans(): array
+    {
+        return [
+            'Grade 6|Science' => [
+                'title' => 'Grade 6 Science — Motion, Matter and Earth Systems',
+                'description' => 'A first full year of physical and earth science, built around hands-on investigation. Students learn to measure carefully, argue from evidence, and explain everyday motion and materials in scientific language.',
+                'topics' => [
+                    ['title' => 'Working like a scientist', 'description' => 'Observation, hypothesis, variables and fair tests. Students design and run a simple controlled experiment in the first week.', 'objective' => 'Identify the independent, dependent and controlled variables in an investigation.'],
+                    ['title' => 'Measurement and the metric system', 'description' => 'Length, mass, volume and temperature. Precision, estimation and reading instruments without parallax error.', 'objective' => 'Take and record measurements to an appropriate precision with correct units.'],
+                    ['title' => 'Forces and motion', 'description' => 'Push, pull, speed and direction. Introduces balanced and unbalanced forces using carts, ramps and everyday examples.', 'objective' => 'Predict how an object will move when the forces on it are balanced or unbalanced.', 'match' => "Newton's first law"],
+                    ['title' => 'Newton and inertia in daily life', 'description' => 'Why passengers lurch forward when a bus stops, and why seatbelts exist. Inertia as resistance to a change in motion.', 'objective' => 'Explain a familiar event using the idea of inertia.'],
+                    ['title' => 'States of matter', 'description' => 'Solids, liquids and gases as arrangements of particles. Melting, freezing, evaporation and condensation.', 'objective' => 'Use the particle model to explain a change of state.'],
+                    ['title' => 'Mixtures and separation', 'description' => 'Solutions, suspensions, filtration, evaporation and magnetic separation, with a practical separation challenge.', 'objective' => 'Choose and justify a method for separating a given mixture.'],
+                    ['title' => 'Earth in space', 'description' => 'Day and night, the seasons and the phases of the Moon, modelled with a lamp and globe.', 'objective' => 'Explain the seasons in terms of axial tilt rather than distance from the Sun.'],
+                    ['title' => 'Weather and the water cycle', 'description' => 'Evaporation, condensation, precipitation and collection; reading a simple weather chart.', 'objective' => 'Trace a water molecule through a complete cycle and name each change of state.'],
+                    ['title' => 'Rocks, soil and erosion', 'description' => 'How rock becomes soil, and how water and wind reshape land over time.', 'objective' => 'Describe one process of weathering and one of erosion, and distinguish them.'],
+                    ['title' => 'Energy around us', 'description' => 'Kinetic, potential, thermal, light and sound energy, and transfers between them.', 'objective' => 'Trace the energy transfers in an everyday device.'],
+                    ['title' => 'Ecosystems and interdependence', 'description' => 'Producers, consumers and decomposers; food chains and webs in a local habitat.', 'objective' => 'Predict the effect on a food web of removing one organism.'],
+                    ['title' => 'Unit review and science fair project', 'description' => 'Students select a question from the year, design an investigation and present findings to the class.', 'objective' => 'Plan, run and report an investigation independently.'],
+                ],
+            ],
+
+            'Grade 6|U.S. History' => [
+                'title' => 'Grade 6 U.S. History — Colonial America to Independence',
+                'description' => 'From the first permanent settlements to the break with Britain. The year is built around cause and effect, and around reading short primary sources without being intimidated by them.',
+                'topics' => [
+                    ['title' => 'Before colonisation', 'description' => 'The peoples already living in North America, their regions, and how geography shaped how they lived.', 'objective' => 'Describe how environment shaped the way of life of two Native nations.'],
+                    ['title' => 'The first colonies', 'description' => 'Jamestown and Plymouth: why they were founded, why one nearly failed, and who paid for them.', 'objective' => 'Compare the motives behind two early colonies.'],
+                    ['title' => 'Three colonial regions', 'description' => 'New England, Middle and Southern colonies — climate, crops, labour and religion.', 'objective' => 'Explain why the economies of the three regions diverged.'],
+                    ['title' => 'Slavery in colonial America', 'description' => 'The transatlantic trade, its scale, and how it became embedded in the colonial economy. Taught with age-appropriate primary accounts.', 'objective' => 'Explain how slavery shaped the colonial economy and society.'],
+                    ['title' => 'Life in the colonies', 'description' => 'Work, schooling, family and community for different groups, including who was excluded from each.', 'objective' => 'Contrast daily life for two different groups in the same colony.'],
+                    ['title' => 'The Seven Years War and the Great Awakening', 'description' => 'The war that removed the French threat and left Britain in debt, alongside a religious revival that taught colonists to question authority.', 'objective' => 'Explain how a British victory made conflict with the colonies more likely.', 'match' => 'Seven Years'],
+                    ['title' => 'Taxation and resistance', 'description' => 'Stamp Act, Townshend duties, boycotts and the argument over representation.', 'objective' => 'Summarise the colonial case against taxation by Parliament.'],
+                    ['title' => 'From protest to war', 'description' => 'The Boston Massacre, the Tea Party, the Intolerable Acts and Lexington.', 'objective' => 'Place five events in order and explain how each raised the stakes.'],
+                    ['title' => 'The Declaration of Independence', 'description' => 'Close reading of the preamble: what it claims, and who it left out.', 'objective' => 'Restate the Declaration\'s central argument in your own words.'],
+                    ['title' => 'Fighting the war', 'description' => 'Why the Continental Army survived, the role of France, and the war away from the battlefield.', 'objective' => 'Give two reasons the colonies won despite being outmatched.'],
+                    ['title' => 'A new nation', 'description' => 'The Articles of Confederation, why they were weak, and the push for a constitution.', 'objective' => 'Identify two failures of the Articles of Confederation.'],
+                    ['title' => 'Review and document study', 'description' => 'Students build a short evidence-based argument from three primary sources.', 'objective' => 'Support a historical claim with evidence from a source.'],
+                ],
+            ],
+
+            'Grade 7|Science' => [
+                'title' => 'Grade 7 Science — Life Science and Ecosystems',
+                'description' => 'Cells, energy and ecosystems, taught so that each level of organisation is connected to the next. Students should finish able to trace energy from sunlight to a predator.',
+                'topics' => [
+                    ['title' => 'Characteristics of living things', 'description' => 'What distinguishes living from non-living, and the levels of biological organisation.', 'objective' => 'List the characteristics common to all living organisms.'],
+                    ['title' => 'Cells and their parts', 'description' => 'Plant and animal cells under the microscope; the job of each major organelle.', 'objective' => 'Identify the main organelles and state one function of each.'],
+                    ['title' => 'Photosynthesis and energy flow', 'description' => 'How plants convert light energy into stored chemical energy, and why every food chain begins there.', 'objective' => 'Write the inputs and outputs of photosynthesis and explain where the energy goes.', 'match' => 'Photosynthesis and the flow of energy'],
+                    ['title' => 'Respiration', 'description' => 'How organisms release the energy stored in sugar, and how respiration mirrors photosynthesis.', 'objective' => 'Compare photosynthesis and respiration as opposite processes.'],
+                    ['title' => 'Food chains and food webs', 'description' => 'Trophic levels, energy loss between levels, and why top predators are few.', 'objective' => 'Explain why only about a tenth of energy passes to the next trophic level.'],
+                    ['title' => 'Cycles of matter', 'description' => 'Carbon, water and nitrogen cycles, and the role of decomposers in each.', 'objective' => 'Trace carbon through at least four stages of its cycle.'],
+                    ['title' => 'Populations and limiting factors', 'description' => 'Growth, carrying capacity, competition, predation and disease.', 'objective' => 'Predict how a population responds to a named limiting factor.'],
+                    ['title' => 'Adaptation and natural selection', 'description' => 'Variation, selection pressure and change over generations, using clear worked examples.', 'objective' => 'Explain a named adaptation as the result of selection.'],
+                    ['title' => 'Human impact on ecosystems', 'description' => 'Habitat loss, pollution and introduced species, with a local case study.', 'objective' => 'Evaluate one human activity and its ecological consequences.'],
+                    ['title' => 'Body systems overview', 'description' => 'Digestive, circulatory and respiratory systems as a connected supply chain.', 'objective' => 'Describe how three systems cooperate to supply a working muscle.'],
+                    ['title' => 'Heredity basics', 'description' => 'Traits, genes and inherited versus acquired characteristics.', 'objective' => 'Distinguish an inherited trait from a learned one.'],
+                    ['title' => 'Ecosystem investigation', 'description' => 'Field sampling of a schoolyard plot, then written analysis of what was found.', 'objective' => 'Collect and interpret ecological data from a real site.'],
+                ],
+            ],
+
+            'Grade 8|Mathematics' => [
+                'title' => 'Grade 8 Mathematics — Algebra Foundations',
+                'description' => 'The year that turns arithmetic into algebra. Every unit insists on the same habit: do the same thing to both sides, and check the answer in the original equation.',
+                'topics' => [
+                    ['title' => 'The number system', 'description' => 'Rational and irrational numbers, ordering, and approximating square roots.', 'objective' => 'Place rational and irrational numbers correctly on a number line.'],
+                    ['title' => 'Exponents and scientific notation', 'description' => 'Laws of exponents, negative and zero powers, and calculating with very large and small numbers.', 'objective' => 'Apply the exponent laws to simplify an expression.'],
+                    ['title' => 'Variables, expressions and equations', 'description' => 'What a variable stands for, how to build an expression from a situation, and what an equation actually asserts.', 'objective' => 'Translate a word problem into an equation and say what the variable represents.', 'match' => 'Variables, expressions'],
+                    ['title' => 'Solving linear equations', 'description' => 'One and two step equations, then multi-step with brackets, solved by keeping the equation balanced.', 'objective' => 'Solve a multi-step linear equation and verify the solution.', 'match' => 'Solving linear equations'],
+                    ['title' => 'Equations with variables on both sides', 'description' => 'Collecting like terms across the equals sign, and equations with no solution or infinitely many.', 'objective' => 'Solve equations with unknowns on both sides and recognise special cases.'],
+                    ['title' => 'Inequalities', 'description' => 'Solving and graphing linear inequalities, including the sign flip when multiplying by a negative.', 'objective' => 'Solve a linear inequality and represent the solution on a number line.'],
+                    ['title' => 'Proportional relationships', 'description' => 'Unit rate, constant of proportionality, and recognising proportionality in tables and graphs.', 'objective' => 'Identify the constant of proportionality from a table, graph or equation.'],
+                    ['title' => 'Linear functions and slope', 'description' => 'Slope as rate of change, intercepts, and slope-intercept form.', 'objective' => 'Find the slope and intercept of a line from two points.'],
+                    ['title' => 'Graphing linear equations', 'description' => 'Moving fluently between equation, table and graph.', 'objective' => 'Graph a line from its equation and read its equation from a graph.'],
+                    ['title' => 'Systems of equations', 'description' => 'Solving by graphing and by substitution, and what the intersection means.', 'objective' => 'Solve a system of two linear equations and interpret the solution.'],
+                    ['title' => 'The Pythagorean theorem', 'description' => 'Statement, proof by area, and applications including distance between two points.', 'objective' => 'Use the theorem to find a missing side and to compute a distance.'],
+                    ['title' => 'Volume and review', 'description' => 'Cylinders, cones and spheres, followed by consolidation of the year\'s algebra.', 'objective' => 'Calculate the volume of a composite solid.'],
+                ],
+            ],
+
+            'Grade 8|U.S. History' => [
+                'title' => 'Grade 8 U.S. History — Revolution and the Republic',
+                'description' => 'The Revolution and the founding, taught as a set of arguments rather than a list of dates. Students are pushed to ask who benefited from each decision.',
+                'topics' => [
+                    ['title' => 'The colonies on the eve of war', 'description' => 'Population, economy and the colonial relationship with Britain in 1763.', 'objective' => 'Describe the colonial economy on the eve of the imperial crisis.'],
+                    ['title' => 'Taxes, smuggling and the road to revolution', 'description' => 'Why Britain taxed the colonies after 1763, how colonists evaded and resisted, and how a fiscal dispute became a constitutional one.', 'objective' => 'Explain how a dispute about revenue became a dispute about rights.', 'match' => 'Taxes, smuggling'],
+                    ['title' => 'Protest becomes rebellion', 'description' => 'Committees of correspondence, the Continental Congress, and the first shots.', 'objective' => 'Trace the organisational steps from protest to armed rebellion.'],
+                    ['title' => 'Declaring independence', 'description' => 'Common Sense, the drafting of the Declaration, and the decision to break irrevocably.', 'objective' => 'Analyse how the Declaration justifies rebellion.'],
+                    ['title' => 'The war years', 'description' => 'Strategy, hardship at Valley Forge, foreign alliance and Yorktown.', 'objective' => 'Assess the relative importance of French support to the outcome.'],
+                    ['title' => 'Who actually won the Revolution?', 'description' => 'Independence for whom: the position of enslaved people, women, Native nations and Loyalists after 1783.', 'objective' => 'Evaluate the Revolution\'s outcome from more than one perspective.', 'match' => 'Who actually won'],
+                    ['title' => 'The Articles of Confederation', 'description' => 'A deliberately weak government, and the crises that exposed it.', 'objective' => 'Explain why the Articles could not raise revenue or keep order.'],
+                    ['title' => 'The Constitutional Convention', 'description' => 'Compromise over representation, over slavery, and over the executive.', 'objective' => 'Describe two compromises and who each one favoured.'],
+                    ['title' => 'Ratification and the Bill of Rights', 'description' => 'Federalists against Anti-Federalists, and the price of ratification.', 'objective' => 'Summarise the Anti-Federalist objection and how it was answered.'],
+                    ['title' => 'The new government at work', 'description' => 'Washington\'s precedents, the first cabinet, and the emergence of parties.', 'objective' => 'Explain how political parties formed despite being unplanned.'],
+                    ['title' => 'Expansion and its cost', 'description' => 'The Louisiana Purchase and the consequences for Native nations.', 'objective' => 'Assess the consequences of expansion for those already living there.'],
+                    ['title' => 'Document-based assessment', 'description' => 'A full document-based question using sources from across the year.', 'objective' => 'Construct an evidence-based argument from multiple sources.'],
+                ],
+            ],
+            'Grade 9|Biology' => [
+                'title' => 'Biology I — Cells, Energy and Genetics',
+                'description' => 'A first rigorous biology course. Energy capture and transfer runs through the whole year, so photosynthesis is taught early and returned to repeatedly.',
+                'topics' => [
+                    ['title' => 'The nature of biological inquiry', 'description' => 'Controls, replication, and why a single dramatic result proves little.', 'objective' => 'Critique an experimental design for missing controls.'],
+                    ['title' => 'Biological molecules', 'description' => 'Carbohydrates, lipids, proteins and nucleic acids, and how structure determines function.', 'objective' => 'Relate the structure of a biological molecule to its role.'],
+                    ['title' => 'Cell structure and transport', 'description' => 'Membranes, organelles, diffusion, osmosis and active transport.', 'objective' => 'Predict the direction of water movement across a membrane.'],
+                    ['title' => 'Photosynthesis: building sugar from light', 'description' => 'The overall equation, where it happens, and why the products matter to every other organism.', 'objective' => 'Explain how light energy ends up stored in a glucose molecule.', 'match' => 'Photosynthesis: how plants'],
+                    ['title' => 'Inside the light reactions', 'description' => 'Photosystems, the electron transport chain, ATP and NADPH, and the origin of the oxygen released.', 'objective' => 'Identify the source of the oxygen released during photosynthesis.', 'match' => 'light reactions'],
+                    ['title' => 'The Calvin cycle', 'description' => 'Carbon fixation and the reduction of carbon dioxide to sugar, and why it is not called the dark reaction.', 'objective' => 'Describe what happens to a carbon atom entering the Calvin cycle.'],
+                    ['title' => 'Cellular respiration', 'description' => 'Glycolysis, the Krebs cycle and oxidative phosphorylation, with an ATP tally.', 'objective' => 'Account for the ATP produced from one glucose molecule.'],
+                    ['title' => 'Cell division', 'description' => 'Mitosis and the cell cycle, checkpoints, and what happens when control fails.', 'objective' => 'Describe each stage of mitosis and its purpose.'],
+                    ['title' => 'Meiosis and variation', 'description' => 'Reduction division, crossing over, and the origin of genetic variety.', 'objective' => 'Explain two ways meiosis generates variation.'],
+                    ['title' => 'Mendelian genetics', 'description' => 'Dominance, Punnett squares, and monohybrid and dihybrid crosses.', 'objective' => 'Predict offspring ratios from a genetic cross.'],
+                    ['title' => 'DNA and protein synthesis', 'description' => 'Replication, transcription and translation as an information pathway.', 'objective' => 'Translate a short DNA sequence into an amino acid sequence.'],
+                    ['title' => 'Evolution and evidence', 'description' => 'Natural selection with evidence from fossils, anatomy and molecular biology.', 'objective' => 'Cite three independent lines of evidence for common ancestry.'],
+                ],
+            ],
+
+            'Grade 9|Mathematics' => [
+                'title' => 'Algebra I',
+                'description' => 'A full algebra course. The emphasis is on fluency with equations and on reading a graph as the same object as its equation.',
+                'topics' => [
+                    ['title' => 'Expressions and the properties of operations', 'description' => 'Simplifying, distributing and factoring out common terms.', 'objective' => 'Simplify an algebraic expression correctly and justify each step.'],
+                    ['title' => 'Solving linear equations', 'description' => 'Multi-step equations, fractions and decimals, and checking solutions.', 'objective' => 'Solve a linear equation containing fractions.'],
+                    ['title' => 'Equations with variables on both sides', 'description' => 'Gathering terms across the equals sign, and identifying equations with no solution or infinitely many.', 'objective' => 'Solve and classify equations with unknowns on both sides.', 'match' => 'variables on both sides'],
+                    ['title' => 'Literal equations and formulas', 'description' => 'Rearranging a formula for a named variable.', 'objective' => 'Rearrange a formula to make a chosen variable the subject.'],
+                    ['title' => 'Linear inequalities', 'description' => 'Solving, graphing and compound inequalities.', 'objective' => 'Solve a compound inequality and graph its solution set.'],
+                    ['title' => 'Functions and notation', 'description' => 'Domain, range, function notation and whether a relation is a function.', 'objective' => 'Determine whether a relation is a function and state its domain.'],
+                    ['title' => 'Linear functions and modelling', 'description' => 'Slope, intercepts, forms of a line, and fitting a line to real data.', 'objective' => 'Model a real situation with a linear function and interpret the slope.'],
+                    ['title' => 'Systems of linear equations', 'description' => 'Graphing, substitution and elimination, with applied problems.', 'objective' => 'Choose an efficient method to solve a given system.'],
+                    ['title' => 'Exponents and exponential growth', 'description' => 'Exponent laws and growth and decay models.', 'objective' => 'Distinguish linear from exponential growth in a table of values.'],
+                    ['title' => 'Polynomials', 'description' => 'Adding, subtracting and multiplying polynomials; special products.', 'objective' => 'Multiply two binomials and simplify.'],
+                    ['title' => 'Factoring', 'description' => 'Common factors, trinomials and the difference of squares.', 'objective' => 'Factor a quadratic trinomial with leading coefficient one.'],
+                    ['title' => 'Introduction to quadratics', 'description' => 'Graphs of parabolas, roots, and solving by factoring.', 'objective' => 'Find the roots of a quadratic by factoring and check on the graph.'],
+                ],
+            ],
+
+            'Grade 10|Physics' => [
+                'title' => 'Physics — Mechanics and Energy',
+                'description' => 'Classical mechanics from measurement to momentum. Students are expected to reason from free-body diagrams before reaching for a formula.',
+                'topics' => [
+                    ['title' => 'Measurement and uncertainty', 'description' => 'Units, significant figures and estimating uncertainty in a measurement.', 'objective' => 'Report a measurement with an appropriate uncertainty.'],
+                    ['title' => 'Describing motion', 'description' => 'Displacement, velocity and acceleration, and reading motion graphs.', 'objective' => 'Interpret a velocity-time graph, including the meaning of its area.'],
+                    ['title' => 'Equations of motion', 'description' => 'Uniform acceleration in one dimension, applied to falling bodies.', 'objective' => 'Solve a uniform acceleration problem using the kinematic equations.'],
+                    ['title' => "Newton's first law: inertia", 'description' => 'Balanced forces, equilibrium, and why constant velocity needs no net force.', 'objective' => 'Explain why an object in equilibrium can still be moving.', 'match' => "first law: inertia"],
+                    ['title' => "Newton's second law", 'description' => 'F = ma, free-body diagrams and problems with several forces.', 'objective' => 'Draw a free-body diagram and use it to find an acceleration.'],
+                    ['title' => "Newton's third law: action and reaction", 'description' => 'Force pairs, why they do not cancel, and how walking, swimming and rockets work.', 'objective' => 'Identify both members of a force pair and the body each acts on.', 'match' => 'third law: action'],
+                    ['title' => 'Friction and circular motion', 'description' => 'Static and kinetic friction, and centripetal force.', 'objective' => 'Identify the force providing the centripetal acceleration in a given case.'],
+                    ['title' => 'Work, energy and power', 'description' => 'Work done by a force, kinetic and potential energy, and the work-energy theorem.', 'objective' => 'Solve a problem using conservation of mechanical energy.'],
+                    ['title' => 'Momentum and collisions', 'description' => 'Impulse, conservation of momentum, and elastic versus inelastic collisions.', 'objective' => 'Apply conservation of momentum to a one-dimensional collision.'],
+                    ['title' => 'Gravitation', 'description' => 'Universal gravitation, weight against mass, and orbits.', 'objective' => 'Distinguish mass from weight and calculate each.'],
+                    ['title' => 'Simple machines and efficiency', 'description' => 'Mechanical advantage, and why no machine returns all the energy put in.', 'objective' => 'Calculate the efficiency of a simple machine.'],
+                    ['title' => 'Practical assessment', 'description' => 'A measured investigation of acceleration on an inclined plane, written up in full.', 'objective' => 'Produce a laboratory report with analysed data and an uncertainty estimate.'],
+                ],
+            ],
+
+            'Grade 11|Computer Science' => [
+                'title' => 'Computer Science — Algorithms and Data Structures',
+                'description' => 'Problem solving before syntax. Students learn to describe a method precisely, reason about its cost, and only then write it as code.',
+                'topics' => [
+                    ['title' => 'What is an algorithm?', 'description' => 'Precise steps, determinism and termination, using everyday procedures before any code.', 'objective' => 'Write an unambiguous algorithm for an everyday task.', 'match' => 'What is an algorithm'],
+                    ['title' => 'Pseudocode and flowcharts', 'description' => 'Expressing an algorithm so that any programmer could implement it.', 'objective' => 'Express an algorithm in pseudocode a peer can follow.'],
+                    ['title' => 'Variables, types and control flow', 'description' => 'Assignment, conditionals and loops, with tracing by hand.', 'objective' => 'Trace a program by hand and predict its output.'],
+                    ['title' => 'Functions and decomposition', 'description' => 'Breaking a problem into parts, parameters, return values and scope.', 'objective' => 'Decompose a problem into functions with clear responsibilities.'],
+                    ['title' => 'Arrays and lists', 'description' => 'Indexing, iteration and building the common list operations from scratch.', 'objective' => 'Implement a linear search and state its cost.'],
+                    ['title' => 'Choosing how to store data', 'description' => 'Stacks, queues, dictionaries and sets, and matching a structure to the access pattern a problem needs.', 'objective' => 'Justify a data structure choice in terms of the operations required.', 'match' => 'Data structures'],
+                    ['title' => 'Searching', 'description' => 'Linear and binary search, and the precondition binary search depends on.', 'objective' => 'Explain why binary search requires sorted data.'],
+                    ['title' => 'Sorting', 'description' => 'Selection, insertion and merge sort, compared by counting operations.', 'objective' => 'Compare two sorting algorithms by their number of comparisons.'],
+                    ['title' => 'Algorithmic complexity', 'description' => 'Big-O as a description of growth, and why constants matter less than shape.', 'objective' => 'Give the Big-O complexity of a short piece of code.'],
+                    ['title' => 'Recursion', 'description' => 'Base cases, recursive cases and the call stack.', 'objective' => 'Write a recursive solution and identify its base case.'],
+                    ['title' => 'Files and structured data', 'description' => 'Reading and writing files, and working with CSV and JSON.', 'objective' => 'Read structured data from a file and summarise it.'],
+                    ['title' => 'Project: a working program', 'description' => 'Specification, implementation, test cases and a short written defence of the design.', 'objective' => 'Deliver a tested program and justify its structure.'],
+                ],
+            ],
+
+            'Grade 11|Mathematics' => [
+                'title' => 'Algebra II',
+                'description' => 'Quadratics, polynomials and functions in depth. Completing the square is treated as the central technique it is, not a trick.',
+                'topics' => [
+                    ['title' => 'Review of linear systems', 'description' => 'Systems in two and three variables, solved by elimination and matrices.', 'objective' => 'Solve a three-variable system by elimination.'],
+                    ['title' => 'Quadratic functions and their graphs', 'description' => 'Vertex, axis of symmetry, intercepts and transformations of the parabola.', 'objective' => 'Sketch a parabola from its equation, labelling key features.'],
+                    ['title' => 'Solving quadratics by factoring', 'description' => 'The zero product property and the limits of factoring.', 'objective' => 'Solve a factorable quadratic and verify the roots.'],
+                    ['title' => 'Completing the square', 'description' => 'Turning any quadratic into vertex form, and using it to solve equations and find the vertex directly.', 'objective' => 'Complete the square to find the vertex and solve the equation.', 'match' => 'Completing the square'],
+                    ['title' => 'The quadratic formula and the discriminant', 'description' => 'Deriving the formula by completing the square, and reading the number of roots from the discriminant.', 'objective' => 'Use the discriminant to determine the nature of the roots.'],
+                    ['title' => 'Complex numbers', 'description' => 'Imaginary units, arithmetic with complex numbers, and roots that are not real.', 'objective' => 'Add, multiply and simplify complex numbers.'],
+                    ['title' => 'Polynomial functions', 'description' => 'Degree, end behaviour, and the relationship between roots and factors.', 'objective' => 'Predict the end behaviour of a polynomial from its leading term.'],
+                    ['title' => 'Polynomial division and the remainder theorem', 'description' => 'Long and synthetic division, and factoring higher-degree polynomials.', 'objective' => 'Use synthetic division to test a candidate root.'],
+                    ['title' => 'Rational expressions', 'description' => 'Simplifying, multiplying and adding rational expressions.', 'objective' => 'Add two rational expressions with unlike denominators.'],
+                    ['title' => 'Radical functions and equations', 'description' => 'Rational exponents, solving radical equations and checking for extraneous roots.', 'objective' => 'Solve a radical equation and reject extraneous solutions.'],
+                    ['title' => 'Exponential and logarithmic functions', 'description' => 'Inverses, logarithm laws and solving exponential equations.', 'objective' => 'Solve an exponential equation using logarithms.'],
+                    ['title' => 'Sequences and series', 'description' => 'Arithmetic and geometric sequences and their sums.', 'objective' => 'Find the sum of a finite geometric series.'],
+                ],
+            ],
+            'Grade 12|Biology' => [
+                'title' => 'AP Biology — Energetics, Genetics and Systems',
+                'description' => 'A college-level course. Students are expected to explain mechanisms, not name them, and to interpret data they have not seen before.',
+                'topics' => [
+                    ['title' => 'Chemistry of life', 'description' => 'Water, pH, macromolecules and the properties that make life chemically possible.', 'objective' => 'Relate a property of water to a biological consequence.'],
+                    ['title' => 'Enzymes and energetics', 'description' => 'Activation energy, enzyme kinetics, inhibition and regulation.', 'objective' => 'Predict the effect of a named inhibitor on reaction rate.'],
+                    ['title' => 'Membranes and transport', 'description' => 'Fluid mosaic structure, gradients and the cost of active transport.', 'objective' => 'Explain how a cell maintains a concentration gradient.'],
+                    ['title' => 'Stages of photosynthesis', 'description' => 'Light reactions and the Calvin cycle traced in detail, including where each product goes.', 'objective' => 'Follow an electron from water to NADPH and say what happens at each step.', 'match' => 'stages of photosynthesis'],
+                    ['title' => 'Photosynthetic variation', 'description' => 'C3, C4 and CAM strategies as responses to water loss.', 'objective' => 'Explain why C4 and CAM plants outperform C3 plants in hot climates.'],
+                    ['title' => 'Cellular respiration in depth', 'description' => 'Chemiosmosis, the proton gradient and ATP yield.', 'objective' => 'Explain how a proton gradient is converted into ATP.'],
+                    ['title' => 'Cell communication', 'description' => 'Signal transduction, receptors, second messengers and amplification.', 'objective' => 'Describe how one signal molecule produces a large cellular response.'],
+                    ['title' => 'Cell cycle and its regulation', 'description' => 'Checkpoints, cyclins, apoptosis, and cancer as loss of control.', 'objective' => 'Explain how checkpoint failure can lead to uncontrolled division.'],
+                    ['title' => 'Molecular genetics', 'description' => 'Replication, transcription, translation and the control of gene expression.', 'objective' => 'Predict the effect of a point mutation on the protein produced.'],
+                    ['title' => 'Biotechnology', 'description' => 'PCR, gel electrophoresis, sequencing and gene editing, with their ethical questions.', 'objective' => 'Interpret a gel electrophoresis result.'],
+                    ['title' => 'Evolution and population genetics', 'description' => 'Hardy-Weinberg equilibrium, selection, drift and speciation.', 'objective' => 'Use Hardy-Weinberg to test whether a population is evolving.'],
+                    ['title' => 'Ecology and free-response practice', 'description' => 'Energy flow and population dynamics, with timed free-response writing.', 'objective' => 'Answer a data-based free-response question within the time limit.'],
+                ],
+            ],
+
+            'Grade 12|Mathematics' => [
+                'title' => 'Pre-Calculus',
+                'description' => 'Functions in full generality, preparing directly for calculus. Every family of functions is examined algebraically and graphically together.',
+                'topics' => [
+                    ['title' => 'Functions and transformations', 'description' => 'Composition, inverses, shifts, stretches and reflections.', 'objective' => 'Describe the transformation taking one graph to another.'],
+                    ['title' => 'Polynomial functions', 'description' => 'Roots, multiplicity, end behaviour and curve sketching.', 'objective' => 'Sketch a polynomial from its factored form.'],
+                    ['title' => 'Rational functions', 'description' => 'Asymptotes, holes and the behaviour of a graph near a discontinuity.', 'objective' => 'Identify vertical, horizontal and slant asymptotes.'],
+                    ['title' => 'Rational equations', 'description' => 'Solving equations containing algebraic fractions, and the extraneous solutions that arise when a denominator is zero.', 'objective' => 'Solve a rational equation and check for extraneous roots.', 'match' => 'Rational equations'],
+                    ['title' => 'Solving equations by graphing', 'description' => 'Reading solutions as intersection points, and using graphs when an equation has no algebraic solution.', 'objective' => 'Solve an equation graphically and assess the accuracy of the reading.', 'match' => 'Solving equations by graphing'],
+                    ['title' => 'Exponential and logarithmic functions', 'description' => 'Growth, decay, the natural base and logarithmic scales.', 'objective' => 'Model a growth situation and solve for the time to reach a target.'],
+                    ['title' => 'Trigonometric functions', 'description' => 'The unit circle, radians, and the graphs of sine, cosine and tangent.', 'objective' => 'Evaluate a trigonometric function at any point on the unit circle.'],
+                    ['title' => 'Trigonometric identities', 'description' => 'Pythagorean, sum and difference, and double angle identities.', 'objective' => 'Prove a trigonometric identity.'],
+                    ['title' => 'Triangles and applications', 'description' => 'Law of sines and cosines, with bearing and surveying problems.', 'objective' => 'Solve a non-right triangle from given measurements.'],
+                    ['title' => 'Vectors and parametric equations', 'description' => 'Components, magnitude, direction and motion described parametrically.', 'objective' => 'Resolve a vector into components and add two vectors.'],
+                    ['title' => 'Sequences, series and induction', 'description' => 'Summation notation, convergence, and proof by induction.', 'objective' => 'Prove a summation formula by induction.'],
+                    ['title' => 'Limits: a first look', 'description' => 'Limits numerically, graphically and algebraically, as the doorway to calculus.', 'objective' => 'Evaluate a limit algebraically, including an indeterminate form.'],
+                ],
+            ],
+
+            'Grade 12|Physics' => [
+                'title' => 'AP Physics — Mechanics',
+                'description' => 'Calculus-ready mechanics. Students argue from principles and are marked on the reasoning, not only the number at the end.',
+                'topics' => [
+                    ['title' => 'Kinematics in one and two dimensions', 'description' => 'Vectors, projectile motion and relative velocity.', 'objective' => 'Solve a projectile problem by treating the components independently.'],
+                    ['title' => "Newton's laws revisited", 'description' => 'Systems of connected bodies, tension and normal forces on inclines.', 'objective' => 'Solve for the acceleration of two connected masses.'],
+                    ['title' => "Newton's third law in practice", 'description' => 'Force pairs in real systems — propulsion, recoil, and contact between accelerating bodies — and why the pair never cancels.', 'objective' => 'Analyse a multi-body system correctly using third-law pairs.', 'match' => 'third law in practice'],
+                    ['title' => 'Friction and drag', 'description' => 'Coefficients of friction, terminal velocity and resistive forces.', 'objective' => 'Determine the terminal velocity of a falling body with drag.'],
+                    ['title' => 'Circular motion and gravitation', 'description' => 'Centripetal force, orbital motion and Kepler\'s laws.', 'objective' => 'Derive orbital speed from the gravitational force.'],
+                    ['title' => 'Work and energy', 'description' => 'Work by a variable force, conservative forces and potential energy curves.', 'objective' => 'Use a potential energy curve to describe the motion of a particle.'],
+                    ['title' => 'Conservation of energy', 'description' => 'Mechanical energy, dissipation and problems combining several forms.', 'objective' => 'Solve a multi-stage problem using energy conservation.'],
+                    ['title' => 'Momentum and impulse', 'description' => 'Impulse-momentum theorem, collisions in two dimensions and the centre of mass.', 'objective' => 'Solve a two-dimensional collision using momentum conservation.'],
+                    ['title' => 'Rotational kinematics', 'description' => 'Angular displacement, velocity, acceleration and rolling without slipping.', 'objective' => 'Relate linear and angular quantities for a rolling body.'],
+                    ['title' => 'Torque and rotational dynamics', 'description' => 'Moment of inertia, torque and the rotational form of the second law.', 'objective' => 'Calculate the angular acceleration produced by a torque.'],
+                    ['title' => 'Angular momentum', 'description' => 'Conservation of angular momentum and its everyday demonstrations.', 'objective' => 'Apply conservation of angular momentum to a changing moment of inertia.'],
+                    ['title' => 'Oscillations and exam practice', 'description' => 'Simple harmonic motion, pendulums, and timed past-paper work.', 'objective' => 'Derive the period of a simple harmonic oscillator.'],
+                ],
+            ],
+
+            'Grade 12|U.S. History' => [
+                'title' => 'AP U.S. Government and History — Founding and Federalism',
+                'description' => 'The constitutional order: how it was designed, why it was designed that way, and how the arguments of 1787 still decide cases today.',
+                'topics' => [
+                    ['title' => 'Foundations of American democracy', 'description' => 'Natural rights, popular sovereignty, republicanism and the social contract.', 'objective' => 'Trace a constitutional principle back to its philosophical source.'],
+                    ['title' => 'The Constitution, the Articles and federalism', 'description' => 'Why the Articles failed, what the Constitution changed, and how power was divided between nation and states.', 'objective' => 'Explain how the Constitution corrected specific failures of the Articles.', 'match' => 'Articles and federalism'],
+                    ['title' => 'Separation of powers and checks and balances', 'description' => 'Federalist 51, ambition counteracting ambition, and the deliberate inefficiency of the design.', 'objective' => 'Explain the reasoning of Federalist 51 in your own words.'],
+                    ['title' => 'The legislative branch', 'description' => 'Structure, powers, the committee system and why legislation usually fails.', 'objective' => 'Trace a bill through Congress and identify where most bills die.'],
+                    ['title' => 'The executive branch', 'description' => 'Formal and informal powers, executive orders and the growth of the presidency.', 'objective' => 'Distinguish formal from informal presidential power with examples.'],
+                    ['title' => 'The judiciary', 'description' => 'Judicial review from Marbury, precedent, and competing theories of interpretation.', 'objective' => 'Explain how Marbury established judicial review.'],
+                    ['title' => 'Federalism in practice', 'description' => 'The commerce clause, the necessary and proper clause, grants and mandates.', 'objective' => 'Analyse a case where national and state authority conflicted.'],
+                    ['title' => 'Civil liberties', 'description' => 'The Bill of Rights, incorporation, and the limits of speech and religion protections.', 'objective' => 'Apply a First Amendment precedent to a new fact pattern.'],
+                    ['title' => 'Civil rights', 'description' => 'Equal protection, the long struggle for its enforcement, and landmark cases.', 'objective' => 'Explain how equal protection doctrine changed between Plessy and Brown.'],
+                    ['title' => 'Political participation', 'description' => 'Elections, parties, interest groups and the media as linkage institutions.', 'objective' => 'Evaluate one institution\'s role in connecting citizens to government.'],
+                    ['title' => 'Public policy and the budget', 'description' => 'How fiscal and social policy is made, and who has leverage at each stage.', 'objective' => 'Identify the veto points in the federal budget process.'],
+                    ['title' => 'Required documents and exam practice', 'description' => 'The nine foundational documents and timed argumentative essay practice.', 'objective' => 'Write a timed argument citing a foundational document as evidence.'],
+                ],
+            ],
         ];
     }
 }
