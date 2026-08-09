@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Filament\SchoolAdmin\Resources;
 
 use App\Enums\SyllabusStatus;
+use App\Enums\TopicStatus;
+use App\Models\Tenant\StudyMaterial;
 use App\Filament\SchoolAdmin\Concerns\HasPermissionCheck;
 use App\Filament\SchoolAdmin\Resources\SyllabusResource\Pages;
 use App\Filament\SchoolAdmin\Resources\SyllabusResource\RelationManagers;
@@ -184,9 +186,67 @@ class SyllabusResource extends Resource
                 Tables\Columns\TextColumn::make('teacher.name')->label('Teacher')->placeholder('—')->toggleable(),
                 Tables\Columns\TextColumn::make('academicYear.name')->label('Year')->toggleable(),
                 Tables\Columns\TextColumn::make('topics_count')
-                    ->label('Topics')
+                    ->label('Units')
                     ->counts('topics')
                     ->badge(),
+
+                // Coverage is the only number that answers "am I on track",
+                // which is the question a scheme of work exists to answer. A
+                // bare topic count cannot distinguish a course that is finished
+                // from one that has not started.
+                Tables\Columns\TextColumn::make('coverage')
+                    ->label('Coverage')
+                    ->state(function ($record): string {
+                        $total = $record->topics()->count();
+
+                        if ($total === 0) {
+                            return '—';
+                        }
+
+                        $done = $record->topics()->where('status', TopicStatus::Completed)->count();
+
+                        return round($done / $total * 100) . '%  (' . $done . '/' . $total . ')';
+                    })
+                    ->badge()
+                    ->color(function ($record): string {
+                        $total = $record->topics()->count();
+
+                        if ($total === 0) {
+                            return 'gray';
+                        }
+
+                        $done = $record->topics()->where('status', TopicStatus::Completed)->count();
+                        $pct = $done / $total * 100;
+
+                        return match (true) {
+                            $pct >= 66 => 'success',
+                            $pct >= 25 => 'info',
+                            default => 'warning',
+                        };
+                    }),
+
+                Tables\Columns\TextColumn::make('current_unit')
+                    ->label('Teaching now')
+                    ->state(fn ($record) => $record->topics()
+                        ->where('status', TopicStatus::InProgress)
+                        ->orderBy('sort_order')
+                        ->value('title') ?? '—')
+                    ->wrap()
+                    ->description(fn ($record) => ($week = $record->topics()
+                        ->where('status', TopicStatus::InProgress)
+                        ->orderBy('sort_order')
+                        ->value('week_number')) ? 'Week ' . $week : null)
+                    ->limit(40),
+
+                Tables\Columns\TextColumn::make('materials')
+                    ->label('Material')
+                    ->state(fn ($record) => StudyMaterial::query()
+                        ->whereIn('syllabus_topic_id', $record->topics()->select('id'))
+                        ->count())
+                    ->badge()
+                    ->color(fn ($state) => $state > 0 ? 'success' : 'gray')
+                    ->tooltip('Recorded lectures attached to units on this plan')
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
                     ->formatStateUsing(fn ($state) => $state instanceof SyllabusStatus ? $state->label() : (SyllabusStatus::tryFrom((string) $state)?->label() ?? '—'))
@@ -196,6 +256,12 @@ class SyllabusResource extends Resource
                 Tables\Filters\SelectFilter::make('class_id')->label('Class')->relationship('schoolClass', 'name'),
                 Tables\Filters\SelectFilter::make('subject_id')->label('Subject')->relationship('subject', 'name'),
                 Tables\Filters\SelectFilter::make('status')->label('Status')->options(SyllabusStatus::options()),
+                Tables\Filters\Filter::make('no_material')
+                    ->label('No material attached')
+                    ->query(fn ($query) => $query->whereDoesntHave(
+                        'topics',
+                        fn ($q) => $q->whereIn('id', StudyMaterial::query()->whereNotNull('syllabus_topic_id')->select('syllabus_topic_id')),
+                    )),
             ])
             ->actions([
                 EditAction::make(),
