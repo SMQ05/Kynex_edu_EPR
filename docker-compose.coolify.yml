@@ -64,8 +64,12 @@ services:
     environment:
       <<: *app-env
       RUN_MIGRATIONS_AND_SEED: ${RUN_MIGRATIONS_AND_SEED:-true}
-    ports:
+    expose:
       - "80"
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=coolify
+      - traefik.http.services.kynexedu-app.loadbalancer.server.port=80
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost/up || exit 1"]
       interval: 30s
