@@ -7,6 +7,7 @@ namespace App\Filament\ParentPortal\Pages;
 use App\Models\Tenant\AttendanceRecord;
 use App\Models\Tenant\ExamMark;
 use App\Models\Tenant\ExamResult;
+use App\Models\Tenant\Notice;
 use App\Models\Tenant\ExamSchedule;
 use App\Models\Tenant\HomeworkAssignment;
 use App\Models\Tenant\HomeworkSubmission;
@@ -56,6 +57,121 @@ class Dashboard extends Page
             ->with(['schoolClass', 'section', 'campus', 'academicYear'])
             ->orderBy('first_name')
             ->get();
+    }
+
+    /**
+     * The child's most recent attendance mark, for the presence chip.
+     *
+     * Reports the latest recorded day and says which day it was, rather than
+     * claiming "in school today" from a register that has not been taken yet.
+     * A parent who is told their child is present when nobody marked the roll
+     * stops trusting the whole portal.
+     *
+     * @return array{status:?string, on:?string, today:bool}
+     */
+    public function presenceFor(Student $student): array
+    {
+        $row = AttendanceRecord::where('student_id', $student->id)
+            ->orderByDesc('date')
+            ->first();
+
+        if (! $row) {
+            return ['status' => null, 'label' => null, 'on' => null, 'today' => false];
+        }
+
+        $on = \Illuminate\Support\Carbon::parse($row->date);
+
+        return [
+            'status' => \App\Support\EnumLabel::raw($row->status),
+            'label' => \App\Support\EnumLabel::text($row->status),
+            'on' => $on->isToday() ? 'today' : $on->format('D j M'),
+            'today' => $on->isToday(),
+        ];
+    }
+
+    /**
+     * Recent school-wide notices, for the "from the school" feed.
+     *
+     * Only published notices that have not expired, newest first.
+     */
+    #[Computed]
+    public function schoolFeed(): Collection
+    {
+        return Notice::query()
+            ->where('is_published', true)
+            ->where(fn ($q) => $q->whereNull('expires_at')->orWhere('expires_at', '>=', now()))
+            ->orderByDesc('published_at')
+            ->limit(4)
+            ->get();
+    }
+
+    /**
+     * One thing worth a parent's attention, across all their children.
+     *
+     * Picks the child with the weakest recent subject and names it. Returns
+     * null when no child has a subject below the threshold — a "what to watch"
+     * panel that always finds something to worry about is noise.
+     *
+     * @return array{child:string, subject:string, percent:int, topic:?string}|null
+     */
+    #[Computed]
+    public function watchList(): ?array
+    {
+        $worst = null;
+
+        foreach ($this->children as $child) {
+            $latest = ExamResult::where('student_id', $child->id)
+                ->with('exam')
+                ->get()
+                ->sortBy(fn (ExamResult $r) => $r->exam?->start_date ?? $r->created_at)
+                ->last();
+
+            if (! $latest) {
+                continue;
+            }
+
+            $marks = ExamMark::query()
+                ->where('student_id', $child->id)
+                ->whereHas('schedule', fn ($q) => $q->where('exam_id', $latest->exam_id))
+                ->with('schedule.subject')
+                ->get()
+                ->filter(fn ($m) => $m->schedule?->subject && ($m->schedule->full_marks ?? 0) > 0 && $m->marks_obtained !== null)
+                ->map(fn ($m) => [
+                    'child' => $child->first_name,
+                    'subject' => $m->schedule->subject->name,
+                    'percent' => (int) round((float) $m->marks_obtained / (float) $m->schedule->full_marks * 100),
+                    'class_id' => $child->class_id,
+                    'subject_id' => $m->schedule->subject_id,
+                ])
+                ->sortBy('percent')
+                ->first();
+
+            if ($marks && ($worst === null || $marks['percent'] < $worst['percent'])) {
+                $worst = $marks;
+            }
+        }
+
+        if (! $worst || $worst['percent'] >= 65) {
+            return null;
+        }
+
+        $topic = null;
+        $syllabusId = Syllabus::where('class_id', $worst['class_id'])
+            ->where('subject_id', $worst['subject_id'])
+            ->value('id');
+
+        if ($syllabusId) {
+            $topic = SyllabusTopic::where('syllabus_id', $syllabusId)
+                ->where('status', 'in_progress')
+                ->value('title');
+        }
+
+        return [
+            'child' => $worst['child'],
+            'subject' => $worst['subject'],
+            'percent' => $worst['percent'],
+            'topic' => $topic,
+        ];
     }
 
     public function summaryFor(Student $student): array

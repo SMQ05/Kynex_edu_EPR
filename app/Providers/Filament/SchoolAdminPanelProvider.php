@@ -125,6 +125,10 @@ class SchoolAdminPanelProvider extends PanelProvider
             )
             ->renderHook(
                 'panels::head.end',
+                fn () => view('filament.panel-theme'),
+            )
+            ->renderHook(
+                'panels::head.end',
                 fn () => $this->getAppearanceStyles(),
             )
             ->renderHook(

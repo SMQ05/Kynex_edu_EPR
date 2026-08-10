@@ -123,6 +123,20 @@
     .sp-due__go--solid { background: #2563eb; color: #fff; }
     .sp-due__go:hover { filter: brightness(.95); }
 
+    /* ── Presence chip (parent view) ────────────────────────────── */
+    .pp-presence {
+        display: inline-flex; align-items: center; gap: .4rem; flex: none;
+        padding: .32rem .7rem; border-radius: 9999px;
+        font-size: .74rem; font-weight: 700; white-space: nowrap;
+    }
+    .pp-presence i { width: 7px; height: 7px; border-radius: 9999px; flex: none; }
+    .pp-presence--ok   { background: #dcfce7; color: #15803d; }
+    .pp-presence--ok i { background: #22c55e; }
+    .pp-presence--warn { background: #fef3c7; color: #b45309; }
+    .pp-presence--warn i { background: #f59e0b; }
+    .pp-presence--bad  { background: #fee2e2; color: #b91c1c; }
+    .pp-presence--bad i { background: #ef4444; }
+
     /* ── Meters (attendance, per-subject) ───────────────────────── */
     .sp-meter { height: 7px; border-radius: 99px; background: #eef2f7; overflow: hidden;
                 margin: .55rem 0 .4rem; }

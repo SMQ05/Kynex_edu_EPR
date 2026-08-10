@@ -33,6 +33,7 @@
             $att = $s['attendancePct'];
             $res = $s['latestResult'];
             $fees = $this->feeSummaryFor($child);
+            $presence = $this->presenceFor($child);
         @endphp
 
         <x-filament::section>
@@ -48,6 +49,16 @@
                         · ID {{ $child->admission_number ?: $child->registration_number ?: '—' }}
                     </div>
                 </div>
+                @if ($presence['status'])
+                    @php
+                        $tone = in_array($presence['status'], ['present', 'late'], true)
+                            ? ($presence['status'] === 'late' ? 'warn' : 'ok')
+                            : 'bad';
+                    @endphp
+                    <span class="pp-presence pp-presence--{{ $tone }}">
+                        <i></i>{{ $presence['label'] }} {{ $presence['on'] }}
+                    </span>
+                @endif
             </div>
 
             {{-- ── At a glance ─────────────────────────────────────── --}}
@@ -259,4 +270,47 @@
     .pp-callout__title { font-weight: 600; color: #991b1b; }
     .dark .pp-callout__title { color: #fca5a5; }
 </style>
+
+    {{-- ── From the school ─────────────────────────────────────────── --}}
+    @if ($this->schoolFeed->isNotEmpty())
+        <x-filament::section>
+            <x-slot name="heading">From the school</x-slot>
+            @foreach ($this->schoolFeed as $notice)
+                <div class="sp-due">
+                    <span class="sp-due__ic sp-due__ic--calm">
+                        <x-filament::icon icon="heroicon-m-megaphone" class="h-4 w-4" />
+                    </span>
+                    <div class="sp-due__body">
+                        <div class="sp-due__title">{{ $notice->title }}</div>
+                        <div class="sp-due__when sp-due__when--calm">
+                            {{ $notice->published_at ? \Illuminate\Support\Carbon::parse($notice->published_at)->format('D j M') : 'Undated' }}
+                            · {{ \Illuminate\Support\Str::limit(strip_tags((string) $notice->content), 70) }}
+                        </div>
+                    </div>
+                </div>
+            @endforeach
+        </x-filament::section>
+    @endif
+
+    {{-- ── What to watch ───────────────────────────────────────────── --}}
+    @php $watch = $this->watchList; @endphp
+    <div class="sp-coach">
+        <div class="sp-coach__head">
+            <span class="sp-coach__mark"></span>
+            <span class="sp-coach__title">What to watch this month</span>
+        </div>
+        @if ($watch)
+            <p class="sp-coach__body">
+                <strong>{{ $watch['child'] }}</strong>'s weakest subject is <strong>{{ $watch['subject'] }}</strong>
+                at {{ $watch['percent'] }}%@if ($watch['topic']), and the class is currently on <strong>{{ $watch['topic'] }}</strong>@endif.
+                Fifteen minutes of practice at home would help most — the lecture and its practice quiz are already published.
+            </p>
+        @else
+            <p class="sp-coach__body">
+                Nothing needs attention this month. Every child's subjects are holding above the level
+                where we would flag them, so there is no action for you here.
+            </p>
+        @endif
+        <a class="sp-coach__cta" href="{{ \App\Filament\ParentPortal\Pages\Fees::getUrl() }}">Open fees &amp; payments</a>
+    </div>
 </x-filament-panels::page>

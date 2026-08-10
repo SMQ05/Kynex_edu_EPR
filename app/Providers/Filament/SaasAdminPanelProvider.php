@@ -77,6 +77,10 @@ class SaasAdminPanelProvider extends PanelProvider
             ->renderHook(
                 'panels::head.end',
                 fn () => app(\Illuminate\Foundation\Vite::class)('resources/css/filament-custom.css'),
+            )
+            ->renderHook(
+                'panels::head.end',
+                fn () => view('filament.panel-theme'),
             );
     }
 }
