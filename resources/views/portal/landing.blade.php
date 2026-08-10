@@ -408,6 +408,40 @@
   </div>
 </section>
 
+{{-- ─── AI LEARNING ─── --}}
+<section class="section" id="learning">
+  <div class="inner">
+    <div class="center-head reveal">
+      <span class="eyebrow">🧠 AI-powered learning</span>
+      <h2 class="section-title">Not just administration &mdash; actual teaching and learning</h2>
+      <p class="section-sub">Most school software stops at records. KynexEdu carries the lesson itself: recorded lectures, a tutor grounded in them, practice that marks itself, and one course map that tells a student what to do next.</p>
+    </div>
+    <div class="modules">
+      @php
+        $learning = [
+          ['🎬','Lecture Library','Recorded lessons published per class and subject, each placed on the course plan so a student can see where it belongs.'],
+          ['💬','Grounded AI Tutor','Ask anything about the lecture you just watched. Answers are based on that lesson\'s own notes, and the tutor says so when a question is not covered rather than inventing an answer.'],
+          ['✅','Self-Marking Practice','Practice questions per lecture with instant marking and a written explanation for every answer. Unlimited retries, and nothing here touches a report card.'],
+          ['🃏','Revision Flashcards','Tap-to-reveal cards per lecture for fast recall before a test, with progress tracked across the set.'],
+          ['🗺️','Course Map','Every unit of the published syllabus in order &mdash; taught, running now, or still ahead &mdash; with the recording and quiz for each attached.'],
+          ['🎯','Knowledge Gaps','A standing per subject pooled from exams, homework and practice, so a student sees where their time is best spent. Subjects without enough marked work are left out rather than guessed at.'],
+          ['🤖','AI-Marked Assessments','Online exams with AI grading and per-question feedback, alongside teacher review and override.'],
+          ['📅','Teacher Syllabus Planning','Week-by-week schemes of work with coverage percentages, the unit being taught now, slippage against the calendar, and which units still have no material.'],
+          ['👀','Parent Visibility','Upcoming assignments and tests for every child, plus how far each course has actually progressed &mdash; the question parents really ask.'],
+        ];
+      @endphp
+      @foreach($learning as [$ic,$title,$desc])
+        <div class="card mod reveal">
+          <div class="mod-ic">{!! $ic !!}</div>
+          <h3>{!! $title !!}</h3>
+          <p>{!! $desc !!}</p>
+          <span class="tag tag-core">Learning</span>
+        </div>
+      @endforeach
+    </div>
+  </div>
+</section>
+
 {{-- ─── CAPABILITIES ─── --}}
 <section class="section section-alt" id="capabilities">
   <div class="inner">
@@ -425,7 +459,7 @@
           '🔎 Public Certificate &amp; ID Verification','🆘 In-App Help Center','📝 Homework &amp; Assignment','🗒️ Notices &amp; Events',
           '🌍 Public School Website (CMS)','🔵 Biometric (ZKTeco)','🤳 Android SMS Gateway','📲 React Native Mobile Apps',
           '🧾 Monthly Billing &amp; Invoicing','🛡️ PostgreSQL Row Level Security','🔒 PII Audit Trail (FERPA 7-yr)','🌙 Urdu / Bilingual',
-          '🤖 AI Assistant (OpenRouter)','🗂️ Infix ERP Import','💳 JazzCash &amp; EasyPaisa','⚡ Evolution API WhatsApp','🏷️ Subscription Plans',
+          '🤖 AI Assistant (OpenRouter)','🎬 Lecture Library','💬 Grounded AI Lecture Tutor','✅ Self-Marking Practice Quizzes','🃏 Revision Flashcards','🗺️ Student Course Map','🎯 Per-Subject Knowledge Gaps','📅 Syllabus Coverage Tracking','🗂️ Infix ERP Import','💳 JazzCash &amp; EasyPaisa','⚡ Evolution API WhatsApp','🏷️ Subscription Plans',
         ];
       @endphp
       @foreach($pills as $pill)
@@ -445,6 +479,8 @@
     </div>
     <div class="portals">
       <div class="portal-card reveal"><div class="pic">🏫</div><h3>Admin &amp; Staff</h3><p>Principals, registrars, accountants, HR, librarians, nurses — role-based dashboards &amp; approvals.</p></div>
+      <div class="portal-card reveal"><div class="pic">🎓</div><h3>Student Portal</h3><p>Lectures with an AI tutor, practice quizzes and flashcards, a course map, assignments, results, fees and a QR ID card.</p></div>
+      <div class="portal-card reveal"><div class="pic">👩‍🏫</div><h3>Teacher Portal</h3><p>Syllabus planning with coverage tracking, lesson plans, lecture uploads, homework marking and AI-assisted grading.</p></div>
       <div class="portal-card reveal"><div class="pic">👨‍👩‍👧</div><h3>Parent Portal</h3><p>Track attendance, results, fees and homework; pay online and get WhatsApp updates.</p></div>
       <div class="portal-card reveal"><div class="pic">🔎</div><h3>Public Verification</h3><p>Anyone can verify a student ID or certificate authenticity via secure QR pages.</p></div>
       <div class="portal-card reveal"><div class="pic">🆘</div><h3>Help Center</h3><p>Built-in guidance and support inside every dashboard — no separate ticketing tool needed.</p></div>
