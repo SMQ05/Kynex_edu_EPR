@@ -104,6 +104,20 @@ class DemoSchoolSeeder extends Seeder
 
     private function seedCmsSettings(): void
     {
+        // Only ever populate an empty tenant. This seeder runs from
+        // kynex:ensure-dev-demo on every container boot when
+        // RUN_MIGRATIONS_AND_SEED=true, and it used to updateOrCreate over
+        // whatever was there — so a restart silently replaced a branded
+        // school's name, address and colours with this hardcoded Pakistani
+        // demo. The USA demo tenant came back up calling itself
+        // "Al-Huda Model School & College" while every other table still said
+        // Lincoln Heights Academy.
+        if (CmsSetting::query()->exists()) {
+            $this->command?->line('  ✓ cms_settings left alone (already configured)');
+
+            return;
+        }
+
         CmsSetting::updateOrCreate(['id' => CmsSetting::first()?->id ?? Str::ulid()], [
             'school_name'          => 'Al-Huda Model School & College',
             'tagline'              => 'Excellence in Education Since 1998',
