@@ -13,6 +13,27 @@
         $currency = \App\Support\SchoolSettings::get('currency.symbol', '$');
     @endphp
 
+    @php $student = $this->me; @endphp
+    @if ($student)
+        <div class="sp-hero">
+            <div>
+                <div class="sp-hero__eyebrow">{{ $student->schoolClass?->name ?? 'Your class' }}@if ($student->section) &middot; Section {{ $student->section->name }} @endif</div>
+                <h2 class="sp-hero__title">{{ trim($student->first_name . ' ' . $student->last_name) }}</h2>
+                <p class="sp-hero__sub">Roll {{ $student->roll_number ?? '—' }} &middot; ID {{ $student->admission_number }}</p>
+            </div>
+            <div class="sp-hero__side">
+                <span class="sp-hero__pill">
+                    <span class="sp-hero__pillv">{{ $stats['attendance_rate'] !== null ? $stats['attendance_rate'] . '%' : '—' }}</span>
+                    <span class="sp-hero__pilll">Attendance</span>
+                </span>
+                <span class="sp-hero__pill">
+                    <span class="sp-hero__pillv">{{ $stats['pending_assignments'] }}</span>
+                    <span class="sp-hero__pilll">To do</span>
+                </span>
+            </div>
+        </div>
+    @endif
+
     <div class="sp-grid-stats">
         <x-filament::section class="sp-stat">
             <div class="sp-stat__value sp-teal">

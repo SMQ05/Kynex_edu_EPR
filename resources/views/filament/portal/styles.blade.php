@@ -34,8 +34,18 @@
     ];
     $a = $accents[$accent ?? 'teal'] ?? $accents['teal'];
 @endphp
+@include('partials.fonts')
 <style>
     :root {
+        /* Shared with the public theme so a student moving from the marketing
+           site into the portal sees one system, not two products. */
+        --sp-sans:'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+        --sp-mono:'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        --sp-line:#e8edf5;
+        --sp-ink:#0f172a;
+        --sp-muted:#64748b;
+        --sp-faint:#94a3b8;
+        --sp-r:16px;
         --portal-accent:       {{ $a['600'] }};
         --portal-accent-light: {{ $a['400'] }};
         --portal-accent-bg:    {{ $a['50'] }};
@@ -43,18 +53,61 @@
         --portal-accent-deep:  {{ $a['deep'] }};
         --portal-accent-rgb:   {{ $a['rgb'] }};
     }
+    /* Filament sets its own stack on body; scope ours to the page content so
+       the portal matches the landing page without fighting the framework. */
+    .fi-main, .fi-main input, .fi-main select, .fi-main textarea, .fi-main button {
+        font-family: var(--sp-sans);
+        font-variant-numeric: tabular-nums;
+    }
+
+    /* Filament's own card is 12px with its framework border; the redesign uses
+       a 16px card on a cooler hairline. Scoped to .fi-main so panel chrome
+       (sidebar, topbar, modals) is left alone. */
+    .fi-main .fi-section {
+        border-radius: var(--sp-r);
+        border-color: var(--sp-line);
+    }
+    .dark .fi-main .fi-section { border-color: #2c353f; }
+
+    /* ── Welcome banner (from the redesign) ─────────────────────── */
+    .sp-hero {
+        background: linear-gradient(140deg, #1e1b4b, var(--portal-accent-deep) 55%, var(--portal-accent));
+        border-radius: var(--sp-r);
+        padding: 1.5rem;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 1.25rem;
+        align-items: center;
+    }
+    .sp-hero__eyebrow { font-size: .78rem; font-weight: 800; letter-spacing: .08em;
+                        text-transform: uppercase; color: rgb(255 255 255 / .72); }
+    .sp-hero__title   { font-size: 1.6rem; font-weight: 800; color: #fff;
+                        letter-spacing: -.02em; margin: .5rem 0 .35rem; line-height: 1.15; }
+    .sp-hero__sub     { font-size: .9rem; color: rgb(255 255 255 / .8); margin: 0; }
+    .sp-hero__side    { display: flex; gap: .625rem; flex-wrap: wrap; }
+    @media (min-width: 700px) { .sp-hero__side { justify-self: end; } }
+    .sp-hero__pill    { display: inline-flex; flex-direction: column; gap: .1rem;
+                        background: rgb(255 255 255 / .13); border: 1px solid rgb(255 255 255 / .22);
+                        border-radius: 12px; padding: .6rem .85rem; min-width: 6.5rem; }
+    .sp-hero__pillv   { font-family: var(--sp-mono); font-size: 1.15rem; font-weight: 600; color: #fff; }
+    .sp-hero__pilll   { font-size: .68rem; font-weight: 700; letter-spacing: .06em;
+                        text-transform: uppercase; color: rgb(255 255 255 / .68); }
+
     /* ── Layout ─────────────────────────────────────────────────── */
     .sp-grid-stats { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
     .sp-grid-two   { display: grid; gap: 1.5rem; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); }
     .sp-grid-cards { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
 
     /* ── Stat tiles ─────────────────────────────────────────────── */
-    .sp-stat        { text-align: center; }
-    .sp-stat__value { font-size: 1.875rem; font-weight: 700; line-height: 1.25; }
-    .sp-stat__label { margin-top: .25rem; font-size: .875rem; color: #6b7280; }
-    .sp-stat__hint  { display: block; font-size: .75rem; color: #9ca3af; }
-    .dark .sp-stat__label { color: #9ca3af; }
-    .dark .sp-stat__hint  { color: #6b7280; }
+    .sp-stat        { text-align: left; }
+    .sp-stat__value { font-family: var(--sp-mono); font-size: 1.85rem; font-weight: 600;
+                      line-height: 1.1; letter-spacing: -.03em; color: var(--sp-ink); }
+    .sp-stat__label { margin-top: .38rem; font-size: .78rem; font-weight: 700; color: var(--sp-muted); }
+    .sp-stat__hint  { display: block; margin-top: .3rem; font-size: .76rem;
+                      font-weight: 600; color: var(--sp-faint); }
+    .dark .sp-stat__value { color: #f8fafc; }
+    .dark .sp-stat__label { color: #94a3b8; }
+    .dark .sp-stat__hint  { color: #64748b; }
 
     /* ── Semantic colours ───────────────────────────────────────── */
     .sp-teal { color: var(--portal-accent); }  .dark .sp-teal { color: var(--portal-accent-light); }
@@ -66,18 +119,18 @@
 
     /* ── List rows ──────────────────────────────────────────────── */
     .sp-row      { display: flex; align-items: flex-start; justify-content: space-between;
-                   gap: .75rem; padding: .75rem 0; border-bottom: 1px solid #f3f4f6; }
+                   gap: .75rem; padding: .75rem 0; border-bottom: 1px solid #f1f5f9; }
     .sp-row:last-child { border-bottom: 0; }
     .dark .sp-row      { border-bottom-color: #1f2937; }
-    .sp-row__title { font-weight: 500; color: #111827; }
+    .sp-row__title { font-weight: 650; color: var(--sp-ink); }
     .dark .sp-row__title { color: #f9fafb; }
-    .sp-row__meta  { font-size: .75rem; color: #6b7280; }
+    .sp-row__meta  { font-size: .76rem; color: var(--sp-muted); }
     .dark .sp-row__meta { color: #9ca3af; }
     .sp-empty { padding: 1.5rem 0; text-align: center; font-size: .875rem; color: #6b7280; }
 
     /* ── Badges ─────────────────────────────────────────────────── */
     .sp-badge       { flex-shrink: 0; border-radius: 9999px; padding: .125rem .5rem;
-                      font-size: .75rem; font-weight: 500; white-space: nowrap; }
+                      font-size: .74rem; font-weight: 700; white-space: nowrap; }
     .sp-badge--due  { background: #f3f4f6; color: #374151; }
     .sp-badge--late { background: #fee2e2; color: #b91c1c; }
     .sp-badge--exam { background: #ccfbf1; color: #0f766e; }
@@ -93,11 +146,12 @@
 
     /* ── Tables ─────────────────────────────────────────────────── */
     .sp-table { width: 100%; border-collapse: collapse; font-size: .875rem; }
-    .sp-table th { text-align: left; font-weight: 600; font-size: .75rem;
+    .sp-table th { text-align: left; font-weight: 700; font-size: .72rem;
                    text-transform: uppercase; letter-spacing: .03em;
-                   color: #6b7280; padding: .5rem .75rem;
-                   border-bottom: 1px solid #e5e7eb; }
-    .sp-table td { padding: .625rem .75rem; border-bottom: 1px solid #f3f4f6; color: #374151; }
+                   color: var(--sp-muted); padding: .5rem .75rem;
+                   border-bottom: 1px solid var(--sp-line); }
+    .sp-table td { padding: .625rem .75rem; border-bottom: 1px solid #f1f5f9; color: #334155;
+                   font-variant-numeric: tabular-nums; }
     .sp-table tr:last-child td { border-bottom: 0; }
     .sp-table td.sp-num, .sp-table th.sp-num { text-align: right; font-variant-numeric: tabular-nums; }
     .dark .sp-table th { color: #9ca3af; border-bottom-color: #374151; }
@@ -217,7 +271,7 @@
 .sp-card--flipped .sp-card__text{font-weight:500}
 .sp-card__hint{font-size:.7rem;color:#9ca3af}
 .sp-cards__bar{display:flex;align-items:center;gap:.9rem}
-.sp-cards__nav{width:2rem;height:2rem;border-radius:9999px;border:1px solid #e5e7eb;background:#fff;
+.sp-cards__nav{width:2.1rem;height:2.1rem;border-radius:9999px;border:1px solid var(--sp-line);background:#fff;
   color:#6b7280;font-size:.95rem;line-height:1;cursor:pointer;transition:all .15s ease}
 .sp-cards__nav:hover{border-color:rgb(var(--portal-accent-rgb)/.5);color:rgb(var(--portal-accent-rgb))}
 .sp-cards__dots{display:flex;gap:.3rem}
@@ -228,7 +282,7 @@
 
 /* ── Practice quiz ──────────────────────────────────────────── */
 .sp-quiz{display:flex;flex-direction:column;gap:.9rem}
-.sp-quiz__q{padding:.95rem 1.05rem;border:1px solid #e5e7eb;border-radius:.85rem;background:#fff;
+.sp-quiz__q{padding:.95rem 1.05rem;border:1px solid var(--sp-line);border-radius:12px;background:#fff;
   transition:border-color .15s ease}
 .sp-quiz__q--right{border-color:rgb(16 185 129/.45);background:rgb(16 185 129/.04)}
 .sp-quiz__q--wrong{border-color:rgb(244 63 94/.4);background:rgb(244 63 94/.03)}
@@ -237,7 +291,7 @@
   border-radius:9999px;background:rgb(var(--portal-accent-rgb)/.12);color:rgb(var(--portal-accent-rgb));
   font-size:.7rem;font-weight:700}
 .sp-quiz__opts{display:flex;flex-direction:column;gap:.35rem;margin:.7rem 0 0 2rem}
-.sp-opt{display:flex;align-items:center;gap:.55rem;padding:.5rem .7rem;border:1px solid #e5e7eb;
+.sp-opt{display:flex;align-items:center;gap:.55rem;padding:.55rem .75rem;border:1px solid var(--sp-line);
   border-radius:.55rem;font-size:.84rem;color:#374151;cursor:pointer;transition:all .13s ease}
 .sp-opt:hover{border-color:rgb(var(--portal-accent-rgb)/.45);background:rgb(var(--portal-accent-rgb)/.04)}
 .sp-opt input{accent-color:rgb(var(--portal-accent-rgb));flex:none}
@@ -258,7 +312,7 @@
 .sp-quiz__result--ace{border-color:rgb(16 185 129/.4);background:rgb(16 185 129/.07)}
 .sp-quiz__result--ok{border-color:rgb(var(--portal-accent-rgb)/.35);background:rgb(var(--portal-accent-rgb)/.06)}
 .sp-quiz__result--low{border-color:rgb(245 158 11/.4);background:rgb(245 158 11/.07)}
-.sp-quiz__score{font-size:1.6rem;font-weight:700;color:#1f2937;line-height:1}
+.sp-quiz__score{font-family:var(--sp-mono);font-size:1.6rem;font-weight:600;color:var(--sp-ink);line-height:1;letter-spacing:-.02em}
 .sp-quiz__score span{font-size:.95rem;font-weight:500;color:#9ca3af}
 .sp-quiz__verdict{font-size:.86rem;font-weight:600;color:#1f2937}
 .sp-quiz__best{font-size:.75rem;color:#6b7280;margin-top:.15rem}
@@ -274,11 +328,11 @@
 .dark .sp-quiz__why{background:#111827;color:#9ca3af}
 /* ── Parent: course progress and assessment timing ──────────── */
 .pp-courses{display:grid;gap:.7rem;grid-template-columns:repeat(auto-fit,minmax(230px,1fr))}
-.pp-course{padding:.7rem .8rem;border:1px solid #e5e7eb;border-radius:.7rem;background:#fff}
+.pp-course{padding:.7rem .8rem;border:1px solid var(--sp-line);border-radius:12px;background:#fff}
 .pp-course__head{display:flex;align-items:baseline;justify-content:space-between;gap:.5rem}
-.pp-course__name{font-size:.83rem;font-weight:600;color:#1f2937}
+.pp-course__name{font-size:.84rem;font-weight:700;color:var(--sp-ink)}
 .pp-course__pct{font-size:.78rem;font-weight:700;color:rgb(var(--portal-accent-rgb))}
-.pp-bar{height:.35rem;margin:.45rem 0 .4rem;border-radius:9999px;background:#f1f5f9;overflow:hidden}
+.pp-bar{height:.4rem;margin:.5rem 0 .45rem;border-radius:9999px;background:#eef2f7;overflow:hidden}
 .pp-bar span{display:block;height:100%;border-radius:9999px;background:rgb(var(--portal-accent-rgb))}
 .pp-course__meta{font-size:.71rem;color:#9ca3af}
 .pp-course__now{margin-top:.3rem;font-size:.73rem;color:#4b5563}
@@ -309,9 +363,9 @@
 .sp-course__teacher{font-size:.72rem;color:#9ca3af;margin-top:.15rem}
 .sp-course__right{display:flex;align-items:center;gap:1rem;flex:none}
 .sp-course__standing{text-align:right}
-.sp-course__standingv{display:block;font-size:.95rem;font-weight:700;color:#1f2937}
+.sp-course__standingv{display:block;font-family:var(--sp-mono);font-size:.98rem;font-weight:600;color:var(--sp-ink)}
 .sp-course__standingl{display:block;font-size:.63rem;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em}
-.sp-course__pct{font-size:1.35rem;font-weight:700;color:rgb(var(--portal-accent-rgb))}
+.sp-course__pct{font-family:var(--sp-mono);font-size:1.35rem;font-weight:600;color:rgb(var(--portal-accent-rgb));letter-spacing:-.02em}
 .sp-course__meta{margin-top:.35rem;font-size:.76rem;color:#6b7280}
 .sp-course__toggle{margin-top:.7rem;font-size:.78rem;font-weight:600;color:rgb(var(--portal-accent-rgb));
   background:none;border:0;padding:0;cursor:pointer}

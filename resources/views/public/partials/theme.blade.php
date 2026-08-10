@@ -4,6 +4,7 @@
   marketing landing, auth pages and verification pages all share one
   bold, mobile-first visual language. Pair with partials/scripts.blade.php.
 --}}
+@include('partials.fonts')
 <style>
   *, *::before, *::after { box-sizing: border-box; }
 
@@ -14,7 +15,10 @@
     --indigo:#4f46e5; --cyan:#06b6d4; --violet:#7c3aed;
     /* Ink + surfaces */
     --ink:#0f172a; --ink-2:#1e293b; --muted:#64748b; --muted-2:#94a3b8;
-    --line:#e2e8f0; --bg:#f8fafc; --bg-2:#f1f5f9; --white:#ffffff;
+    --line:#e8edf5; --line-2:#e2e8f0; --bg:#f6f8fb; --bg-2:#f1f5f9; --white:#ffffff;
+    /* Type */
+    --font-sans:'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    --font-mono:'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     /* State */
     --success:#059669; --error:#dc2626; --warning:#d97706;
     /* Gradients */
@@ -27,13 +31,16 @@
     --sh-sm:0 1px 3px rgba(15,23,42,.06),0 1px 2px rgba(15,23,42,.04);
     --sh:0 6px 24px rgba(15,23,42,.08);
     --sh-lg:0 20px 50px -12px rgba(15,23,42,.22);
-    --sh-brand:0 16px 40px -12px rgba(37,99,235,.45);
+    --sh-brand:0 12px 26px -12px rgba(37,99,235,.7);
   }
+
+  @keyframes riseIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:none; } }
+  @keyframes pulseDot { 0%,100% { opacity:1; } 50% { opacity:.35; } }
 
   html { scroll-behavior:smooth; -webkit-text-size-adjust:100%; }
   body {
-    margin:0; font-family: Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
-    color:var(--ink); background:var(--white);
+    margin:0; font-family:var(--font-sans);
+    color:var(--ink); background:var(--white); font-variant-numeric:tabular-nums;
     font-size:16px; line-height:1.65; -webkit-font-smoothing:antialiased;
     overflow-x:hidden;
   }
@@ -55,13 +62,14 @@
     border:1px solid var(--brand-100); border-radius:var(--r-pill); padding:6px 14px;
   }
   .section-title {
-    font-size:clamp(26px,5vw,40px); font-weight:800; letter-spacing:-.02em;
+    font-size:clamp(26px,5vw,40px); font-weight:800; letter-spacing:-.03em;
     line-height:1.15; margin:16px 0 12px; color:var(--ink);
   }
   .section-sub {
     font-size:clamp(15px,2.4vw,18px); color:var(--muted); line-height:1.7;
     max-width:640px; margin:0;
   }
+  .num { font-family:var(--font-mono); font-weight:600; font-variant-numeric:tabular-nums; letter-spacing:-.01em; }
   .text-center { text-align:center; }
   .center-head { display:flex; flex-direction:column; align-items:center; text-align:center; margin-bottom:44px; }
   .center-head .section-sub { margin:0 auto; }
@@ -73,8 +81,8 @@
   /* ── Buttons (44px+ tap targets) ── */
   .btn {
     display:inline-flex; align-items:center; justify-content:center; gap:8px;
-    padding:13px 24px; min-height:48px; border-radius:var(--r-sm);
-    font-size:15px; font-weight:600; line-height:1; cursor:pointer;
+    padding:13px 22px; min-height:48px; border-radius:12px;
+    font-size:15px; font-weight:700; line-height:1; cursor:pointer;
     border:1.5px solid transparent; transition:transform .15s ease, box-shadow .2s ease, background .2s ease;
     text-decoration:none; white-space:nowrap;
   }
@@ -95,7 +103,7 @@
   .chip {
     display:inline-flex; align-items:center; gap:8px;
     background:#fff; border:1px solid var(--line); border-radius:var(--r-pill);
-    padding:10px 16px; font-size:13.5px; font-weight:600; color:var(--ink-2);
+    padding:10px 16px; font-size:13.5px; font-weight:650; color:var(--ink-2);
     transition:transform .15s ease, border-color .15s ease, box-shadow .2s ease;
   }
   .chip:hover { border-color:var(--brand-300,#bfdbfe); color:var(--brand-700); box-shadow:var(--sh-sm); transform:translateY(-2px); }
@@ -106,8 +114,8 @@
 
   /* ── Glass / surface cards ── */
   .card {
-    background:#fff; border:1px solid var(--line); border-radius:var(--r-lg);
-    padding:26px 24px; transition:transform .22s ease, box-shadow .25s ease, border-color .2s ease;
+    background:#fff; border:1px solid var(--line); border-radius:var(--r);
+    padding:22px 20px; transition:transform .22s ease, box-shadow .25s ease, border-color .2s ease;
   }
   .card:hover { transform:translateY(-4px); box-shadow:var(--sh-lg); border-color:rgba(37,99,235,.35); }
   .glass {
@@ -128,7 +136,7 @@
   .brand-logo {
     width:40px; height:40px; flex-shrink:0; border-radius:11px; color:#fff;
     background:var(--grad-brand); display:flex; align-items:center; justify-content:center;
-    font-weight:900; font-size:18px; box-shadow:var(--sh-brand);
+    font-weight:800; font-size:18px; box-shadow:var(--sh-brand);
   }
   .brand-sub { display:block; font-size:10.5px; font-weight:500; color:var(--muted); line-height:1; margin-top:2px; }
   .nav-links { display:none; align-items:center; gap:6px; }

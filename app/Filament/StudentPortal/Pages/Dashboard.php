@@ -53,6 +53,18 @@ class Dashboard extends Page
     }
 
     /** Headline counters for the top of the page. */
+    /**
+     * The signed-in student, for the view.
+     *
+     * ResolvesCurrentStudent::student() is protected, and a Blade view runs as
+     * a closure outside the class, so the banner needs a public door.
+     */
+    #[Computed]
+    public function me(): ?\App\Models\Tenant\Student
+    {
+        return $this->student();
+    }
+
     #[Computed]
     public function stats(): array
     {

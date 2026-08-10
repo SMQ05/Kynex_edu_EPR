@@ -51,15 +51,17 @@
     background-image:url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Ccircle cx='20' cy='20' r='1.5'/%3E%3C/g%3E%3C/svg%3E"); }
   .hero-wrap { display:grid; grid-template-columns:1fr; gap:48px; align-items:center; padding:64px 0 72px; }
   @media(min-width:980px){ .hero-wrap { grid-template-columns:1.05fr .95fr; padding:96px 0 104px; } }
-  .hero-badge { display:inline-flex; align-items:center; gap:8px; background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.28); border-radius:var(--r-pill); padding:7px 16px; font-size:13px; font-weight:600; }
-  .hero h1 { font-size:clamp(33px,6.4vw,60px); font-weight:900; letter-spacing:-.025em; line-height:1.08; margin:22px 0 18px; }
-  .hero h1 b { background:linear-gradient(120deg,#a5b4fc,#67e8f9); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; font-weight:900; }
+  .hero-badge { display:inline-flex; align-items:center; gap:9px; background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.28); border-radius:var(--r-pill); padding:7px 16px; font-size:12.5px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; }
+  .hero-badge i { width:7px; height:7px; border-radius:99px; background:#22c55e; animation:pulseDot 2s ease-in-out infinite; flex:none; }
+  .hero-wrap > div:first-child { animation:riseIn .5s var(--ease-out,ease) both; }
+  .hero h1 { font-size:clamp(33px,6.4vw,60px); font-weight:800; letter-spacing:-.025em; line-height:1.08; margin:22px 0 18px; }
+  .hero h1 b { background:linear-gradient(120deg,#a5b4fc,#67e8f9); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; font-weight:800; }
   .hero p.lead { font-size:clamp(15.5px,2.4vw,19px); color:rgba(255,255,255,.86); max-width:560px; margin:0 0 32px; }
   .hero-actions { display:flex; flex-direction:column; gap:12px; }
   @media(min-width:480px){ .hero-actions { flex-direction:row; flex-wrap:wrap; } }
   .hero-stats { display:grid; grid-template-columns:repeat(2,1fr); gap:18px 12px; margin-top:44px; max-width:520px; }
   @media(min-width:560px){ .hero-stats { grid-template-columns:repeat(4,1fr); } }
-  .hstat-num { font-size:clamp(24px,4vw,30px); font-weight:900; line-height:1; background:linear-gradient(120deg,#fff,#bae6fd); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+  .hstat-num { font-size:clamp(24px,4vw,30px); font-weight:800; line-height:1; background:linear-gradient(120deg,#fff,#bae6fd); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
   .hstat-label { font-size:12px; color:rgba(255,255,255,.7); margin-top:6px; }
 
   /* App-window mockup */
@@ -103,7 +105,7 @@
   .spot-hero p { color:rgba(255,255,255,.85); }
   .spot-list { list-style:none; padding:0; margin:18px 0 0; display:flex; flex-direction:column; gap:10px; }
   .spot-list li { display:flex; gap:10px; font-size:14px; color:rgba(255,255,255,.92); }
-  .spot-list li::before { content:'✓'; color:#67e8f9; font-weight:900; }
+  .spot-list li::before { content:'✓'; color:#67e8f9; font-weight:800; }
 
   /* Modules grid */
   .modules { display:grid; grid-template-columns:1fr; gap:16px; }
@@ -140,7 +142,7 @@
   /* CTA banner */
   .cta { position:relative; background:var(--grad-hero); color:#fff; text-align:center; overflow:hidden; isolation:isolate; }
   .cta::before { content:''; position:absolute; inset:0; z-index:-1; background:radial-gradient(28rem 28rem at 50% -20%, rgba(6,182,212,.4), transparent 60%); }
-  .cta h2 { font-size:clamp(24px,4vw,38px); font-weight:900; letter-spacing:-.02em; margin:0 0 14px; }
+  .cta h2 { font-size:clamp(24px,4vw,38px); font-weight:800; letter-spacing:-.02em; margin:0 0 14px; }
   .cta p { font-size:clamp(15px,2.2vw,18px); color:rgba(255,255,255,.85); margin:0 0 30px; }
   .cta-actions { display:flex; flex-direction:column; gap:12px; justify-content:center; align-items:center; }
   @media(min-width:480px){ .cta-actions { flex-direction:row; } }
@@ -270,7 +272,7 @@
 <header class="hero">
   <div class="inner hero-wrap">
     <div>
-      <span class="hero-badge">🇵🇰 Pakistan's Most Complete School ERP</span>
+      <span class="hero-badge"><i></i>Pakistan's most complete school ERP</span>
       <h1>Everything your school needs,<br><b>all in one platform</b></h1>
       <p class="lead">Cloud-based, multi-tenant School Management ERP — from <strong style="color:#fff">online admissions &amp; proctored entry tests</strong> to fees, attendance, exams, HR, library, transport, WhatsApp &amp; biometric.</p>
       <div class="hero-actions">
