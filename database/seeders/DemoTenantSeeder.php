@@ -18,6 +18,7 @@ use Database\Seeders\Demo\SchoolIdentitySeeder;
 use Database\Seeders\Demo\StaffSeeder;
 use Database\Seeders\Demo\StudentsAndParentsSeeder;
 use Database\Seeders\Demo\SyllabusSeeder;
+use Database\Seeders\Demo\TimetableSeeder;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 
@@ -383,6 +384,12 @@ class DemoTenantSeeder extends Seeder
         $lectures = new LecturesAndAssignmentsSeeder($staff, $classes, $studentsAndParents);
         $lectures->setCommand($this->command);
         $lectures->run();
+
+        // The weekly timetable. class_routines is in the wipe list above, so
+        // without this the demo school has no schedule at all.
+        $timetable = new TimetableSeeder($classes);
+        $timetable->setCommand($this->command);
+        $timetable->run();
 
         // The curriculum spine. Runs after lectures so each planned topic can
         // pick up the material already published against it.

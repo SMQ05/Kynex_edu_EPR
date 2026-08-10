@@ -69,6 +69,107 @@
     }
     .dark .fi-main .fi-section { border-color: #2c353f; }
 
+    /* ── Dashboard layout (redesign) ────────────────────────────── */
+    .sp-top { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+    .sp-two-uneven { display: grid; gap: 1rem; grid-template-columns: 1fr; }
+    @media (min-width: 1024px) { .sp-two-uneven { grid-template-columns: 1.15fr .85fr; } }
+
+    /* ── "Right now" live card ──────────────────────────────────── */
+    .sp-live {
+        background: linear-gradient(140deg, var(--portal-accent-deep), var(--portal-accent));
+        border-radius: var(--sp-r);
+        padding: 1.4rem;
+        display: flex;
+        flex-direction: column;
+    }
+    .sp-live__eyebrow { font-size: .78rem; font-weight: 800; letter-spacing: .08em;
+                        text-transform: uppercase; color: rgb(255 255 255 / .75); }
+    .sp-live__title   { font-size: 1.5rem; font-weight: 800; color: #fff; letter-spacing: -.02em;
+                        margin: .5rem 0 .25rem; line-height: 1.15; }
+    .sp-live__meta    { font-size: .88rem; font-weight: 600; color: rgb(255 255 255 / .84);
+                        margin-bottom: 1.1rem; }
+    .sp-live__actions { display: flex; gap: .56rem; flex-wrap: wrap; margin-top: auto; }
+    .sp-live__btn {
+        display: inline-flex; align-items: center; min-height: 44px; padding: .7rem 1.1rem;
+        border-radius: 11px; background: #fff; color: var(--portal-accent-deep);
+        font-weight: 700; font-size: .87rem; text-decoration: none;
+        transition: transform .15s ease, background .15s ease;
+    }
+    .sp-live__btn:hover { transform: translateY(-1px); }
+    .sp-live__btn--ghost { background: rgb(255 255 255 / .16); color: #fff;
+                           border: 1px solid rgb(255 255 255 / .3); }
+    .sp-live__btn--ghost:hover { background: rgb(255 255 255 / .26); }
+
+    /* ── "Due this week" rows ───────────────────────────────────── */
+    .sp-due { display: flex; gap: .75rem; align-items: center; padding: .6rem 0;
+              border-bottom: 1px solid #f1f5f9; }
+    .sp-due:last-child { border-bottom: 0; }
+    .sp-due__ic { width: 36px; height: 36px; border-radius: 10px; display: grid;
+                  place-items: center; flex: none; }
+    .sp-due__ic--late { background: #fee2e2; color: #dc2626; }
+    .sp-due__ic--soon { background: #fef3c7; color: #d97706; }
+    .sp-due__ic--calm { background: #e0f2fe; color: #0369a1; }
+    .sp-due__body { min-width: 0; flex: 1; }
+    .sp-due__title { font-size: .87rem; font-weight: 700; color: var(--sp-ink);
+                     overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .sp-due__when { font-size: .78rem; font-weight: 700; }
+    .sp-due__when--late { color: #dc2626; }
+    .sp-due__when--soon { color: #d97706; }
+    .sp-due__when--calm { color: var(--sp-faint); }
+    .sp-due__go {
+        flex: none; font-size: .78rem; font-weight: 800; text-decoration: none;
+        padding: .5rem .8rem; border-radius: 9px; background: #eff6ff; color: #2563eb;
+    }
+    .sp-due__go--solid { background: #2563eb; color: #fff; }
+    .sp-due__go:hover { filter: brightness(.95); }
+
+    /* ── Meters (attendance, per-subject) ───────────────────────── */
+    .sp-meter { height: 7px; border-radius: 99px; background: #eef2f7; overflow: hidden;
+                margin: .55rem 0 .4rem; }
+    .sp-meter__fill { display: block; height: 100%; border-radius: 99px; }
+    .sp-meter__fill--good { background: #22c55e; }
+    .sp-meter__fill--warn { background: #f59e0b; }
+    .sp-meter__fill--bad  { background: #ef4444; }
+
+    .sp-stat__of { font-size: .95rem; font-weight: 600; color: var(--sp-faint); }
+    .sp-stat__value--sm { font-size: 1.2rem; }
+    .sp-delta { display: inline-block; margin-top: .45rem; font-size: .78rem; font-weight: 800; }
+    .sp-delta--down { color: #dc2626; }
+    .sp-delta--up   { color: #059669; }
+
+    /* ── Subject performance rows ───────────────────────────────── */
+    .sp-perf + .sp-perf { margin-top: .7rem; }
+    .sp-perf__head { display: flex; justify-content: space-between; gap: .75rem;
+                     font-size: .85rem; font-weight: 700; color: var(--sp-ink); }
+    .sp-perf__pct { font-family: var(--sp-mono); font-weight: 600; }
+
+    /* ── Study coach ────────────────────────────────────────────── */
+    .sp-coach {
+        background: linear-gradient(160deg, #0b1120, #1e1b4b);
+        border-radius: var(--sp-r);
+        padding: 1.25rem;
+        color: #cbd5e1;
+        display: flex;
+        flex-direction: column;
+    }
+    .sp-coach__head { display: flex; align-items: center; gap: .56rem; margin-bottom: .85rem; }
+    .sp-coach__mark { width: 26px; height: 26px; border-radius: 8px; flex: none;
+                      background: linear-gradient(135deg, #4f46e5, #06b6d4); }
+    .sp-coach__title { color: #fff; font-weight: 800; font-size: .95rem; }
+    .sp-coach__body { font-size: .88rem; line-height: 1.6; margin: 0 0 .9rem; }
+    .sp-coach__body strong { color: #fff; font-weight: 700; }
+    .sp-coach__cta {
+        display: flex; align-items: center; justify-content: center; min-height: 46px;
+        border-radius: 11px; background: linear-gradient(135deg, #4f46e5, #0ea5e9);
+        color: #fff; font-weight: 700; font-size: .9rem; text-decoration: none;
+        margin-top: auto; transition: filter .15s ease;
+    }
+    .sp-coach__cta:hover { filter: brightness(1.08); color: #fff; }
+
+    .dark .sp-meter { background: #1f2937; }
+    .dark .sp-due { border-bottom-color: #1f2937; }
+    .dark .sp-due__title { color: #f3f4f6; }
+
     /* ── Welcome banner (from the redesign) ─────────────────────── */
     .sp-hero {
         background: linear-gradient(140deg, #1e1b4b, var(--portal-accent-deep) 55%, var(--portal-accent));
