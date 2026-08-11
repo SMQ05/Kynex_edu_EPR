@@ -222,14 +222,14 @@ class="sp-list__item {{ $lecture && $lecture->id === $item->id ? 'sp-list__item-
                         >
                             <button
                                 type="button"
-                                class="sp-card"
-                                :class="shown && 'sp-card--flipped'"
+                                class="sp-flash"
+                                :class="shown && 'sp-flash--flipped'"
                                 x-on:click="shown ? go(1) : reveal()"
                                 x-bind:aria-label="shown ? 'Next card' : 'Reveal answer'"
                             >
-                                <span class="sp-card__side" x-text="shown ? 'Answer' : 'Question'"></span>
-                                <span class="sp-card__text" x-text="cards[i][shown ? 'back' : 'front']"></span>
-                                <span class="sp-card__hint" x-text="shown ? 'Tap for the next card' : 'Tap to reveal'"></span>
+                                <span class="sp-flash__side" x-text="shown ? 'Answer' : 'Question'"></span>
+                                <span class="sp-flash__text" x-text="cards[i][shown ? 'back' : 'front']"></span>
+                                <span class="sp-flash__hint" x-text="shown ? 'Tap for the next card' : 'Tap to reveal'"></span>
                             </button>
 
                             <div class="sp-cards__bar">

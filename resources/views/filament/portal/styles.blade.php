@@ -369,22 +369,27 @@
     .sp-card__qr    { width: 5rem; height: 5rem; border-radius: .375rem;
                       background: #fff; padding: .25rem; flex-shrink: 0; }
     .sp-card__qr img { width: 100%; height: 100%; display: block; }
-/* ── Revision cards ─────────────────────────────────────────── */
+/* ── Revision cards ───────────────────────────────────────────
+   Namespaced .sp-flash, NOT .sp-card. The ID card has owned .sp-card since
+   long before flashcards existed — a dark gradient with white text. Defining
+   .sp-card again here overrode that with a 7%-alpha accent tint, so the ID
+   card rendered white text on near-white and was unreadable. Same-named
+   components in one stylesheet is the whole bug; keep them apart. */
 .sp-cards{display:flex;flex-direction:column;align-items:center;gap:.85rem}
-.sp-card{position:relative;width:100%;min-height:11rem;display:flex;flex-direction:column;
+.sp-flash{position:relative;width:100%;min-height:11rem;display:flex;flex-direction:column;
   align-items:center;justify-content:center;gap:.6rem;padding:1.75rem 1.5rem;text-align:center;
   border:1px solid rgb(var(--portal-accent-rgb)/.28);border-radius:1rem;cursor:pointer;
   background:linear-gradient(160deg,rgb(var(--portal-accent-rgb)/.07),rgb(var(--portal-accent-rgb)/.015));
   transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}
-.sp-card:hover{transform:translateY(-2px);box-shadow:0 12px 28px -14px rgb(var(--portal-accent-rgb)/.5);
+.sp-flash:hover{transform:translateY(-2px);box-shadow:0 12px 28px -14px rgb(var(--portal-accent-rgb)/.5);
   border-color:rgb(var(--portal-accent-rgb)/.5)}
-.sp-card--flipped{background:linear-gradient(160deg,rgb(var(--portal-accent-rgb)/.16),rgb(var(--portal-accent-rgb)/.04));
+.sp-flash--flipped{background:linear-gradient(160deg,rgb(var(--portal-accent-rgb)/.16),rgb(var(--portal-accent-rgb)/.04));
   border-color:rgb(var(--portal-accent-rgb)/.55)}
-.sp-card__side{font-size:.62rem;font-weight:700;letter-spacing:.09em;text-transform:uppercase;
+.sp-flash__side{font-size:.62rem;font-weight:700;letter-spacing:.09em;text-transform:uppercase;
   color:rgb(var(--portal-accent-rgb))}
-.sp-card__text{font-size:1.02rem;line-height:1.55;font-weight:600;color:#1f2937;max-width:44rem}
-.sp-card--flipped .sp-card__text{font-weight:500}
-.sp-card__hint{font-size:.7rem;color:#9ca3af}
+.sp-flash__text{font-size:1.02rem;line-height:1.55;font-weight:600;color:#1f2937;max-width:44rem}
+.sp-flash--flipped .sp-flash__text{font-weight:500}
+.sp-flash__hint{font-size:.7rem;color:#9ca3af}
 .sp-cards__bar{display:flex;align-items:center;gap:.9rem}
 .sp-cards__nav{width:2.1rem;height:2.1rem;border-radius:9999px;border:1px solid var(--sp-line);background:#fff;
   color:#6b7280;font-size:.95rem;line-height:1;cursor:pointer;transition:all .15s ease}
@@ -432,7 +437,7 @@
 .sp-quiz__verdict{font-size:.86rem;font-weight:600;color:#1f2937}
 .sp-quiz__best{font-size:.75rem;color:#6b7280;margin-top:.15rem}
 
-.dark .sp-card__text{color:#f3f4f6}
+.dark .sp-flash__text{color:#f3f4f6}
 .dark .sp-cards__nav{background:#1f2937;border-color:#374151;color:#9ca3af}
 .dark .sp-cards__dot{background:#374151}
 .dark .sp-quiz__q{background:#1f2937;border-color:#374151}
